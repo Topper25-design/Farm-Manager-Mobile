@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farm Manager - Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Financial Stats Section -->
+        <section class="dashboard-section financial-stats">
+            <h2>Financial Overview</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Revenue</h3>
+                    <p id="totalRevenue">$0.00</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Expenses</h3>
+                    <p id="totalExpenses">$0.00</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Net Income</h3>
+                    <p id="netIncome">$0.00</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Pending Payments</h3>
+                    <p id="pendingPayments">$0.00</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Animal Statistics Section -->
+        <section class="dashboard-section animal-stats">
+            <h2>Animal Statistics</h2>
+            <div class="stats-container">
+                <div class="stat-group">
+                    <h3>Total Animals</h3>
+                    <p id="totalAnimals">0</p>
+                </div>
+                <div class="stat-group">
+                    <h3>By Type</h3>
+                    <div id="byType"></div>
+                </div>
+                <div class="stat-group">
+                    <h3>By Status</h3>
+                    <div id="byStatus"></div>
+                </div>
+                <div class="stat-group">
+                    <h3>By Age</h3>
+                    <div id="byAge"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Health Records Section -->
+        <section class="dashboard-section health-records">
+            <h2>Recent Health Records</h2>
+            <div id="healthRecordsList" class="health-records-list">
+                <!-- Health records will be dynamically inserted here -->
+            </div>
+        </section>
+
+        <!-- Recent Activity Section -->
+        <section class="dashboard-section recent-activity">
+            <h2>Recent Activity</h2>
+            <div id="recentActivityList" class="activity-list">
+                <!-- Recent activity will be dynamically inserted here -->
+            </div>
+        </section>
+
+        <!-- Upcoming Tasks Section -->
+        <section class="dashboard-section upcoming-tasks">
+            <h2>Upcoming Tasks</h2>
+            <div id="upcomingTasksList" class="tasks-list">
+                <!-- Upcoming tasks will be dynamically inserted here -->
+            </div>
+        </section>
+
+        <!-- Weather Info Section -->
+        <section class="dashboard-section weather-info">
+            <h2>Weather Information</h2>
+            <div id="weatherInfo" class="weather-container">
+                <!-- Weather information will be dynamically inserted here -->
+            </div>
+        </section>
+    </div>
+
+    <script src="js/dashboard.js"></script>
+</body>
+</html> 
