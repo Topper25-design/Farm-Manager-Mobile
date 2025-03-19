@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Farm Manager Mobile - Dashboard</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <div id="app-content">
+        <div class="dashboard-container">
+            <div class="welcome-card">
+                <h2>Welcome to Farm Manager</h2>
+                <p>Your farm management app is ready to use</p>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Total Animals</h3>
+                <div id="total-animals" class="stat-number">0</div>
+                <div id="inventory-breakdown">
+                    <p class="no-data">No animals in inventory</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Stock Count Discrepancies</h3>
+                <div id="stock-discrepancies">
+                    <p class="no-data">No stock count discrepancies</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Total Animal Sales</h3>
+                <select id="currency-select"></select>
+                <div id="total-sales-display" class="stat-number">R0.00 ZAR</div>
+                <p class="average-price">Average: R0.00 per animal</p>
+                <div id="last-sale-info">
+                    <p class="transaction-label">Last Sale:</p>
+                    <p class="transaction-details">No recent sales</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Total Animal Purchases</h3>
+                <div id="total-purchases-display" class="stat-number">R0.00 ZAR</div>
+                <p class="average-purchase-price">Average: R0.00 per animal</p>
+                <div id="last-purchase-info">
+                    <p class="transaction-label">Last Purchase:</p>
+                    <p class="transaction-details">No recent purchases</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Feed Status</h3>
+                <div id="feed-status">
+                    <p class="no-data">No feed in inventory</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Feed Calculations</h3>
+                <div id="feed-calculations">
+                    <p class="no-data">No feed calculations available</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Recent Activities</h3>
+                <div id="activities-list">
+                    <p class="no-data">No recent activities</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Health Records</h3>
+                <div id="health-status">
+                    <p class="no-data">No health records available</p>
+                </div>
+            </div>
+            
+            <button id="logout-button" class="logout-button">Logout</button>
+        </div>
+        
+        <!-- Mobile Navigation -->
+        <div class="mobile-nav">
+            <a href="dashboard.html" class="active">Dashboard</a>
+            <a href="animals.html">Animals</a>
+            <a href="feed.html">Feed</a>
+            <a href="health.html">Health</a>
+            <a href="reports.html">Reports</a>
+        </div>
+    </div>
+    
+    <script src="js/capacitor-storage.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html> 

@@ -1,0 +1,8 @@
+{
+  "appId": "io.farmmanager.app",
+  "appName": "FarmManagerMobile",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+} 
