@@ -294,25 +294,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const feedCategories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
                     const feedTransactions = feedTransactionsStr ? JSON.parse(feedTransactionsStr) : [];
                     
-                    if (filters.reportType === 'feed-inventory') {
-                        // For inventory report, create records from feed categories
-                        allRecords = feedCategories.map(category => {
-                            const data = feedInventory[category] || {};
-                            return {
-                                type: 'inventory',
-                                date: data.lastUpdated || new Date().toISOString(),
-                                category: category,
-                                quantity: data.quantity || 0,
-                                unit: data.unit || 'kg',
-                                threshold: data.threshold || 0,
-                                supplier: data.supplier || 'Not specified',
-                                unitCost: data.price || data.lastUnitCost || 0,
-                                totalValue: (data.price || data.lastUnitCost || 0) * (data.quantity || 0)
-                            };
-                        });
-                    } else {
-                        // For other feed reports, get transactions
-                        allRecords = feedTransactions.map(t => ({ ...t, type: t.type || 'unknown' }));
+                    // Filter feed records based on report type
+                    switch (filters.reportType) {
+                        case 'all-feed':
+                            allRecords = feedTransactions;
+                            break;
+                        case 'feed-purchase':
+                            allRecords = feedTransactions.filter(t => t.type === 'purchase');
+                            break;
+                        case 'feed-usage':
+                            allRecords = feedTransactions.filter(t => t.type === 'usage' || t.type === 'consumption');
+                            break;
+                        case 'feed-inventory':
+                            allRecords = feedCategories.map(category => {
+                                const data = feedInventory[category] || {};
+                                return {
+                                    type: 'inventory',
+                                    date: data.lastUpdated || new Date().toISOString(),
+                                    category: category,
+                                    quantity: data.quantity || 0,
+                                    unit: data.unit || 'kg',
+                                    threshold: data.threshold || 0,
+                                    supplier: data.supplier || 'Not specified',
+                                    unitCost: data.price || data.lastUnitCost || 0,
+                                    totalValue: (data.price || data.lastUnitCost || 0) * (data.quantity || 0)
+                                };
+                            });
+                            break;
+                        default:
+                            allRecords = [];
                     }
                     break;
                     
@@ -321,7 +331,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const healthRecordsStr = await mobileStorage.getItem('healthRecords');
                     const healthRecords = healthRecordsStr ? JSON.parse(healthRecordsStr) : [];
                     
-                    allRecords = healthRecords;
+                    // Filter health records based on report type
+                    switch (filters.reportType) {
+                        case 'all-health':
+                            allRecords = healthRecords;
+                            break;
+                        case 'health-treatment':
+                            allRecords = healthRecords.filter(r => r.type === 'treatment');
+                            break;
+                        case 'health-vaccination':
+                            allRecords = healthRecords.filter(r => r.type === 'vaccination');
+                            break;
+                        case 'health-medication':
+                            allRecords = healthRecords.filter(r => r.type === 'medication');
+                            break;
+                        default:
+                            allRecords = [];
+                    }
                     break;
             }
             
@@ -357,29 +383,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (!record || !record.type) return false;
                     
                     // Filter by specific record types
-                    if (specificType === 'movement') {
-                        return record.type === 'movement';
-                    } else if (specificType === 'purchase') {
-                        return record.type === 'purchase';
-                    } else if (specificType === 'sale') {
-                        return record.type === 'sale';
-                    } else if (specificType === 'death') {
-                        return record.type === 'death';
-                    } else if (specificType === 'birth') {
-                        return record.type === 'birth';
-                    } else if (specificType === 'count') {
-                        return record.type === 'stock-count' || record.type === 'count-correction';
-                    } else if (specificType === 'usage') {
-                        return record.type === 'usage' || record.type === 'consumption';
-                    } else if (specificType === 'treatment') {
-                        return record.type === 'treatment';
-                    } else if (specificType === 'vaccination') {
-                        return record.type === 'vaccination';
-                    } else if (specificType === 'medication') {
-                        return record.type === 'medication';
+                    switch (specificType) {
+                        case 'movement':
+                            return record.type === 'movement';
+                        case 'purchase':
+                            return record.type === 'purchase';
+                        case 'sale':
+                            return record.type === 'sale';
+                        case 'death':
+                            return record.type === 'death';
+                        case 'birth':
+                            return record.type === 'birth';
+                        case 'count':
+                            return record.type === 'stock-count' || record.type === 'count-correction';
+                        case 'usage':
+                            return record.type === 'usage' || record.type === 'consumption';
+                        case 'treatment':
+                            return record.type === 'treatment';
+                        case 'vaccination':
+                            return record.type === 'vaccination';
+                        case 'medication':
+                            return record.type === 'medication';
+                        case 'inventory':
+                            return record.type === 'inventory';
+                        default:
+                            return false;
                     }
-                    
-                    return false;
                 });
             }
             
