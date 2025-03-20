@@ -393,6 +393,12 @@ button, .btn {
     
     .button-row {
         gap: 8px;
+        flex-direction: column; /* Stack buttons vertically in portrait */
+    }
+    
+    .button-row .action-button {
+        width: 100%;
+        margin-right: 0;
     }
     
     .action-button {
@@ -400,6 +406,27 @@ button, .btn {
         padding: 6px 4px;
         min-height: 40px;
         letter-spacing: 0;
+        word-break: break-word;
+        white-space: normal;
+        text-transform: none; /* Remove uppercase in portrait to save space */
+    }
+    
+    /* Specific fixes for feed and health pages */
+    .feed-actions button, 
+    .animal-actions button, 
+    .management-actions button,
+    .health-container .quick-actions button,
+    .health-container .action-buttons button {
+        font-size: 0.75rem;
+        padding: 5px 3px;
+        min-height: 38px;
+        white-space: normal;
+        word-break: break-word;
+        text-transform: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1.1;
     }
     
     /* For very small screens */

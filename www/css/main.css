@@ -20,6 +20,27 @@ body {
     overflow-x: hidden;
 }
 
+/* Fix for iOS background-attachment: fixed not working */
+@supports (-webkit-touch-callout: none) {
+    body {
+        background-attachment: scroll;
+    }
+    
+    /* Alternative fixed background for iOS */
+    body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url('../assets/images/farm-background.jpg');
+        background-size: cover;
+        background-position: center;
+        z-index: -1;
+    }
+}
+
 h1, h2, h3, h4, h5, h6 {
     margin-bottom: 0.5rem;
     font-weight: 600;
@@ -206,26 +227,31 @@ a {
 
 /* Standard Action Buttons */
 .action-button {
-    display: inline-block;
+    display: flex;
     font-weight: 600;
     text-align: center;
-    white-space: nowrap;
+    white-space: normal; /* Allow text wrapping */
     vertical-align: middle;
     user-select: none;
-    padding: 10px 15px;
-    font-size: 0.95rem;
-    line-height: 1.5;
+    padding: 8px 6px;
+    font-size: 0.9rem;
+    line-height: 1.2;
     border-radius: 6px;
     transition: all 0.2s ease;
     cursor: pointer;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
     border: none;
     margin-bottom: 8px;
     position: relative;
     overflow: hidden;
     width: 100%;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    word-break: break-word; /* Break long words if needed */
+    hyphens: auto;
 }
 
 .action-button:hover {
@@ -341,21 +367,75 @@ button, .btn {
 /* Button Container/Grids */
 .button-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
     margin-bottom: 20px;
 }
 
 .button-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 12px;
     margin-bottom: 15px;
 }
 
 .button-row .action-button {
     flex: 1;
     min-width: 120px;
+}
+
+/* Responsive adjustments for portrait mode and small screens */
+@media screen and (max-width: 480px), screen and (orientation: portrait) {
+    .button-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .button-row {
+        gap: 8px;
+        flex-direction: column; /* Stack buttons vertically in portrait */
+    }
+    
+    .button-row .action-button {
+        width: 100%;
+        margin-right: 0;
+    }
+    
+    .action-button {
+        font-size: 0.8rem;
+        padding: 6px 4px;
+        min-height: 40px;
+        letter-spacing: 0;
+        word-break: break-word;
+        white-space: normal;
+        text-transform: none; /* Remove uppercase in portrait to save space */
+    }
+    
+    /* Specific fixes for feed and health pages */
+    .feed-actions button, 
+    .animal-actions button, 
+    .management-actions button,
+    .health-container .quick-actions button,
+    .health-container .action-buttons button {
+        font-size: 0.75rem;
+        padding: 5px 3px;
+        min-height: 38px;
+        white-space: normal;
+        word-break: break-word;
+        text-transform: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1.1;
+    }
+    
+    /* For very small screens */
+    @media (max-width: 360px) {
+        .action-button {
+            font-size: 0.75rem;
+            padding: 5px 3px;
+        }
+    }
 }
 
 /* Forms */
