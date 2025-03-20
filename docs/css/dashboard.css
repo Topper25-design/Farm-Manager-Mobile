@@ -20,12 +20,20 @@
 .welcome-card h2 {
     margin-top: 0;
     color: #2c3e50;
-    font-size: 1.5rem;
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 15px;
 }
 
 .welcome-card p {
     color: #7f8c8d;
     margin-bottom: 0;
+    font-size: 1.1rem;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.2px;
 }
 
 .stat-card {
