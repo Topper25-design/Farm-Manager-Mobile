@@ -10,19 +10,21 @@
 <body>
     <div id="app-content">
         <div class="health-container">
-            <h2>Health Management</h2>
-            
-            <div class="quick-actions">
-                <button id="add-health-record-btn" class="add-button">Add Health Record</button>
-                <button id="add-vaccination-btn" class="add-button">Add Vaccination</button>
+            <div class="page-header content-container">
+                <h2>Health Management</h2>
             </div>
             
-            <div class="action-buttons">
-                <button id="add-treatment-btn">Add Treatment</button>
-                <button id="add-medication-btn">Record Medication</button>
+            <div class="quick-actions content-container button-row">
+                <button id="add-health-record-btn" class="action-button btn-primary">Add Health Record</button>
+                <button id="add-vaccination-btn" class="action-button btn-success">Add Vaccination</button>
             </div>
             
-            <div class="stat-card">
+            <div class="action-buttons content-container button-row">
+                <button id="add-treatment-btn" class="action-button btn-warning">Add Treatment</button>
+                <button id="add-medication-btn" class="action-button btn-info">Record Medication</button>
+            </div>
+            
+            <div class="stat-card content-container">
                 <h3>Health Records</h3>
                 <div id="health-records" class="records-list">
                     <!-- Health records will be populated here -->
@@ -30,7 +32,7 @@
                 </div>
             </div>
             
-            <div class="stat-card">
+            <div class="stat-card content-container">
                 <h3>Upcoming Treatments</h3>
                 <div id="upcoming-treatments" class="records-list">
                     <!-- Upcoming treatments will be populated here -->
@@ -38,7 +40,7 @@
                 </div>
             </div>
             
-            <div class="stat-card">
+            <div class="stat-card content-container">
                 <h3>Active Medications</h3>
                 <div id="active-medications" class="records-list">
                     <!-- Active medications will be populated here -->
@@ -46,7 +48,7 @@
                 </div>
             </div>
             
-            <div class="stat-card">
+            <div class="stat-card content-container">
                 <h3>Health Alerts</h3>
                 <div id="health-alerts" class="records-list">
                     <!-- Health alerts will be populated here -->
@@ -54,7 +56,9 @@
                 </div>
             </div>
             
-            <button id="clear-health-data" class="danger-button">Clear All Health Data</button>
+            <div class="content-container">
+                <button id="clear-health-data" class="action-button btn-danger">Clear All Health Data</button>
+            </div>
         </div>
         
         <!-- Mobile Navigation -->

@@ -10,56 +10,58 @@
 <body>
     <div id="app-content">
         <div class="feed-container">
-            <div class="page-header">
+            <div class="page-header content-container">
                 <h2>Feed Management</h2>
             </div>
             
-            <div class="quick-actions">
-                <button id="add-feed-btn" class="add-button">Add Feed Category</button>
-                <button id="feed-calculator-btn" class="calculator-button">Feed Calculator</button>
+            <div class="quick-actions content-container button-row">
+                <button id="add-feed-btn" class="action-button btn-primary">Add Feed Category</button>
+                <button id="feed-calculator-btn" class="action-button btn-warning">Feed Calculator</button>
             </div>
             
-            <div class="action-buttons">
-                <button id="feed-purchase-btn">Record Purchase</button>
-                <button id="feed-usage-btn">Record Usage</button>
+            <div class="action-buttons content-container button-row">
+                <button id="feed-purchase-btn" class="action-button btn-success">Record Purchase</button>
+                <button id="feed-usage-btn" class="action-button btn-secondary">Record Usage</button>
             </div>
             
-            <div class="stat-card">
+            <div class="stat-card content-container">
                 <h3>Current Feed Inventory</h3>
                 <div id="feed-inventory">
                     <p>No feed in inventory</p>
                 </div>
             </div>
             
-            <div class="stat-card">
+            <div class="stat-card content-container">
                 <h3>Low Stock Thresholds</h3>
                 <div id="thresholds-list">
                     <p>No thresholds defined</p>
                 </div>
             </div>
             
-            <div class="stat-card">
+            <div class="stat-card content-container">
                 <h3>Recent Feed Calculations</h3>
                 <div id="calculations-list">
                     <p>No calculations yet</p>
                 </div>
             </div>
             
-            <div class="stat-card">
+            <div class="stat-card content-container">
                 <h3>Feed Usage History</h3>
                 <div id="usage-list">
                     <p>No usage records</p>
                 </div>
             </div>
             
-            <div class="stat-card">
+            <div class="stat-card content-container">
                 <h3>Feed Alerts</h3>
                 <div id="alerts-list">
                     <p>No alerts</p>
                 </div>
             </div>
             
-            <button id="clear-feed-data" class="danger-button">Clear All Feed Data</button>
+            <div class="content-container">
+                <button id="clear-feed-data" class="action-button btn-danger">Clear All Feed Data</button>
+            </div>
         </div>
         
         <!-- Mobile Navigation -->

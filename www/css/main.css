@@ -8,6 +8,11 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background-color: #f5f5f5;
+    background-image: url('../assets/images/farm-background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
     color: #333;
     line-height: 1.6;
     min-height: 100%;
@@ -17,8 +22,99 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
     margin-bottom: 0.5rem;
-    font-weight: 500;
+    font-weight: 600;
     line-height: 1.2;
+    position: relative;
+    padding-bottom: 8px;
+    color: #2c3e50;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+h2 {
+    font-weight: 700;
+    font-size: 1.6rem;
+    color: #2c3e50;
+    position: relative;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+    display: inline-block;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-bottom: none;
+    margin-left: auto;
+    margin-right: auto;
+    display: table;
+}
+
+h2:after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 3px;
+    bottom: 0;
+    left: 0;
+    background: linear-gradient(to right, #3498db, #2ecc71);
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+h3 {
+    font-weight: 600;
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-bottom: 15px;
+    position: relative;
+    color: #2c3e50;
+    display: table;
+    background: none;
+    box-shadow: none;
+    border-left: 4px solid #3498db;
+    background-color: rgba(52, 152, 219, 0.1);
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.page-header h2, .welcome-card h2 {
+    font-weight: 700;
+    position: relative;
+    padding: 0 0 12px 0;
+    margin-bottom: 15px;
+    width: auto;
+    display: table;
+    color: #34495e;
+    text-align: center;
+    border-bottom: none;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.page-header h2:after, .welcome-card h2:after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 3px;
+    bottom: 0;
+    left: 0;
+    background: linear-gradient(to right, #3498db, #2ecc71);
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.stat-card h3 {
+    font-weight: 600;
+    font-size: 1.1rem;
+    padding: 10px 15px;
+    margin: 0 auto 15px auto;
+    color: #2c3e50;
+    background: rgba(52, 152, 219, 0.1);
+    border-radius: 5px;
+    border-bottom: 2px solid #3498db;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: none;
+    display: table;
+    width: auto;
 }
 
 a {
@@ -49,6 +145,13 @@ a {
     font-size: 0.9rem;
     padding: 10px;
     flex: 1;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.mobile-nav a:hover {
+    color: #3498db;
+    transform: translateY(-3px);
 }
 
 .mobile-nav a.active {
@@ -57,7 +160,167 @@ a {
     border-bottom: 3px solid #3498db;
 }
 
-/* Buttons */
+.mobile-nav a:before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 3px;
+    background-color: #3498db;
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+}
+
+.mobile-nav a:hover:before {
+    width: 70%;
+}
+
+/* Additional button effects */
+.add-button, .count-button, .login-button, .logout-button {
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.add-button:hover, .count-button:hover, .login-button:hover, .logout-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+}
+
+.add-button:before, .count-button:before, .login-button:before, .logout-button:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(255,255,255,0.2), transparent);
+    transition: all 0.3s ease;
+}
+
+.add-button:hover:before, .count-button:hover:before, .login-button:hover:before, .logout-button:hover:before {
+    left: 100%;
+}
+
+/* Standard Action Buttons */
+.action-button {
+    display: inline-block;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    user-select: none;
+    padding: 10px 15px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none;
+    margin-bottom: 8px;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+}
+
+.action-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.action-button:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Button shine effect on hover */
+.action-button:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(255,255,255,0.2), transparent);
+    transition: all 0.3s ease;
+}
+
+.action-button:hover:before {
+    left: 100%;
+}
+
+/* Button colors */
+.btn-primary {
+    background-color: #3498db;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #2980b9;
+}
+
+.btn-success {
+    background-color: #2ecc71;
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #27ae60;
+}
+
+.btn-warning {
+    background-color: #f39c12;
+    color: white;
+}
+
+.btn-warning:hover {
+    background-color: #e67e22;
+}
+
+.btn-danger {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c0392b;
+}
+
+.btn-secondary {
+    background-color: #95a5a6;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #7f8c8d;
+}
+
+.btn-info {
+    background-color: #9b59b6;
+    color: white;
+}
+
+.btn-info:hover {
+    background-color: #8e44ad;
+}
+
+/* Button sizes */
+.btn-lg {
+    padding: 12px 20px;
+    font-size: 1.1rem;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+}
+
+/* Old button styles keep for backward compatibility */
 button, .btn {
     display: inline-block;
     font-weight: 400;
@@ -70,28 +333,29 @@ button, .btn {
     font-size: 1rem;
     line-height: 1.5;
     border-radius: 0.25rem;
-    transition: all 0.15s ease-in-out;
+    transition: all 0.2s ease-in-out;
     cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.primary {
-    background-color: #3498db;
-    color: white;
+/* Button Container/Grids */
+.button-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
 }
 
-.secondary {
-    background-color: #95a5a6;
-    color: white;
+.button-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
 }
 
-.danger {
-    background-color: #e74c3c;
-    color: white;
-}
-
-.success {
-    background-color: #2ecc71;
-    color: white;
+.button-row .action-button {
+    flex: 1;
+    min-width: 120px;
 }
 
 /* Forms */
@@ -156,10 +420,11 @@ label {
     display: flex;
     flex-direction: column;
     overflow-x: hidden; /* Prevent horizontal scrolling */
-    padding-bottom: env(safe-area-inset-bottom, 0); /* For iOS devices with home indicator */
+    padding-bottom: 80px; /* Ensure content doesn't get hidden under the nav bar */
     position: relative;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    background-color: transparent;
 }
 
 /* Safe Area */
@@ -362,4 +627,13 @@ input[type="submit"],
 input[type="button"] {
     min-height: 44px; /* iOS accessibility guideline */
     touch-action: manipulation;
+}
+
+/* Content container with background overlay for better readability */
+.content-container {
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 } 

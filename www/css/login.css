@@ -1,7 +1,6 @@
 /* Login page styling */
 body {
-    background-color: #f5f7fa;
-    background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    /* Background is now set in main.css */
     min-height: 100vh;
     margin: 0;
     padding: 0;
@@ -88,24 +87,45 @@ body {
     background-color: #3498db;
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
     padding: 14px;
     width: 100%;
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: all 0.2s ease;
     margin-top: 10px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
 }
 
 .login-button:hover {
     background-color: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .login-button:active {
     transform: translateY(1px);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.login-button:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(255,255,255,0.2), transparent);
+    transition: all 0.3s ease;
+}
+
+.login-button:hover:before {
+    left: 100%;
 }
 
 .forgot-password {

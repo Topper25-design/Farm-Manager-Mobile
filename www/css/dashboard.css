@@ -6,11 +6,12 @@
 }
 
 .welcome-card {
-    background-color: white;
+    text-align: center;
+    background-color: rgba(255, 255, 255, 0.7);
     border-radius: 10px;
     padding: 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .welcome-card h2 {
@@ -25,7 +26,7 @@
 }
 
 .stat-card {
-    background-color: white;
+    background-color: rgba(255, 255, 255, 0.7);
     border-radius: 10px;
     padding: 20px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -33,10 +34,8 @@
 }
 
 .stat-card h3 {
+    /* Styling now handled in main.css */
     margin-top: 0;
-    font-size: 1.2rem;
-    color: #2c3e50;
-    margin-bottom: 15px;
 }
 
 .stat-number {
@@ -380,20 +379,49 @@
 }
 
 .logout-button {
-    margin-top: 20px;
     background-color: #e74c3c;
     color: white;
     border: none;
-    padding: 12px 20px;
-    border-radius: 8px;
+    padding: 12px 15px;
+    border-radius: 6px;
     width: 100%;
-    font-weight: bold;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    margin-top: 10px;
     cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+}
+
+.logout-button:hover {
+    background-color: #c0392b;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .logout-button:active {
-    background-color: #c0392b;
     transform: translateY(1px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.logout-button:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(255,255,255,0.2), transparent);
+    transition: all 0.3s ease;
+}
+
+.logout-button:hover:before {
+    left: 100%;
 }
 
 /* Portrait mode adjustments */

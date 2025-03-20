@@ -14,20 +14,32 @@
     background-color: #3498db;
     color: white;
     border: none;
-    padding: 10px 15px;
-    border-radius: 5px;
+    padding: 12px 15px;
+    border-radius: 6px;
     flex: 1;
-    font-weight: bold;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
 }
 
 .calculator-button {
     background-color: #f39c12;
     color: white;
     border: none;
-    padding: 10px 15px;
-    border-radius: 5px;
+    padding: 12px 15px;
+    border-radius: 6px;
     flex: 1;
-    font-weight: bold;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
 }
 
 .action-buttons {
@@ -41,23 +53,28 @@
     background-color: #2c3e50;
     color: white;
     border: none;
-    padding: 10px 0;
-    border-radius: 5px;
+    padding: 12px 15px;
+    border-radius: 6px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .stat-card {
-    background-color: white;
+    background-color: rgba(255, 255, 255, 0.7);
     border-radius: 10px;
     padding: 20px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    margin-bottom: 15px;
+    margin-bottom: 20px;
 }
 
 .stat-card h3 {
+    /* Styling now handled in main.css */
     margin-top: 0;
-    font-size: 1.2rem;
-    color: #2c3e50;
-    margin-bottom: 15px;
 }
 
 /* Inventory items spacing */
@@ -241,11 +258,18 @@
     background-color: #e74c3c;
     color: white;
     border: none;
-    padding: 12px 20px;
-    border-radius: 5px;
+    padding: 12px 15px;
+    border-radius: 6px;
     width: 100%;
+    font-weight: 600;
     margin-top: 15px;
     margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* Popup styles */
@@ -425,4 +449,62 @@ input[type="number"] {
     .form-group {
         margin-bottom: 10px;
     }
+}
+
+.feed-actions button {
+    margin-bottom: 10px;
+    width: 100%;
+    padding: 12px 15px;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+}
+
+.feed-item {
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+.feed-item:hover {
+    transform: translateX(3px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Button hover and active effects */
+.add-button:hover, .calculator-button:hover, .action-buttons button:hover, 
+.feed-actions button:hover, .danger-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.add-button:active, .calculator-button:active, .action-buttons button:active, 
+.feed-actions button:active, .danger-button:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Button shine effect */
+.add-button:before, .calculator-button:before, .action-buttons button:before, 
+.feed-actions button:before, .danger-button:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(255,255,255,0.2), transparent);
+    transition: all 0.3s ease;
+}
+
+.add-button:hover:before, .calculator-button:hover:before, .action-buttons button:hover:before, 
+.feed-actions button:hover:before, .danger-button:hover:before {
+    left: 100%;
 } 
