@@ -978,50 +978,92 @@ document.addEventListener('DOMContentLoaded', async () => {
         const vaccinations = sortedRecords.filter(record => record.type === 'vaccination');
         const treatments = sortedRecords.filter(record => record.type === 'treatment');
         const medications = sortedRecords.filter(record => record.type === 'medication');
-        const otherHealthRecords = sortedRecords.filter(record => 
-            !['vaccination', 'treatment', 'medication'].includes(record.type)
+        const healthRecordsGeneral = sortedRecords.filter(record => 
+            record.type === 'health-record' || !record.type
+        );
+        
+        // Count severity for general health records
+        const severityCounts = {
+            mild: healthRecordsGeneral.filter(r => r.severity === 'mild').length,
+            moderate: healthRecordsGeneral.filter(r => r.severity === 'moderate').length,
+            severe: healthRecordsGeneral.filter(r => r.severity === 'severe').length
+        };
+        
+        // Get counts of recent activity (last 30 days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const recentRecords = sortedRecords.filter(record => 
+            new Date(record.date || record.timestamp) >= thirtyDaysAgo
         );
         
         // Create health dashboard content
-        let content = '<div class="health-status-content">';
+        let content = `
+            <div class="health-summary">
+                <div class="summary-stats">
+                    <div class="summary-stat">
+                        <span class="stat-value">${sortedRecords.length}</span>
+                        <span class="stat-label">Total Records</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="stat-value">${recentRecords.length}</span>
+                        <span class="stat-label">Last 30 Days</span>
+                    </div>
+                    <div class="summary-stat ${severityCounts.severe > 0 ? 'alert' : ''}">
+                        <span class="stat-value">${severityCounts.severe}</span>
+                        <span class="stat-label">Severe Cases</span>
+                    </div>
+                </div>
+            </div>
+            <div class="health-status-content">
+        `;
         
         // Recent health records
         content += `
             <div class="health-stat">
                 <div class="health-stat-header">
-                    <span class="health-stat-title">Recent Health Records</span>
-                    <span class="health-stat-count">${otherHealthRecords.length}</span>
+                    <span class="health-stat-title">Health Issues</span>
+                    <span class="health-stat-count">${healthRecordsGeneral.length}</span>
                 </div>
                 <ul class="health-details">
         `;
         
-        if (otherHealthRecords.length > 0) {
-            otherHealthRecords.slice(0, 3).forEach(record => {
+        if (healthRecordsGeneral.length > 0) {
+            healthRecordsGeneral.slice(0, 3).forEach(record => {
                 const date = new Date(record.date || record.timestamp).toLocaleDateString();
+                const severity = record.severity || 'unknown';
+                const severityClass = `severity-${severity}`;
+                
                 content += `
-                    <li>
-                        ${record.category || 'Animal'}: ${record.condition || 'Health issue'} - ${date}
+                    <li class="${severityClass}">
+                        <div class="record-header">
+                            <strong>${record.category || 'Animal'}</strong>: ${record.condition || 'Health issue'}
+                            <span class="record-date">${date}</span>
+                        </div>
+                        <div class="record-details">
+                            <span class="severity-badge ${severityClass}">${severity}</span>
+                            ${record.description ? `<p class="description">${record.description.substring(0, 80)}${record.description.length > 80 ? '...' : ''}</p>` : ''}
+                        </div>
                     </li>
                 `;
             });
             
-            if (otherHealthRecords.length > 3) {
-                content += `<li class="show-more">+ ${otherHealthRecords.length - 3} more records</li>`;
+            if (healthRecordsGeneral.length > 3) {
+                content += `<li class="show-more">+ ${healthRecordsGeneral.length - 3} more records</li>`;
             }
         } else {
-            content += `<li class="show-more">No health records</li>`;
+            content += `<li class="show-more">No health issues recorded</li>`;
         }
         
         content += `
             </ul>
         </div>
-    `;
+        `;
         
         // Vaccinations
         content += `
             <div class="health-stat">
                 <div class="health-stat-header">
-                    <span class="health-stat-title">Recent Vaccinations</span>
+                    <span class="health-stat-title">Vaccinations</span>
                     <span class="health-stat-count">${vaccinations.length}</span>
                 </div>
                 <ul class="health-details">
@@ -1030,9 +1072,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (vaccinations.length > 0) {
             vaccinations.slice(0, 3).forEach(vaccination => {
                 const date = new Date(vaccination.date || vaccination.timestamp).toLocaleDateString();
+                const dueDate = vaccination.nextDate ? new Date(vaccination.nextDate).toLocaleDateString() : 'Not scheduled';
+                
                 content += `
                     <li class="vaccination">
-                        ${vaccination.category}: ${vaccination.vaccine || 'Vaccination'} - ${date}
+                        <div class="record-header">
+                            <strong>${vaccination.category}</strong>: ${vaccination.vaccine || 'Vaccination'}
+                            <span class="record-date">${date}</span>
+                        </div>
+                        <div class="record-details">
+                            <span class="due-date">Next due: ${dueDate}</span>
+                            ${vaccination.notes ? `<p class="description">${vaccination.notes.substring(0, 60)}${vaccination.notes.length > 60 ? '...' : ''}</p>` : ''}
+                        </div>
                     </li>
                 `;
             });
@@ -1047,13 +1098,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         content += `
             </ul>
         </div>
-    `;
+        `;
         
         // Treatments
         content += `
             <div class="health-stat">
                 <div class="health-stat-header">
-                    <span class="health-stat-title">Recent Treatments</span>
+                    <span class="health-stat-title">Treatments</span>
                     <span class="health-stat-count">${treatments.length}</span>
                 </div>
                 <ul class="health-details">
@@ -1062,9 +1113,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (treatments.length > 0) {
             treatments.slice(0, 3).forEach(treatment => {
                 const date = new Date(treatment.date || treatment.timestamp).toLocaleDateString();
+                const endDate = treatment.endDate ? new Date(treatment.endDate).toLocaleDateString() : 'Ongoing';
+                const status = new Date(treatment.endDate) < new Date() ? 'Completed' : 'Active';
+                
                 content += `
-                    <li class="treatment">
-                        ${treatment.category}: ${treatment.treatment || 'Treatment'} - ${date}
+                    <li class="treatment ${status.toLowerCase()}">
+                        <div class="record-header">
+                            <strong>${treatment.category}</strong>: ${treatment.treatment || 'Treatment'}
+                            <span class="record-date">${date}</span>
+                        </div>
+                        <div class="record-details">
+                            <span class="status-badge">${status}</span>
+                            <span class="end-date">End date: ${endDate}</span>
+                            ${treatment.notes ? `<p class="description">${treatment.notes.substring(0, 60)}${treatment.notes.length > 60 ? '...' : ''}</p>` : ''}
+                        </div>
                     </li>
                 `;
             });
@@ -1079,13 +1141,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         content += `
             </ul>
         </div>
-    `;
+        `;
         
         // Medications
         content += `
             <div class="health-stat">
                 <div class="health-stat-header">
-                    <span class="health-stat-title">Active Medications</span>
+                    <span class="health-stat-title">Medications</span>
                     <span class="health-stat-count">${medications.length}</span>
                 </div>
                 <ul class="health-details">
@@ -1094,9 +1156,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (medications.length > 0) {
             medications.slice(0, 3).forEach(medication => {
                 const date = new Date(medication.date || medication.timestamp).toLocaleDateString();
+                const endDate = medication.endDate ? new Date(medication.endDate).toLocaleDateString() : 'Ongoing';
+                const dosage = medication.dosage ? `${medication.dosage}` : '';
+                
                 content += `
                     <li class="medication">
-                        ${medication.category}: ${medication.medication || 'Medication'} - ${date}
+                        <div class="record-header">
+                            <strong>${medication.category}</strong>: ${medication.medication || 'Medication'}
+                            <span class="record-date">${date}</span>
+                        </div>
+                        <div class="record-details">
+                            ${dosage ? `<span class="dosage">Dosage: ${dosage}</span>` : ''}
+                            <span class="end-date">End date: ${endDate}</span>
+                            ${medication.notes ? `<p class="description">${medication.notes.substring(0, 60)}${medication.notes.length > 60 ? '...' : ''}</p>` : ''}
+                        </div>
                     </li>
                 `;
             });
@@ -1111,7 +1184,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         content += `
             </ul>
         </div>
-    `;
+        `;
         
         content += '</div>';
         healthStatusElem.innerHTML = content;

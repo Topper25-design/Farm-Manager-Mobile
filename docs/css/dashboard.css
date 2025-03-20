@@ -739,4 +739,183 @@
     .full-width-stat .feed-status-grid {
         grid-template-columns: repeat(2, 1fr) !important;
     }
+}
+
+/* Health Summary Section */
+.health-summary {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-left: 3px solid #3498db;
+}
+
+.summary-stats {
+    display: flex;
+    justify-content: space-around;
+    text-align: center;
+}
+
+.summary-stat {
+    flex: 1;
+    padding: 10px;
+    border-right: 1px solid #eee;
+}
+
+.summary-stat:last-child {
+    border-right: none;
+}
+
+.summary-stat.alert .stat-value {
+    color: #e74c3c;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.8rem;
+    color: #7f8c8d;
+    margin-top: 5px;
+}
+
+/* Health Status Content Styles */
+.health-status-content {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.health-stat {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.health-stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #eee;
+}
+
+.health-stat-title {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.health-stat-count {
+    background-color: #dfe6e9;
+    color: #2c3e50;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.health-details {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.health-details li {
+    padding: 10px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.health-details li:last-child {
+    border-bottom: none;
+}
+
+.health-details .record-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+
+.health-details .record-date {
+    font-size: 0.75rem;
+    color: #7f8c8d;
+}
+
+.health-details .record-details {
+    font-size: 0.85rem;
+    color: #34495e;
+    margin-top: 5px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.health-details .description {
+    width: 100%;
+    margin: 5px 0 0;
+    color: #7f8c8d;
+    font-style: italic;
+}
+
+/* Severity badges */
+.severity-badge, .status-badge {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: capitalize;
+}
+
+.severity-badge.severity-mild {
+    background-color: #ebf5fb;
+    color: #3498db;
+}
+
+.severity-badge.severity-moderate {
+    background-color: #fef5e7;
+    color: #f39c12;
+}
+
+.severity-badge.severity-severe {
+    background-color: #fadbd8;
+    color: #e74c3c;
+}
+
+.severity-badge.severity-unknown {
+    background-color: #eaecee;
+    color: #7f8c8d;
+}
+
+/* Treatment & Medication styles */
+.status-badge {
+    background-color: #e8f8f5;
+    color: #1abc9c;
+}
+
+.treatment.completed .status-badge {
+    background-color: #eaecee;
+    color: #7f8c8d;
+}
+
+.dosage, .due-date, .end-date {
+    color: #7f8c8d;
+    font-size: 0.8rem;
+}
+
+.show-more {
+    text-align: center;
+    color: #7f8c8d;
+    font-style: italic;
+    padding: 5px 0;
+}
+
+/* Responsive changes */
+@media screen and (orientation: landscape) {
+    .health-status-content {
+        grid-template-columns: repeat(2, 1fr);
+    }
 } 
