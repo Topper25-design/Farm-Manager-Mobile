@@ -212,20 +212,26 @@ a {
     white-space: nowrap;
     vertical-align: middle;
     user-select: none;
-    padding: 10px 15px;
-    font-size: 0.95rem;
-    line-height: 1.5;
+    padding: 10px 8px;
+    font-size: 0.9rem;
+    line-height: 1.2;
     border-radius: 6px;
     transition: all 0.2s ease;
     cursor: pointer;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
     border: none;
     margin-bottom: 8px;
     position: relative;
     overflow: hidden;
     width: 100%;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .action-button:hover {
@@ -341,21 +347,33 @@ button, .btn {
 /* Button Container/Grids */
 .button-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
     margin-bottom: 20px;
 }
 
 .button-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 12px;
     margin-bottom: 15px;
 }
 
 .button-row .action-button {
     flex: 1;
     min-width: 120px;
+}
+
+/* Responsive adjustments for small screens */
+@media (max-width: 360px) {
+    .button-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .action-button {
+        font-size: 0.85rem;
+        padding: 8px 5px;
+    }
 }
 
 /* Forms */
