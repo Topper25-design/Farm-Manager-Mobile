@@ -3,6 +3,9 @@
     padding: 15px;
     padding-bottom: 70px; /* Space for the nav bar */
     overflow-x: hidden; /* Prevent horizontal scrolling */
+    width: 100%;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
 .welcome-card {
@@ -31,6 +34,8 @@
     padding: 20px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     margin-bottom: 15px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .stat-card h3 {
@@ -242,6 +247,7 @@
     gap: 10px;
     margin-top: 10px;
     width: 100%;
+    box-sizing: border-box;
 }
 
 .feed-item {
@@ -251,6 +257,8 @@
     background-color: #f8f9fa;
     border-radius: 8px;
     height: 100%;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .feed-item-header {
@@ -434,6 +442,11 @@
     
     .stat-card {
         padding: 15px;
+        width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
     }
 }
 
@@ -687,4 +700,43 @@
     color: #7f8c8d;
     font-style: italic;
     padding: 5px 0;
+}
+
+/* Special fix for feed status stat card */
+.stat-card:has(#feed-status) {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    max-width: 100% !important;
+}
+
+#feed-status {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.full-width-stat {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+.full-width-stat #feed-status {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.full-width-stat .feed-status-grid {
+    width: 100% !important;
+    max-width: 100% !important;
+    grid-template-columns: 1fr !important;
+}
+
+@media screen and (orientation: landscape) {
+    .full-width-stat .feed-status-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
 } 

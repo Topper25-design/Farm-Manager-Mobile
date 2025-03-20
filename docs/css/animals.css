@@ -102,23 +102,23 @@
 
 /* Button-specific colors */
 #move-animals-btn {
-    background-color: #3498db; /* primary */
+    background-color: #a6b5b6; /* Lighter version of secondary (#95a5a6) */
 }
 
 #sell-animals-btn {
-    background-color: #f39c12; /* warning */
+    background-color: #a6b5b6; /* Lighter version of secondary (#95a5a6) */
 }
 
 #purchase-animals-btn {
-    background-color: #2ecc71; /* success */
+    background-color: #a6b5b6; /* Lighter version of secondary (#95a5a6) */
 }
 
 #record-death-btn {
-    background-color: #95a5a6; /* secondary */
+    background-color: #95a5a6; /* Original secondary */
 }
 
 #record-birth-btn {
-    background-color: #9b59b6; /* info */
+    background-color: #a6b5b6; /* Lighter version of secondary (#95a5a6) */
 }
 
 #reverse-last-btn {
@@ -669,4 +669,15 @@ input[type="number"] {
     border: none;
     font-weight: bold;
     text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+}
+
+#move-animals-btn:hover, 
+#sell-animals-btn:hover, 
+#purchase-animals-btn:hover, 
+#record-birth-btn:hover {
+    background-color: #95a5a6; /* Darken to match the death button on hover */
+}
+
+#record-death-btn:hover {
+    background-color: #7f8c8d; /* Darken the original death button color */
 } 

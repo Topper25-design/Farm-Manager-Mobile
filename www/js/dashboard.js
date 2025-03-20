@@ -658,8 +658,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         
-        // Create grid view for feed items
-        let content = '<div class="feed-status-grid">';
+        // Create grid view for feed items - with full width style
+        let content = '<div class="feed-status-grid" style="width:100%; box-sizing:border-box;">';
         
         Object.entries(feedInventoryData).forEach(([feedType, data]) => {
             // Default values if needed
@@ -683,7 +683,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : 'No supplier specified';
             
             content += `
-                <div class="feed-item ${statusClass}">
+                <div class="feed-item ${statusClass}" style="width:100%; box-sizing:border-box;">
                     <div class="feed-item-header">
                         <span class="feed-name">${feedType}</span>
                         <span class="feed-quantity" style="${quantityColor}">${quantity} ${unit}</span>
