@@ -20,6 +20,27 @@ body {
     overflow-x: hidden;
 }
 
+/* Fix for iOS background-attachment: fixed not working */
+@supports (-webkit-touch-callout: none) {
+    body {
+        background-attachment: scroll;
+    }
+    
+    /* Alternative fixed background for iOS */
+    body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url('../assets/images/farm-background.jpg');
+        background-size: cover;
+        background-position: center;
+        z-index: -1;
+    }
+}
+
 h1, h2, h3, h4, h5, h6 {
     margin-bottom: 0.5rem;
     font-weight: 600;
