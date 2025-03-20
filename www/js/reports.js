@@ -117,7 +117,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             mainType: selectedMainType
         });
         
+        // Clear any previous report results
+        clearPreviousReportResults();
+        
         updateCategoryOptions();
+    }
+    
+    function clearPreviousReportResults() {
+        // Clear the report content area
+        document.querySelector('.report-content').innerHTML = 
+            '<div class="empty-state">Select report criteria and click Generate Report</div>';
     }
     
     async function updateCategoryOptions() {
@@ -244,15 +253,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                         if (typeof activity === 'string') {
                             // Handle string-based activities
                             const activityLower = activity.toLowerCase();
-                            return activityLower.includes('moved') ||
+                            
+                            // Make sure it's an animal record and NOT a feed record
+                            const isAnimalRecord = activityLower.includes('moved') ||
                                 activityLower.includes('purchased') ||
                                 activityLower.includes('sold') ||
                                 activityLower.includes('death') ||
                                 activityLower.includes('birth') ||
                                 activityLower.includes('stock count');
+                                
+                            const isFeedRecord = activityLower.includes('feed');
+                            
+                            return isAnimalRecord && !isFeedRecord;
                         } else if (activity && typeof activity === 'object') {
                             // Handle object-based activities
-                            return activity.type === 'movement' ||
+                            const isAnimalRecord = activity.type === 'movement' ||
                                 activity.type === 'purchase' ||
                                 activity.type === 'sale' ||
                                 activity.type === 'death' ||
@@ -268,6 +283,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     activity.description.toLowerCase().includes('birth') ||
                                     activity.description.toLowerCase().includes('stock count')
                                 ));
+                                
+                            // Exclude feed records
+                            const isFeedRecord = 
+                                (activity.category && activity.category.toLowerCase().includes('feed')) ||
+                                (activity.description && activity.description.toLowerCase().includes('feed'));
+                                
+                            return isAnimalRecord && !isFeedRecord;
                         }
                         return false;
                     }).map(activity => {
@@ -294,16 +316,51 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const feedCategories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
                     const feedTransactions = feedTransactionsStr ? JSON.parse(feedTransactionsStr) : [];
                     
+                    // Also check recentActivities for feed-related entries
+                    const allActivitiesStr = await mobileStorage.getItem('recentActivities');
+                    const allActivities = allActivitiesStr ? JSON.parse(allActivitiesStr) : [];
+                    
+                    // Filter out feed-related activities from recentActivities
+                    const feedActivities = allActivities.filter(activity => {
+                        if (typeof activity === 'string') {
+                            const activityLower = activity.toLowerCase();
+                            return activityLower.includes('feed');
+                        } else if (activity && typeof activity === 'object') {
+                            return (activity.category && activity.category.toLowerCase().includes('feed')) ||
+                                (activity.description && activity.description.toLowerCase().includes('feed'));
+                        }
+                        return false;
+                    }).map(activity => {
+                        // Convert string activities to objects if needed
+                        if (typeof activity === 'string') {
+                            return parseActivityString(activity);
+                        }
+                        return activity;
+                    });
+                    
+                    // Combine feed transactions with feed activities
+                    const combinedFeedRecords = [...feedTransactions, ...feedActivities];
+                    
                     // Filter feed records based on report type
                     switch (filters.reportType) {
                         case 'all-feed':
-                            allRecords = feedTransactions;
+                            allRecords = combinedFeedRecords;
                             break;
                         case 'feed-purchase':
-                            allRecords = feedTransactions.filter(t => t.type === 'purchase');
+                            allRecords = combinedFeedRecords.filter(t => 
+                                t.type === 'purchase' || 
+                                (t.description && t.description.toLowerCase().includes('purchased'))
+                            );
                             break;
                         case 'feed-usage':
-                            allRecords = feedTransactions.filter(t => t.type === 'usage' || t.type === 'consumption');
+                            allRecords = combinedFeedRecords.filter(t => 
+                                t.type === 'usage' || 
+                                t.type === 'consumption' ||
+                                (t.description && (
+                                    t.description.toLowerCase().includes('used') ||
+                                    t.description.toLowerCase().includes('consumed')
+                                ))
+                            );
                             break;
                         case 'feed-inventory':
                             allRecords = feedCategories.map(category => {
@@ -331,19 +388,63 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const healthRecordsStr = await mobileStorage.getItem('healthRecords');
                     const healthRecords = healthRecordsStr ? JSON.parse(healthRecordsStr) : [];
                     
+                    // Also check recentActivities for health-related entries
+                    const healthActivitiesStr = await mobileStorage.getItem('recentActivities');
+                    const healthActivities = healthActivitiesStr ? JSON.parse(healthActivitiesStr) : [];
+                    
+                    // Filter out health-related activities from recentActivities
+                    const healthOnly = healthActivities.filter(activity => {
+                        if (typeof activity === 'string') {
+                            const activityLower = activity.toLowerCase();
+                            return activityLower.includes('treatment') || 
+                                   activityLower.includes('vaccination') || 
+                                   activityLower.includes('medication') ||
+                                   activityLower.includes('health');
+                        } else if (activity && typeof activity === 'object') {
+                            return (activity.type === 'treatment' || 
+                                   activity.type === 'vaccination' || 
+                                   activity.type === 'medication') ||
+                                   (activity.description && (
+                                       activity.description.toLowerCase().includes('treatment') ||
+                                       activity.description.toLowerCase().includes('vaccination') ||
+                                       activity.description.toLowerCase().includes('medication') ||
+                                       activity.description.toLowerCase().includes('health')
+                                   ));
+                        }
+                        return false;
+                    }).map(activity => {
+                        // Convert string activities to objects if needed
+                        if (typeof activity === 'string') {
+                            return parseActivityString(activity);
+                        }
+                        return activity;
+                    });
+                    
+                    // Combine health records with health activities
+                    const combinedHealthRecords = [...healthRecords, ...healthOnly];
+                    
                     // Filter health records based on report type
                     switch (filters.reportType) {
                         case 'all-health':
-                            allRecords = healthRecords;
+                            allRecords = combinedHealthRecords;
                             break;
                         case 'health-treatment':
-                            allRecords = healthRecords.filter(r => r.type === 'treatment');
+                            allRecords = combinedHealthRecords.filter(r => 
+                                r.type === 'treatment' || 
+                                (r.description && r.description.toLowerCase().includes('treatment'))
+                            );
                             break;
                         case 'health-vaccination':
-                            allRecords = healthRecords.filter(r => r.type === 'vaccination');
+                            allRecords = combinedHealthRecords.filter(r => 
+                                r.type === 'vaccination' || 
+                                (r.description && r.description.toLowerCase().includes('vaccination'))
+                            );
                             break;
                         case 'health-medication':
-                            allRecords = healthRecords.filter(r => r.type === 'medication');
+                            allRecords = combinedHealthRecords.filter(r => 
+                                r.type === 'medication' || 
+                                (r.description && r.description.toLowerCase().includes('medication'))
+                            );
                             break;
                         default:
                             allRecords = [];
@@ -782,4 +883,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Default categories if nothing found
         return ['Cattle', 'Sheep', 'Goats', 'Pigs', 'Chickens'];
     }
-}); 
+});
