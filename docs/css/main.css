@@ -227,13 +227,13 @@ a {
 
 /* Standard Action Buttons */
 .action-button {
-    display: inline-block;
+    display: flex;
     font-weight: 600;
     text-align: center;
-    white-space: nowrap;
+    white-space: normal; /* Allow text wrapping */
     vertical-align: middle;
     user-select: none;
-    padding: 10px 8px;
+    padding: 8px 6px;
     font-size: 0.9rem;
     line-height: 1.2;
     border-radius: 6px;
@@ -247,12 +247,11 @@ a {
     position: relative;
     overflow: hidden;
     width: 100%;
-    text-overflow: ellipsis;
-    overflow: hidden;
     min-height: 44px;
-    display: flex;
     align-items: center;
     justify-content: center;
+    word-break: break-word; /* Break long words if needed */
+    hyphens: auto;
 }
 
 .action-button:hover {
@@ -385,15 +384,30 @@ button, .btn {
     min-width: 120px;
 }
 
-/* Responsive adjustments for small screens */
-@media (max-width: 360px) {
+/* Responsive adjustments for portrait mode and small screens */
+@media screen and (max-width: 480px), screen and (orientation: portrait) {
     .button-grid {
         grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .button-row {
+        gap: 8px;
     }
     
     .action-button {
-        font-size: 0.85rem;
-        padding: 8px 5px;
+        font-size: 0.8rem;
+        padding: 6px 4px;
+        min-height: 40px;
+        letter-spacing: 0;
+    }
+    
+    /* For very small screens */
+    @media (max-width: 360px) {
+        .action-button {
+            font-size: 0.75rem;
+            padding: 5px 3px;
+        }
     }
 }
 
