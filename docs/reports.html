@@ -10,9 +10,11 @@
 <body>
     <div id="app-content">
         <div class="reports-container">
-            <h2>Reports</h2>
+            <div class="page-header content-container">
+                <h2>Reports</h2>
+            </div>
             
-            <div class="report-controls">
+            <div class="report-controls content-container">
                 <div class="form-group">
                     <label for="animal-report-type">Animal Reports:</label>
                     <select id="animal-report-type" class="form-control">
@@ -69,10 +71,10 @@
                     </div>
                 </div>
                 
-                <button id="generate-report" class="primary-button">Generate Report</button>
+                <button id="generate-report" class="action-button btn-primary">Generate Report</button>
             </div>
             
-            <div class="report-content">
+            <div class="report-content content-container">
                 <div class="empty-state">Select report criteria and click Generate Report</div>
             </div>
         </div>
