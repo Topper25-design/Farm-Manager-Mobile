@@ -927,8 +927,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Update UI
             updateDisplays();
             
-            // Close popup
-            popup.remove();
+            // Close popup and ensure it doesn't reappear immediately
+            if (popup && document.body.contains(popup)) {
+                document.body.removeChild(popup);
+            }
+            
+            // Add a small delay before allowing another popup to be shown
+            const moveButton = document.getElementById('move-animals-btn');
+            if (moveButton) {
+                moveButton.disabled = true;
+                setTimeout(() => {
+                    moveButton.disabled = false;
+                }, 1000);
+            }
         });
         
         // Cancel button handling
