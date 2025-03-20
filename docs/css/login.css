@@ -1,0 +1,243 @@
+/* Login page styling */
+body {
+    background-color: #f5f7fa;
+    background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+
+.login-container {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+.login-logo {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-logo img {
+    max-width: 120px;
+    height: auto;
+    margin-bottom: 10px;
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.login-logo h1 {
+    margin: 0;
+    color: #3498db;
+    font-size: 2rem;
+    font-weight: 600;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.login-form {
+    background-color: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-form h2 {
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 25px;
+    color: #2c3e50;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.95rem;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.form-group input:focus {
+    border-color: #3498db;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+.login-button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 14px;
+    width: 100%;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-top: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.login-button:hover {
+    background-color: #2980b9;
+}
+
+.login-button:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.forgot-password {
+    text-align: center;
+    margin-top: 15px;
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.forgot-password:hover {
+    color: #3498db;
+    text-decoration: underline;
+}
+
+.error-message {
+    color: #e74c3c;
+    margin-top: 20px;
+    text-align: center;
+    display: none;
+    padding: 12px 15px;
+    background-color: rgba(231, 76, 60, 0.1);
+    border-radius: 8px;
+    width: 100%;
+    max-width: 400px;
+    box-sizing: border-box;
+    font-weight: 500;
+}
+
+.footer-text {
+    text-align: center;
+    margin-top: 30px;
+    color: #7f8c8d;
+    font-size: 0.85rem;
+}
+
+/* For smaller phones */
+@media (max-height: 600px) {
+    .login-container {
+        padding: 15px;
+        justify-content: flex-start;
+    }
+    
+    .login-logo {
+        margin-bottom: 20px;
+        margin-top: 20px;
+    }
+    
+    .login-logo img {
+        max-width: 80px;
+    }
+    
+    .login-logo h1 {
+        font-size: 1.5rem;
+    }
+    
+    .login-form {
+        padding: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-group label {
+        margin-bottom: 5px;
+    }
+    
+    .form-group input {
+        padding: 10px;
+    }
+    
+    .login-button {
+        padding: 12px;
+    }
+    
+    .footer-text {
+        margin-top: 20px;
+    }
+}
+
+/* Landscape mode */
+@media (orientation: landscape) and (max-height: 500px) {
+    .login-container {
+        justify-content: flex-start;
+        padding-top: 10px;
+    }
+    
+    .login-logo {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .login-logo img {
+        max-width: 60px;
+        margin-right: 15px;
+        margin-bottom: 0;
+    }
+    
+    .login-form {
+        padding: 15px 20px;
+    }
+    
+    .login-form h2 {
+        margin-bottom: 15px;
+        font-size: 1.3rem;
+    }
+    
+    .form-group {
+        margin-bottom: 10px;
+    }
+    
+    .footer-text {
+        margin-top: 15px;
+    }
+}
+
+/* Small screens */
+@media (max-width: 320px) {
+    .login-form {
+        padding: 20px 15px;
+    }
+    
+    .login-logo h1 {
+        font-size: 1.8rem;
+    }
+}
+
+@media (min-width: 768px) {
+    .login-container {
+        margin: 20% auto 0;
+    }
+} 

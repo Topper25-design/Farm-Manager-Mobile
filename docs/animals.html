@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, height=device-height">
+    <title>Farm Manager Mobile - Animals</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/animals.css">
+</head>
+<body>
+    <div id="app-content">
+        <div class="animals-container">
+            <div class="page-header">
+                <h2>Livestock Management</h2>
+            </div>
+            
+            <div class="quick-actions">
+                <button id="add-animal-btn" class="add-button">Add Livestock</button>
+                <button id="stock-count-btn" class="count-button">Stock Count</button>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Current Inventory</h3>
+                <div id="total-animals" class="stat-number">0</div>
+                <div id="inventory-breakdown">
+                    <p>No animals in inventory</p>
+                </div>
+            </div>
+            
+            <div class="animal-actions">
+                <button id="move-animals-btn">Move Animals</button>
+                <button id="sell-animals-btn">Sell Animals</button>
+                <button id="purchase-animals-btn">Purchase Animals</button>
+                <button id="record-death-btn">Record Death</button>
+                <button id="record-birth-btn">Record Birth</button>
+            </div>
+            
+            <div class="management-actions">
+                <button id="reverse-last-btn">Reverse Last Addition</button>
+                <button id="clear-animal-data-btn" class="danger-btn">Clear Animal Data</button>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Recent Transactions</h3>
+                <div id="transactions-list">
+                    <p>No recent transactions</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Navigation -->
+        <div class="mobile-nav">
+            <a href="dashboard.html">Home</a>
+            <a href="animals.html" class="active">Animals</a>
+            <a href="feed.html">Feed</a>
+            <a href="health.html">Health</a>
+            <a href="reports.html">Reports</a>
+        </div>
+    </div>
+    
+    <script src="js/capacitor-storage.js"></script>
+    <script src="js/animals.js?v=1.1"></script>
+</body>
+</html> 
