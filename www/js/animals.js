@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         // Handle legacy move records
                         description = `Moved ${transaction.quantity} ${transaction.category} from ${transaction.fromLocation} to ${transaction.toLocation}`;
                     } else {
-                        description = `Moved ${transaction.quantity} animals`;
+                        description = `Moved ${transaction.quantity} ${transaction.category || 'animals'}`;
                     }
                     break;
                 case 'death':
