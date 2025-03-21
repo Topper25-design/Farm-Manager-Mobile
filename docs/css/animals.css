@@ -156,14 +156,17 @@
 }
 
 .danger-btn {
-    background-color: #fff5f5 !important;
-    color: #e74c3c !important;
-    border: 1px solid #ffcccc !important;
+    background-color: #f44336 !important;
+    color: white !important;
+    border: none !important;
 }
 
-.danger-btn:hover {
-    background-color: #ffe5e5 !important;
-    color: #c0392b !important;
+.form-actions .save-btn.danger-btn {
+    background-color: #f44336 !important;
+    color: white !important;
+    border: none !important;
+    text-transform: uppercase;
+    font-weight: 600;
 }
 
 .inventory-item {
