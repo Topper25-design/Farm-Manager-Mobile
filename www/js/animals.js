@@ -338,7 +338,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     break;
                 case 'move':
                     if (transaction.fromCategory && transaction.toCategory) {
-                        description = `Moved ${transaction.quantity} from ${transaction.fromCategory} to ${transaction.toCategory}`;
+                        description = `Moved ${transaction.quantity} ${transaction.fromCategory} from ${transaction.fromCategory} to ${transaction.toCategory}`;
                     } else if (transaction.fromLocation && transaction.toLocation) {
                         // Handle legacy move records
                         description = `Moved ${transaction.quantity} ${transaction.category} from ${transaction.fromLocation} to ${transaction.toLocation}`;
