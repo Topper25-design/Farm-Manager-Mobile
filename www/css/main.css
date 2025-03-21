@@ -598,11 +598,6 @@ label {
     .form-actions {
         margin-top: 10px;
     }
-    
-    body.keyboard-open .popup {
-        align-items: flex-start;
-        padding-top: 10px;
-    }
 }
 
 /* iOS specific fixes */
@@ -718,11 +713,18 @@ body.keyboard-open {
     -webkit-overflow-scrolling: touch;
 }
 
-/* Ensure popups remain visible when keyboard is open */
+/* Ensure popups remain visible and centered when keyboard is open */
+.popup.keyboard-visible {
+    align-items: center !important;
+    justify-content: center !important;
+}
+
 .popup.keyboard-visible .popup-content {
-    margin-bottom: 50vh;
     max-height: 70vh;
     overflow-y: auto;
+    position: relative;
+    top: 0 !important;
+    transform: none !important;
 }
 
 /* Ensure form controls are large enough for touch on mobile */
