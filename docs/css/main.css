@@ -258,7 +258,7 @@ a {
     align-items: center;
     justify-content: center;
     word-break: break-word; /* Break long words if needed */
-    hyphens: auto;
+    hyphens: none; /* Prevent hyphenation */
 }
 
 .action-button:hover {
@@ -420,6 +420,7 @@ button, .btn {
         word-break: break-word;
         white-space: normal;
         text-transform: none; /* Remove uppercase in portrait to save space */
+        hyphens: none; /* Prevent hyphenation in portrait mode */
     }
     
     /* Specific fixes for feed and health pages */
@@ -433,6 +434,7 @@ button, .btn {
         min-height: 38px;
         white-space: normal;
         word-break: break-word;
+        hyphens: none; /* Prevent hyphenation */
         text-transform: none;
         display: flex;
         align-items: center;
