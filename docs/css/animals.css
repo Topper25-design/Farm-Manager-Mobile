@@ -602,7 +602,8 @@ input[type="number"] {
     flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 20px;
-    padding: 0 10px;
+    padding: 10px; /* Add padding around all sides */
+    border-radius: 8px; /* Add rounded corners to match button style */
 }
 
 .management-actions button {
@@ -664,6 +665,7 @@ input[type="number"] {
     border: none;
     font-weight: bold;
     text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+    margin-top: 10px; /* Add spacing at the top */
 }
 
 #clear-animal-data-btn {
@@ -672,6 +674,7 @@ input[type="number"] {
     border: none;
     font-weight: bold;
     text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+    margin-top: 10px; /* Add spacing at the top */
 }
 
 #move-animals-btn:hover, 
