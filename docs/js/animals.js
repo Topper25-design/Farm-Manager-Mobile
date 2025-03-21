@@ -370,7 +370,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             transactionItem.innerHTML = `
                 <div class="transaction-details">
                     <span class="transaction-date">${date}</span>
-                    <span class="transaction-category">${transaction.type === 'move' ? 'Stock Moved' : transaction.category}</span>
+                    <span class="transaction-category">${
+                        transaction.type === 'move' ? 'Stock Moved' : 
+                        transaction.type === 'sell' ? 'Stock Sold' : 
+                        transaction.type === 'buy' ? 'Stock Purchased' : 
+                        transaction.type === 'death' ? 'Stock Deaths' : 
+                        transaction.type === 'birth' ? 'Stock Births' : 
+                        transaction.category
+                    }</span>
                     <span class="transaction-description">${description}</span>
                     ${priceInfo}
                 </div>

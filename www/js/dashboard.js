@@ -431,6 +431,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             let actionText = '';
             let detailsText = '';
             let priceInfo = '';
+            let categoryText = '';
+            
+            // Set standard category text based on activity type
+            if (activity.type === 'add') categoryText = 'Stock Added';
+            else if (activity.type === 'sell' || activity.type === 'sale') categoryText = 'Stock Sold';
+            else if (activity.type === 'buy' || activity.type === 'purchase') categoryText = 'Stock Purchased';
+            else if (activity.type === 'move' || activity.type === 'movement') categoryText = 'Stock Moved';
+            else if (activity.type === 'death') categoryText = 'Stock Deaths';
+            else if (activity.type === 'birth') categoryText = 'Stock Births';
+            else categoryText = activity.category || '';
             
             // Format currency if present
             const formatCurrency = (amount, currencyCode) => {
@@ -613,19 +623,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Build the HTML content
             let content = `
-                <div class="activity-main">
-                    <div class="activity-text">${actionText}</div>
+                <div class="activity-header">
+                    <span class="activity-category">${categoryText}</span>
                     <span class="activity-date">${date}</span>
                 </div>
+                <div class="activity-details">
+                    <span class="activity-action">${actionText}</span>
+                    ${detailsText ? `<span class="activity-extra">${detailsText}</span>` : ''}
+                    ${priceInfo}
+                </div>
             `;
-            
-            if (detailsText) {
-                content += `<div class="activity-details">${detailsText}</div>`;
-            }
-            
-            if (priceInfo) {
-                content += priceInfo;
-            }
             
             activityItem.innerHTML = content;
             activitiesElem.appendChild(activityItem);
