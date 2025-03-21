@@ -326,14 +326,14 @@ a {
 
 .btn-secondary {
     color: #ffffff;
-    background-color: #4a4a4a; /* Darker grey color */
+    background-color: #333333; /* Even darker grey color */
     border: none;
     align-items: center;
     justify-content: center;
 }
 
 .btn-secondary:hover {
-    background-color: #333333; /* Even darker on hover */
+    background-color: #1a1a1a; /* Almost black on hover */
     transform: translateY(-2px);
 }
 
