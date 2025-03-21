@@ -940,6 +940,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     moveButton.disabled = false;
                 }, 1000);
             }
+            
+            // Show success message
+            setTimeout(() => {
+                alert(`Successfully moved ${quantity} ${fromCategory} to ${toCategory}`);
+            }, 300);
         });
         
         // Cancel button handling

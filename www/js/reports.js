@@ -363,20 +363,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                             );
                             break;
                         case 'feed-inventory':
-                            allRecords = feedCategories.map(category => {
-                                const data = feedInventory[category] || {};
-                                return {
-                                    type: 'inventory',
-                                    date: data.lastUpdated || new Date().toISOString(),
-                                    category: category,
-                                    quantity: data.quantity || 0,
-                                    unit: data.unit || 'kg',
-                                    threshold: data.threshold || 0,
-                                    supplier: data.supplier || 'Not specified',
-                                    unitCost: data.price || data.lastUnitCost || 0,
-                                    totalValue: (data.price || data.lastUnitCost || 0) * (data.quantity || 0)
-                                };
-                            });
+                        allRecords = feedCategories.map(category => {
+                            const data = feedInventory[category] || {};
+                            return {
+                                type: 'inventory',
+                                date: data.lastUpdated || new Date().toISOString(),
+                                category: category,
+                                quantity: data.quantity || 0,
+                                unit: data.unit || 'kg',
+                                threshold: data.threshold || 0,
+                                supplier: data.supplier || 'Not specified',
+                                unitCost: data.price || data.lastUnitCost || 0,
+                                totalValue: (data.price || data.lastUnitCost || 0) * (data.quantity || 0)
+                            };
+                        });
                             break;
                         default:
                             allRecords = [];
@@ -486,25 +486,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Filter by specific record types
                     switch (specificType) {
                         case 'movement':
-                            return record.type === 'movement';
+                        return record.type === 'movement';
                         case 'purchase':
-                            return record.type === 'purchase';
+                        return record.type === 'purchase';
                         case 'sale':
-                            return record.type === 'sale';
+                        return record.type === 'sale';
                         case 'death':
-                            return record.type === 'death';
+                        return record.type === 'death';
                         case 'birth':
-                            return record.type === 'birth';
+                        return record.type === 'birth';
                         case 'count':
-                            return record.type === 'stock-count' || record.type === 'count-correction';
+                        return record.type === 'stock-count' || record.type === 'count-correction';
                         case 'usage':
-                            return record.type === 'usage' || record.type === 'consumption';
+                        return record.type === 'usage' || record.type === 'consumption';
                         case 'treatment':
-                            return record.type === 'treatment';
+                        return record.type === 'treatment';
                         case 'vaccination':
-                            return record.type === 'vaccination';
+                        return record.type === 'vaccination';
                         case 'medication':
-                            return record.type === 'medication';
+                        return record.type === 'medication';
                         case 'inventory':
                             return record.type === 'inventory';
                         default:
@@ -883,4 +883,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Default categories if nothing found
         return ['Cattle', 'Sheep', 'Goats', 'Pigs', 'Chickens'];
     }
-});
+}); 

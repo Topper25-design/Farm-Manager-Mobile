@@ -288,6 +288,7 @@
     overflow-y: auto;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     position: relative;
+    margin: auto; /* Ensure centering in all scenarios */
 }
 
 .popup-content h3 {
@@ -590,6 +591,22 @@ input[type="number"] {
     
     .transaction-item {
         padding: 12px;
+    }
+    
+    /* Ensure popups are centered in portrait mode */
+    .popup {
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .popup-content {
+        width: 95%;
+        max-width: 95%;
+        padding: 15px;
+        margin: auto;
+        position: relative;
+        top: 0;
+        transform: none;
     }
 }
 

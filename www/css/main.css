@@ -638,8 +638,19 @@ label {
     /* Ensure popups adjust to available space */
     .popup-content {
         width: 95%;
+        max-width: 95%;
         padding: 15px;
         max-height: 85vh;
+        margin: auto;
+        position: relative;
+        top: 0;
+        transform: none;
+    }
+    
+    /* Center the popup in portrait view */
+    .popup {
+        align-items: center !important;
+        justify-content: center !important;
     }
 }
 
