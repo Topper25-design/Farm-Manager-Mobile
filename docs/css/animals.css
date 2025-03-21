@@ -122,7 +122,7 @@
 }
 
 #reverse-last-btn {
-    background-color: #f39c12; /* warning */
+    background-color: #f05b4f; /* lighter red */
 }
 
 #clear-animal-data-btn {
@@ -659,7 +659,7 @@ input[type="number"] {
 
 /* Management buttons with clear styling */
 #reverse-last-btn {
-    background-color: #f39c12;
+    background-color: #f05b4f; /* lighter red */
     color: white;
     border: none;
     font-weight: bold;
@@ -667,7 +667,7 @@ input[type="number"] {
 }
 
 #clear-animal-data-btn {
-    background-color: #e74c3c;
+    background-color: #e74c3c; /* danger */
     color: white;
     border: none;
     font-weight: bold;
