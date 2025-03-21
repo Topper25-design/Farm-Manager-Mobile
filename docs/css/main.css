@@ -325,12 +325,16 @@ a {
 }
 
 .btn-secondary {
-    background-color: #95a5a6;
-    color: white;
+    color: #ffffff;
+    background-color: #4a4a4a; /* Darker grey color */
+    border: none;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-secondary:hover {
-    background-color: #7f8c8d;
+    background-color: #333333; /* Even darker on hover */
+    transform: translateY(-2px);
 }
 
 .btn-info {
