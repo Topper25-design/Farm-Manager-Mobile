@@ -81,12 +81,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Portrait mode
             document.querySelector('.date-range')?.classList.remove('landscape');
             
-            // Reset table for portrait
+            // Optimize table display for portrait view - no min-width that forces scrolling
             const reportTables = document.querySelectorAll('.report-table');
             reportTables.forEach(table => {
-                if (table.querySelectorAll('th').length > 3) {
-                    table.style.minWidth = "500px";
-                }
+                table.style.minWidth = "auto";
             });
         }
     }
@@ -176,6 +174,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 categorySelect.appendChild(option);
             });
             
+            // Store the category type to ensure proper filtering
+            categorySelect.dataset.categoryType = selectedMainType;
+            
             categorySelect.disabled = false;
         } catch (error) {
             console.error('Error updating categories:', error);
@@ -247,6 +248,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const animalInventory = inventoryStr ? JSON.parse(inventoryStr) : {};
                     const stockDiscrepancies = discrepanciesStr ? JSON.parse(discrepanciesStr) : [];
                     
+                    // Get animal categories for later use
+                    const animalCategories = await getAnimalCategories();
+                    
                     // Filter animal-related activities
                     allRecords = activities.filter(activity => {
                         // Check if it's an animal-related activity
@@ -254,7 +258,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             // Handle string-based activities
                             const activityLower = activity.toLowerCase();
                             
-                            // Make sure it's an animal record and NOT a feed record
+                            // Make sure it's an animal record and NOT a feed or health record
                             const isAnimalRecord = activityLower.includes('moved') ||
                                 activityLower.includes('purchased') ||
                                 activityLower.includes('sold') ||
@@ -263,8 +267,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 activityLower.includes('stock count');
                                 
                             const isFeedRecord = activityLower.includes('feed');
+                            const isHealthRecord = activityLower.includes('treatment') || 
+                                                  activityLower.includes('vaccination') || 
+                                                  activityLower.includes('medication') ||
+                                                  activityLower.includes('health');
                             
-                            return isAnimalRecord && !isFeedRecord;
+                            return isAnimalRecord && !isFeedRecord && !isHealthRecord;
                         } else if (activity && typeof activity === 'object') {
                             // Handle object-based activities
                             const isAnimalRecord = activity.type === 'movement' ||
@@ -284,12 +292,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     activity.description.toLowerCase().includes('stock count')
                                 ));
                                 
-                            // Exclude feed records
+                            // Exclude feed and health records
                             const isFeedRecord = 
                                 (activity.category && activity.category.toLowerCase().includes('feed')) ||
                                 (activity.description && activity.description.toLowerCase().includes('feed'));
                                 
-                            return isAnimalRecord && !isFeedRecord;
+                            const isHealthRecord = 
+                                activity.type === 'treatment' || 
+                                activity.type === 'vaccination' || 
+                                activity.type === 'medication' ||
+                                activity.type === 'health-record' ||
+                                (activity.description && (
+                                    activity.description.toLowerCase().includes('treatment') ||
+                                    activity.description.toLowerCase().includes('vaccination') ||
+                                    activity.description.toLowerCase().includes('medication') ||
+                                    activity.description.toLowerCase().includes('health')
+                                ));
+                                
+                            return isAnimalRecord && !isFeedRecord && !isHealthRecord;
                         }
                         return false;
                     }).map(activity => {
@@ -297,12 +317,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                         if (typeof activity === 'string') {
                             return parseActivityString(activity);
                         }
-                        return activity;
+                        
+                        // Ensure record has a category - use first category as default if needed
+                        if (!activity.category && !activity.fromCategory && !activity.toCategory) {
+                            activity.category = animalCategories[0] || 'General';
+                        }
+                        
+                        // Mark this as an animal record for filtering
+                        return {...activity, recordMainType: 'animal'};
                     });
                     
                     // Add stock discrepancies
                     if (stockDiscrepancies && Array.isArray(stockDiscrepancies)) {
-                        allRecords = [...allRecords, ...stockDiscrepancies];
+                        allRecords = [...allRecords, ...stockDiscrepancies.map(record => {
+                            // Ensure record has a category
+                            if (!record.category && !record.fromCategory && !record.toCategory) {
+                                record.category = animalCategories[0] || 'General';
+                            }
+                            return {...record, recordMainType: 'animal'};
+                        })];
                     }
                     break;
                     
@@ -315,6 +348,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const feedInventory = feedInventoryStr ? JSON.parse(feedInventoryStr) : {};
                     const feedCategories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
                     const feedTransactions = feedTransactionsStr ? JSON.parse(feedTransactionsStr) : [];
+                    
+                    // Default category if none available
+                    const defaultFeedCategory = feedCategories.length > 0 ? feedCategories[0] : 'Feed';
                     
                     // Also check recentActivities for feed-related entries
                     const allActivitiesStr = await mobileStorage.getItem('recentActivities');
@@ -333,13 +369,46 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }).map(activity => {
                         // Convert string activities to objects if needed
                         if (typeof activity === 'string') {
-                            return parseActivityString(activity);
+                            const parsed = parseActivityString(activity);
+                            // Ensure feed activities have a category and cost
+                            if (!parsed.category) {
+                                parsed.category = defaultFeedCategory;
+                            }
+                            if (parsed.type === 'purchase' && !parsed.cost) {
+                                parsed.cost = 0;
+                            }
+                            return parsed;
                         }
-                        return activity;
+                        
+                        // Ensure feed activities have a category and cost
+                        if (!activity.category) {
+                            activity.category = defaultFeedCategory;
+                        }
+                        if (activity.type === 'purchase' && !activity.cost) {
+                            activity.cost = 0;
+                        }
+                        
+                        // Mark as feed record for filtering
+                        return {...activity, recordMainType: 'feed'};
+                    });
+                    
+                    // Ensure feed transactions have categories and costs
+                    const processedFeedTransactions = feedTransactions.map(record => {
+                        const processedRecord = {...record};
+                        if (!processedRecord.category) {
+                            processedRecord.category = defaultFeedCategory;
+                        }
+                        if (processedRecord.type === 'purchase' && !processedRecord.cost) {
+                            processedRecord.cost = 0;
+                        }
+                        return {...processedRecord, recordMainType: 'feed'};
                     });
                     
                     // Combine feed transactions with feed activities
-                    const combinedFeedRecords = [...feedTransactions, ...feedActivities];
+                    const combinedFeedRecords = [
+                        ...processedFeedTransactions, 
+                        ...feedActivities
+                    ];
                     
                     // Filter feed records based on report type
                     switch (filters.reportType) {
@@ -374,7 +443,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 threshold: data.threshold || 0,
                                 supplier: data.supplier || 'Not specified',
                                 unitCost: data.price || data.lastUnitCost || 0,
-                                totalValue: (data.price || data.lastUnitCost || 0) * (data.quantity || 0)
+                                totalValue: (data.price || data.lastUnitCost || 0) * (data.quantity || 0),
+                                recordMainType: 'feed'
                             };
                         });
                             break;
@@ -387,6 +457,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Get health records
                     const healthRecordsStr = await mobileStorage.getItem('healthRecords');
                     const healthRecords = healthRecordsStr ? JSON.parse(healthRecordsStr) : [];
+                    
+                    // Get animal categories for health records
+                    const animalCategoriesForHealth = await getAnimalCategories();
+                    const defaultHealthCategory = animalCategoriesForHealth.length > 0 ? animalCategoriesForHealth[0] : 'Animals';
                     
                     // Also check recentActivities for health-related entries
                     const healthActivitiesStr = await mobileStorage.getItem('recentActivities');
@@ -415,13 +489,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }).map(activity => {
                         // Convert string activities to objects if needed
                         if (typeof activity === 'string') {
-                            return parseActivityString(activity);
+                            const parsed = parseActivityString(activity);
+                            // Ensure health records have a category
+                            if (!parsed.category) {
+                                parsed.category = defaultHealthCategory;
+                            }
+                            return parsed;
                         }
-                        return activity;
+                        
+                        // Ensure health records have a category
+                        if (!activity.category) {
+                            activity.category = defaultHealthCategory;
+                        }
+                        
+                        // Mark as health record for filtering
+                        return {...activity, recordMainType: 'health'};
+                    });
+                    
+                    // Ensure health records have categories
+                    const processedHealthRecords = healthRecords.map(record => {
+                        const processedRecord = {...record};
+                        if (!processedRecord.category) {
+                            processedRecord.category = defaultHealthCategory;
+                        }
+                        return {...processedRecord, recordMainType: 'health'};
                     });
                     
                     // Combine health records with health activities
-                    const combinedHealthRecords = [...healthRecords, ...healthOnly];
+                    const combinedHealthRecords = [
+                        ...processedHealthRecords, 
+                        ...healthOnly
+                    ];
                     
                     // Filter health records based on report type
                     switch (filters.reportType) {
@@ -464,10 +562,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return recordDate >= startDate && recordDate <= endDate;
             });
             
-            // Filter by category if specified
+            // Filter by category if specified - ensure we only filter within the current main type
             if (filters.category !== 'all') {
                 filteredRecords = filteredRecords.filter(record => {
                     if (!record) return false;
+                    
+                    // First verify this record belongs to the current main type
+                    // This prevents cross-filtering between different record types
+                    if (record.recordMainType && record.recordMainType !== filters.mainType) {
+                        return false;
+                    }
                     
                     // Handle different record structures
                     const recordCategory = record.category || record.fromCategory || record.toCategory;
@@ -477,8 +581,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
             
-            // Filter by specific type if not "all" type selected
-            if (!filters.reportType.startsWith('all-')) {
+            // Apply type filtering even if 'all-' type is selected
+            if (filters.mainType === 'animal') {
+                filteredRecords = filteredRecords.filter(record => {
+                    if (!record || !record.type) return false;
+                    
+                    // Only include animal record types
+                    return ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction'].includes(record.type);
+                });
+            } else if (!filters.reportType.startsWith('all-')) {
+                // Filter by specific type for non-all reports
                 const specificType = filters.reportType.split('-')[1]; // 'movement', 'purchase', etc.
                 filteredRecords = filteredRecords.filter(record => {
                     if (!record || !record.type) return false;
@@ -486,25 +598,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Filter by specific record types
                     switch (specificType) {
                         case 'movement':
-                        return record.type === 'movement';
+                            return record.type === 'movement';
                         case 'purchase':
-                        return record.type === 'purchase';
+                            return record.type === 'purchase';
                         case 'sale':
-                        return record.type === 'sale';
+                            return record.type === 'sale';
                         case 'death':
-                        return record.type === 'death';
+                            return record.type === 'death';
                         case 'birth':
-                        return record.type === 'birth';
+                            return record.type === 'birth';
                         case 'count':
-                        return record.type === 'stock-count' || record.type === 'count-correction';
+                            return record.type === 'stock-count' || record.type === 'count-correction';
                         case 'usage':
-                        return record.type === 'usage' || record.type === 'consumption';
+                            return record.type === 'usage' || record.type === 'consumption';
                         case 'treatment':
-                        return record.type === 'treatment';
+                            return record.type === 'treatment';
                         case 'vaccination':
-                        return record.type === 'vaccination';
+                            return record.type === 'vaccination';
                         case 'medication':
-                        return record.type === 'medication';
+                            return record.type === 'medication';
                         case 'inventory':
                             return record.type === 'inventory';
                         default:
@@ -720,44 +832,52 @@ document.addEventListener('DOMContentLoaded', async () => {
         // For object records, format based on type
         switch (record.type) {
             case 'movement':
-                return `${record.quantity || ''} moved from ${record.fromCategory || 'unknown'} to ${record.toCategory || 'unknown'}`;
+                return `${record.quantity || ''} from ${record.fromCategory || 'unknown'} to ${record.toCategory || 'unknown'}`;
                 
             case 'purchase':
-                return `${record.quantity || ''} purchased for ${formatCurrency(record.cost)} (${formatCurrency(record.cost / (record.quantity || 1))} each)`;
+                // Safely calculate unit price and handle missing cost data
+                const cost = Number(record.cost || 0);
+                const quantity = Number(record.quantity || 1);
+                const unitPrice = quantity > 0 ? cost / quantity : 0;
+                return `${record.quantity || ''} @ ${formatCurrency(unitPrice)}ea`;
                 
             case 'sale':
-                return `${record.quantity || ''} sold for ${formatCurrency(record.revenue)} (${formatCurrency(record.revenue / (record.quantity || 1))} each)`;
+                // Safely calculate unit price and handle missing revenue data
+                const revenue = Number(record.revenue || 0);
+                const saleQuantity = Number(record.quantity || 1);
+                const unitRevenue = saleQuantity > 0 ? revenue / saleQuantity : 0;
+                return `${record.quantity || ''} @ ${formatCurrency(unitRevenue)}ea`;
                 
             case 'death':
-                return `${record.quantity || ''} deaths${record.reason ? ` - Reason: ${record.reason}` : ''}`;
+                return `${record.quantity || ''}${record.reason ? `: ${record.reason}` : ''}`;
                 
             case 'birth':
-                return `${record.quantity || ''} births${record.notes ? ` - ${record.notes}` : ''}`;
+                return `${record.quantity || ''}${record.notes ? `: ${record.notes}` : ''}`;
                 
             case 'stock-count':
-                return `Expected: ${record.expected || 0}, Actual: ${record.actual || 0}, Difference: ${(record.actual || 0) - (record.expected || 0)}`;
+                return `Exp: ${record.expected || 0}, Act: ${record.actual || 0}, Diff: ${(record.actual || 0) - (record.expected || 0)}`;
                 
             case 'count-correction':
-                return `Adjusted inventory by ${record.difference > 0 ? '+' : ''}${record.difference}`;
+                return `Adjusted by ${record.difference > 0 ? '+' : ''}${record.difference}`;
                 
             case 'inventory':
-                return `Quantity: ${record.quantity} ${record.unit || ''}, Value: ${formatCurrency(record.totalValue)}`;
+                return `${record.quantity} ${record.unit || ''}, Val: ${formatCurrency(record.totalValue)}`;
                 
             case 'usage':
             case 'consumption':
-                return `Used ${record.quantity} ${record.unit || ''} for ${record.purpose || 'general use'}`;
+                return `${record.quantity} ${record.unit || ''} - ${record.purpose || 'general'}`;
                 
             case 'treatment':
-                return `${record.treatment || 'Treatment'} - Duration: ${record.duration || 'N/A'} days`;
+                return `${record.treatment || 'Treatment'} - ${record.duration || 'N/A'} days`;
                 
             case 'vaccination':
-                return `${record.vaccine || 'Vaccination'}${record.nextDate ? ` - Next: ${new Date(record.nextDate).toLocaleDateString()}` : ''}`;
+                return `${record.vaccine || 'Vaccination'}${record.nextDate ? ` Next: ${new Date(record.nextDate).toLocaleDateString()}` : ''}`;
                 
             case 'medication':
-                return `${record.medication || 'Medication'} ${record.dosage ? `(${record.dosage})` : ''} - Withdrawal: ${record.withdrawalPeriod || 0} days`;
+                return `${record.medication || 'Medication'} ${record.dosage ? `(${record.dosage})` : ''}`;
                 
             case 'health-record':
-                return `${record.condition || ''} - ${record.description || ''} - Severity: ${record.severity || 'N/A'}`;
+                return `${record.condition || ''}: ${record.severity || 'N/A'}`;
                 
             default:
                 // If there's a description, use that
@@ -768,12 +888,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Otherwise, format quantity and notes
                 let details = '';
                 if (record.quantity) {
-                    details += `Quantity: ${record.quantity}`;
+                    details += `Qty: ${record.quantity}`;
                 }
                 if (record.notes) {
                     details += details ? ` - ${record.notes}` : record.notes;
                 }
-                return details || 'No details available';
+                return details || 'No details';
         }
     }
     

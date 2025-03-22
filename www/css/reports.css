@@ -197,23 +197,49 @@ select.form-control {
     }
     
     .report-table {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
+        width: 100%;
+        table-layout: fixed;
     }
     
     .report-table th,
     .report-table td {
         padding: 8px 6px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
     
-    /* Make report table horizontally scrollable but maintain fixed layout */
+    /* Adjust column widths for better readability in portrait */
+    .report-table th:nth-child(1),
+    .report-table td:nth-child(1) {  /* Date column */
+        width: 20%;
+    }
+    
+    .report-table th:nth-child(2),
+    .report-table td:nth-child(2) {  /* Type column */
+        width: 20%;
+    }
+    
+    .report-table th:nth-child(3),
+    .report-table td:nth-child(3) {  /* Category column */
+        width: 20%;
+    }
+    
+    .report-table th:nth-child(4),
+    .report-table td:nth-child(4) {  /* Details column */
+        width: 40%;
+    }
+    
+    /* Make report table container take full width but keep scrolling if needed */
     .report-table-container {
         width: 100%;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch; /* Better scrolling on iOS */
     }
     
+    /* Only set min-width when absolutely needed */
     .report-table {
-        min-width: 500px; /* Ensure table has minimum width for content */
+        min-width: auto;
     }
 }
 
