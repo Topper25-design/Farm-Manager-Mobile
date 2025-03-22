@@ -238,21 +238,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const animalInventory = inventoryStr ? JSON.parse(inventoryStr) : {};
                     const stockDiscrepancies = discrepanciesStr ? JSON.parse(discrepanciesStr) : [];
                     
+                    // Get animal categories for later use
+                    const animalCategories = await getAnimalCategories();
+                    // Get feed categories to help with filtering out feed records
+                    const feedCategoriesStr = await mobileStorage.getItem('feedCategories');
+                    const feedCategories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
+                    
                     // Filter animal-related activities
                     allRecords = activities.filter(activity => {
                         // Check if it's an animal-related activity
                         if (typeof activity === 'string') {
                             // Handle string-based activities
                             const activityLower = activity.toLowerCase();
-                            return activityLower.includes('moved') ||
+                            
+                            // Make sure it's an animal record and NOT a feed or health record
+                            const isAnimalRecord = activityLower.includes('moved') ||
                                 activityLower.includes('purchased') ||
                                 activityLower.includes('sold') ||
                                 activityLower.includes('death') ||
                                 activityLower.includes('birth') ||
                                 activityLower.includes('stock count');
+                                
+                            const isFeedRecord = activityLower.includes('feed');
+                            const isHealthRecord = activityLower.includes('treatment') || 
+                                                   activityLower.includes('vaccination') || 
+                                                   activityLower.includes('medication') ||
+                                                   activityLower.includes('health');
+                            
+                            return isAnimalRecord && !isFeedRecord && !isHealthRecord;
                         } else if (activity && typeof activity === 'object') {
                             // Handle object-based activities
-                            return activity.type === 'movement' ||
+                            const isAnimalRecord = activity.type === 'movement' ||
                                 activity.type === 'purchase' ||
                                 activity.type === 'sale' ||
                                 activity.type === 'death' ||
@@ -268,6 +284,41 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     activity.description.toLowerCase().includes('birth') ||
                                     activity.description.toLowerCase().includes('stock count')
                                 ));
+                                
+                            // Exclude feed records by checking:
+                            // 1. If category contains "feed"
+                            // 2. If fromCategory contains "feed"
+                            // 3. If toCategory contains "feed"
+                            // 4. If description contains "feed"
+                            // 5. If category is in the list of feed categories
+                            const isFeedRecord = 
+                                (activity.category && (
+                                    activity.category.toLowerCase().includes('feed') ||
+                                    feedCategories.includes(activity.category)
+                                )) ||
+                                (activity.fromCategory && (
+                                    activity.fromCategory.toLowerCase().includes('feed') ||
+                                    feedCategories.includes(activity.fromCategory)
+                                )) ||
+                                (activity.toCategory && (
+                                    activity.toCategory.toLowerCase().includes('feed') ||
+                                    feedCategories.includes(activity.toCategory)
+                                )) ||
+                                (activity.description && activity.description.toLowerCase().includes('feed'));
+                                
+                            const isHealthRecord = 
+                                activity.type === 'treatment' || 
+                                activity.type === 'vaccination' || 
+                                activity.type === 'medication' ||
+                                activity.type === 'health-record' ||
+                                (activity.description && (
+                                    activity.description.toLowerCase().includes('treatment') ||
+                                    activity.description.toLowerCase().includes('vaccination') ||
+                                    activity.description.toLowerCase().includes('medication') ||
+                                    activity.description.toLowerCase().includes('health')
+                                ));
+                                
+                            return isAnimalRecord && !isFeedRecord && !isHealthRecord;
                         }
                         return false;
                     }).map(activity => {
@@ -275,12 +326,40 @@ document.addEventListener('DOMContentLoaded', async () => {
                         if (typeof activity === 'string') {
                             return parseActivityString(activity);
                         }
-                        return activity;
-                    });
+                        
+                        // Ensure record has a category - use first category as default if needed
+                        if (!activity.category && !activity.fromCategory && !activity.toCategory) {
+                            activity.category = animalCategories[0] || 'General';
+                        }
+                        
+                        // One final check to ensure no feed categories slip through
+                        if (activity.category && feedCategories.includes(activity.category)) {
+                            // Skip this record as it's a feed record
+                            return null;
+                        }
+                        
+                        // Mark this as an animal record for filtering
+                        return {...activity, recordMainType: 'animal'};
+                    }).filter(record => record !== null); // Remove any null records
                     
                     // Add stock discrepancies
                     if (stockDiscrepancies && Array.isArray(stockDiscrepancies)) {
-                        allRecords = [...allRecords, ...stockDiscrepancies];
+                        allRecords = [...allRecords, ...stockDiscrepancies
+                            .filter(record => {
+                                // Ensure no feed records in discrepancies
+                                if (record.category) {
+                                    return !record.category.toLowerCase().includes('feed') && 
+                                           !feedCategories.includes(record.category);
+                                }
+                                return true;
+                            })
+                            .map(record => {
+                                // Ensure record has a category
+                                if (!record.category && !record.fromCategory && !record.toCategory) {
+                                    record.category = animalCategories[0] || 'General';
+                                }
+                                return {...record, recordMainType: 'animal'};
+                            })];
                     }
                     break;
                     
@@ -350,36 +429,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
             
-            // Filter by specific type if not "all" type selected
-            if (!filters.reportType.startsWith('all-')) {
-                const specificType = filters.reportType.split('-')[1]; // 'movement', 'purchase', etc.
+            // Apply type filtering even if 'all-' type is selected
+            if (filters.mainType === 'animal') {
                 filteredRecords = filteredRecords.filter(record => {
                     if (!record || !record.type) return false;
                     
-                    // Filter by specific record types
-                    if (specificType === 'movement') {
-                        return record.type === 'movement';
-                    } else if (specificType === 'purchase') {
-                        return record.type === 'purchase';
-                    } else if (specificType === 'sale') {
-                        return record.type === 'sale';
-                    } else if (specificType === 'death') {
-                        return record.type === 'death';
-                    } else if (specificType === 'birth') {
-                        return record.type === 'birth';
-                    } else if (specificType === 'count') {
-                        return record.type === 'stock-count' || record.type === 'count-correction';
-                    } else if (specificType === 'usage') {
-                        return record.type === 'usage' || record.type === 'consumption';
-                    } else if (specificType === 'treatment') {
-                        return record.type === 'treatment';
-                    } else if (specificType === 'vaccination') {
-                        return record.type === 'vaccination';
-                    } else if (specificType === 'medication') {
-                        return record.type === 'medication';
+                    // Double check feed categories aren't included
+                    const feedCategoriesStr = await mobileStorage.getItem('feedCategories');
+                    const feedCategories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
+                    
+                    // Verify not a feed category
+                    const recordCategory = record.category || record.fromCategory || record.toCategory;
+                    if (recordCategory && 
+                        (recordCategory.toLowerCase().includes('feed') || feedCategories.includes(recordCategory))) {
+                        return false;
                     }
                     
-                    return false;
+                    // Only include animal record types
+                    return ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction'].includes(record.type);
                 });
             }
             
