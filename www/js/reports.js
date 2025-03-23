@@ -1481,30 +1481,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // If this count resolved a discrepancy, highlight it with specific discrepancy info
                 if (record.resolvedDiscrepancy && record.resolvedDiscrepancyDate) {
                     const discrepancyDate = formatDate(record.resolvedDiscrepancyDate);
-                    details += ` <span class="resolved-count">(Resolving count for Discrepancy ${discrepancyDate})</span>`;
+                    details += ` <span class="resolved-badge">Resolved discrepancy</span>`;
                 }
             } else if (record.type === 'discrepancy') {
                 details = `Expected: ${record.expected}, Actual: ${record.actual}, Diff: ${record.difference > 0 ? '+' : ''}${record.difference}`;
                 
                 if (record.resolved) {
-                    details += ' (Resolved';
-                    
-                    // Show the resolving count information
-                    if (record.resolutionCount !== undefined) {
-                        details += ` with count of ${record.resolutionCount}`;
+                    // Use same format as in animals.js for resolution
+                    if (record.type === 'discrepancy') {
+                        // Change the display type to show resolutions consistently
+                        record.displayType = 'Resolution';
+                        rowClass = 'resolution';
+                        details = `<span class="resolution-text">✓ Discrepancy resolved</span>`;
                         
-                        // Add resolution date if available
-                        if (record.resolvedDate) {
-                            const resolvedDate = new Date(record.resolvedDate).toLocaleDateString();
-                            details += ` on ${resolvedDate}`;
+                        // Show the final count like in the animals page
+                        if (record.resolutionCount !== undefined) {
+                            details += `<span class="final-count">Final count: ${record.resolutionCount}</span>`;
                         }
                     }
-                    
-                    if (record.resolutionNotes) {
-                        details += ` - ${record.resolutionNotes}`;
-                    }
-                    
-                    details += ')';
                 }
             } else if (record.type === 'movement') {
                 details = `${record.quantity} moved`;
@@ -1520,12 +1514,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             
             // Capitalize record type for display
-            const displayType = record.type.charAt(0).toUpperCase() + record.type.slice(1);
+            const displayType = record.displayType || 
+                                (record.type.charAt(0).toUpperCase() + record.type.slice(1));
             
             // Determine if we need to highlight this row
             let rowClass = '';
             if (record.type === 'discrepancy') {
-                rowClass = record.resolved ? 'resolved-discrepancy' : 'unresolved-discrepancy';
+                rowClass = record.resolved ? 'resolution' : 'unresolved-discrepancy';
             } else if (record.type === 'stock-count' && record.resolvedDiscrepancy) {
                 rowClass = 'resolving-count';
             }
@@ -1981,4 +1976,5 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         return key;
     }
+}); 
 }); 

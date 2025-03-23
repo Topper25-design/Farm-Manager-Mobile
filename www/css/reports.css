@@ -253,4 +253,45 @@ select.form-control {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     }
+}
+
+/* Discrepancy report styling */
+.unresolved-discrepancy {
+    background-color: #ffebee;
+}
+
+.resolved-discrepancy {
+    background-color: #e8f5e9;
+}
+
+.resolution {
+    background-color: #e8f7f0;
+    border-left: 4px solid #27ae60;
+}
+
+.resolving-count {
+    background-color: #e3f2fd;
+}
+
+.resolved-badge {
+    display: inline-block;
+    background-color: #27ae60;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    margin-left: 8px;
+    font-weight: 500;
+}
+
+.resolution-text {
+    color: #27ae60;
+    font-weight: 600;
+    display: block;
+}
+
+.final-count {
+    color: #2c3e50;
+    display: block;
+    margin-top: 2px;
 } 
