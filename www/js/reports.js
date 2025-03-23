@@ -95,7 +95,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('feed-report-type')?.addEventListener('change', handleReportTypeChange);
         document.getElementById('health-report-type')?.addEventListener('change', handleReportTypeChange);
         document.getElementById('category-filter')?.addEventListener('change', handleCategoryChange);
-        document.getElementById('generate-report')?.addEventListener('click', handleGenerateReport);
+        
+        // Fix for generate report button - add console log and make sure handler is attached
+        const generateReportBtn = document.getElementById('generate-report');
+        if (generateReportBtn) {
+            console.log('Adding event listener to Generate Report button');
+            generateReportBtn.addEventListener('click', handleGenerateReport);
+            // Add a direct event for testing
+            generateReportBtn.onclick = function() {
+                console.log('Generate Report clicked via onclick');
+                handleGenerateReport();
+            };
+        } else {
+            console.error('Generate Report button not found in the DOM');
+        }
     }
     
     function handleReportTypeChange(event) {
@@ -190,6 +203,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     async function handleGenerateReport() {
+        console.log('handleGenerateReport function called');
         const filters = collectFilters();
         
         console.log('Generate report clicked', {
@@ -204,12 +218,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         try {
+            console.log('Collecting report data...');
             const reportData = await collectReportData(filters);
+            console.log('Report data collected:', reportData ? reportData.length : 0, 'records');
+            
             if (!reportData || reportData.length === 0) {
                 document.querySelector('.report-content').innerHTML = 
                     '<div class="empty-state">No records found for the selected criteria</div>';
                 return;
             }
+            
+            console.log('Displaying report...');
             displayReport(reportData, filters);
         } catch (error) {
             console.error('Error generating report:', error);
@@ -250,12 +269,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     
                     // Get animal categories for later use
                     const animalCategories = await getAnimalCategories();
-<<<<<<< HEAD
-=======
                     // Get feed categories to help with filtering out feed records
                     const feedCategoriesStr = await mobileStorage.getItem('feedCategories');
                     const feedCategories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
->>>>>>> d7769b7 (Fix animal reports filtering to properly exclude feed records)
                     
                     // Filter animal-related activities
                     allRecords = activities.filter(activity => {
@@ -274,15 +290,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 
                             const isFeedRecord = activityLower.includes('feed');
                             const isHealthRecord = activityLower.includes('treatment') || 
-<<<<<<< HEAD
                                                   activityLower.includes('vaccination') || 
                                                   activityLower.includes('medication') ||
                                                   activityLower.includes('health');
-=======
-                                                   activityLower.includes('vaccination') || 
-                                                   activityLower.includes('medication') ||
-                                                   activityLower.includes('health');
->>>>>>> d7769b7 (Fix animal reports filtering to properly exclude feed records)
                             
                             return isAnimalRecord && !isFeedRecord && !isHealthRecord;
                         } else if (activity && typeof activity === 'object') {
@@ -304,11 +314,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     activity.description.toLowerCase().includes('stock count')
                                 ));
                                 
-<<<<<<< HEAD
-                            // Exclude feed and health records
-                            const isFeedRecord = 
-                                (activity.category && activity.category.toLowerCase().includes('feed')) ||
-=======
                             // Exclude feed records by checking:
                             // 1. If category contains "feed"
                             // 2. If fromCategory contains "feed"
@@ -328,7 +333,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     activity.toCategory.toLowerCase().includes('feed') ||
                                     feedCategories.includes(activity.toCategory)
                                 )) ||
->>>>>>> d7769b7 (Fix animal reports filtering to properly exclude feed records)
                                 (activity.description && activity.description.toLowerCase().includes('feed'));
                                 
                             const isHealthRecord = 
@@ -357,21 +361,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                             activity.category = animalCategories[0] || 'General';
                         }
                         
-<<<<<<< HEAD
-                        // Mark this as an animal record for filtering
-                        return {...activity, recordMainType: 'animal'};
-                    });
-                    
-                    // Add stock discrepancies
-                    if (stockDiscrepancies && Array.isArray(stockDiscrepancies)) {
-                        allRecords = [...allRecords, ...stockDiscrepancies.map(record => {
-                            // Ensure record has a category
-                            if (!record.category && !record.fromCategory && !record.toCategory) {
-                                record.category = animalCategories[0] || 'General';
-                            }
-                            return {...record, recordMainType: 'animal'};
-                        })];
-=======
                         // One final check to ensure no feed categories slip through
                         if (activity.category && feedCategories.includes(activity.category)) {
                             // Skip this record as it's a feed record
@@ -400,7 +389,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 }
                                 return {...record, recordMainType: 'animal'};
                             })];
->>>>>>> d7769b7 (Fix animal reports filtering to properly exclude feed records)
                     }
                     break;
                     
@@ -648,9 +636,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Apply type filtering even if 'all-' type is selected
             if (filters.mainType === 'animal') {
-<<<<<<< HEAD
                 filteredRecords = filteredRecords.filter(record => {
                     if (!record || !record.type) return false;
+                    
+                    // Double check feed categories aren't included
+                    const recordCategory = record.category || record.fromCategory || record.toCategory;
+                    if (recordCategory && 
+                        (recordCategory.toLowerCase().includes('feed') || feedCategories.includes(recordCategory))) {
+                        return false;
+                    }
                     
                     // Only include animal record types
                     return ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction'].includes(record.type);
@@ -688,24 +682,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         default:
                             return false;
                     }
-=======
-                filteredRecords = filteredRecords.filter(record => {
-                    if (!record || !record.type) return false;
-                    
-                    // Double check feed categories aren't included
-                    const feedCategoriesStr = await mobileStorage.getItem('feedCategories');
-                    const feedCategories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
-                    
-                    // Verify not a feed category
-                    const recordCategory = record.category || record.fromCategory || record.toCategory;
-                    if (recordCategory && 
-                        (recordCategory.toLowerCase().includes('feed') || feedCategories.includes(recordCategory))) {
-                        return false;
-                    }
-                    
-                    // Only include animal record types
-                    return ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction'].includes(record.type);
->>>>>>> d7769b7 (Fix animal reports filtering to properly exclude feed records)
                 });
             }
             
