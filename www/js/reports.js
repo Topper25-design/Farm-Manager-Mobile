@@ -33,26 +33,79 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // For Intl.NumberFormat, we need an ISO currency code, not just a symbol
     // Map common symbols to ISO codes or default to USD
-    let currencyCode = 'USD';
-    if (typeof userCurrency === 'string') {
-        const currencyMap = {
-            '$': 'USD',
-            '£': 'GBP',
-            '€': 'EUR',
-            '¥': 'JPY',
-            '₹': 'INR',
-            'R': 'ZAR',
-            'R$': 'BRL'
+    let currencyCode = 'USD'; // Always default to USD
+    
+    try {
+        console.log('User currency value:', userCurrency);
+        
+        if (typeof userCurrency === 'string') {
+            const currencyMap = {
+                '$': 'USD',
+                '£': 'GBP',
+                '€': 'EUR',
+                '¥': 'JPY',
+                '₹': 'INR',
+                'R': 'ZAR',
+                'R$': 'BRL'
+            };
+            
+            const trimmedCurrency = userCurrency.trim();
+            console.log('Trimmed currency symbol:', trimmedCurrency);
+            
+            // Only use the mapped value if it exists in our map
+            if (currencyMap[trimmedCurrency]) {
+                currencyCode = currencyMap[trimmedCurrency];
+                console.log('Mapped to ISO code:', currencyCode);
+            } else {
+                // If not in our map but looks like a valid ISO code (3 letters), use it
+                if (/^[A-Z]{3}$/.test(trimmedCurrency)) {
+                    currencyCode = trimmedCurrency;
+                    console.log('Using currency as ISO code:', currencyCode);
+                } else {
+                    console.log('Using default USD code');
+                }
+            }
+        }
+        
+        // Create the formatter with a guaranteed valid ISO currency code
+        console.log('Final currency code for formatter:', currencyCode);
+        
+        const currencyFormatter = new Intl.NumberFormat(undefined, {
+            style: 'currency',
+            currency: currencyCode,
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    } catch (e) {
+        console.error('Error creating currency formatter:', e);
+        // Define a fallback formatter function that doesn't use Intl
+        window.formatCurrency = function(amount) {
+            if (amount === undefined || amount === null) return `${currencySymbol}0.00`;
+            return `${currencySymbol}${Number(amount).toFixed(2)}`;
         };
-        currencyCode = currencyMap[userCurrency.trim()] || 'USD';
     }
     
-    const currencyFormatter = new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: currencyCode,
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
+    // Define the formatCurrency function to handle fallback scenarios
+    function formatCurrency(amount) {
+        if (amount === undefined || amount === null) return `${currencySymbol}0.00`;
+        
+        try {
+            // Use the Intl formatter for proper currency display
+            if (currencyFormatter) {
+                return currencyFormatter.format(Number(amount));
+            } else {
+                // Fallback to simple formatting
+                return `${currencySymbol}${Number(amount).toFixed(2)}`;
+            }
+        } catch (e) {
+            console.error('Error formatting currency:', e);
+            // Fallback to simple formatting if Intl fails
+            return `${currencySymbol}${Number(amount).toFixed(2)}`;
+        }
+    }
+    
+    // Expose formatCurrency to the window object for global access
+    window.formatCurrency = formatCurrency;
     
     function setupKeyboardDetection() {
         // For iOS using visual viewport API
@@ -1390,18 +1443,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     details += details ? ` - ${record.notes}` : record.notes;
                 }
                 return details || 'No details';
-        }
-    }
-    
-    function formatCurrency(amount) {
-        if (amount === undefined || amount === null) return `${currencySymbol}0.00`;
-        
-        try {
-            // Use the Intl formatter for proper currency display
-            return currencyFormatter.format(Number(amount));
-        } catch (e) {
-            // Fallback to simple formatting if Intl fails
-            return `${currencySymbol}${Number(amount).toFixed(2)}`;
         }
     }
     
