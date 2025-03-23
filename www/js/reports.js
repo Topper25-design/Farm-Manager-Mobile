@@ -1375,9 +1375,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     details = 'Count performed';
                 }
 
-                // If this count resolved a discrepancy, highlight it
-                if (record.resolvedDiscrepancy) {
-                    details += ` <span class="resolved-count">(Resolved discrepancy)</span>`;
+                // If this count resolved a discrepancy, highlight it with specific discrepancy info
+                if (record.resolvedDiscrepancy && record.resolvedDiscrepancyDate) {
+                    const discrepancyDate = formatDate(record.resolvedDiscrepancyDate);
+                    details += ` <span class="resolved-count">(Resolving count for Discrepancy ${discrepancyDate})</span>`;
                 }
             } else if (record.type === 'discrepancy') {
                 details = `Expected: ${record.expected}, Actual: ${record.actual}, Diff: ${record.difference > 0 ? '+' : ''}${record.difference}`;
