@@ -21,6 +21,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('date-from').value = thirtyDaysAgo.toISOString().split('T')[0];
     document.getElementById('date-to').value = today.toISOString().split('T')[0];
     
+    // Set up debug panel
+    setupDebugPanel();
+    
     // Set up orientation change handling
     window.addEventListener('orientationchange', handleOrientationChange);
     
@@ -1546,5 +1549,96 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Default categories if nothing found
         return ['Cattle', 'Sheep', 'Goats', 'Pigs', 'Chickens'];
+    }
+    
+    // Set up debug panel functionality
+    function setupDebugPanel() {
+        // Get elements
+        const debugPanel = document.getElementById('debug-panel');
+        const toggleButton = document.getElementById('toggle-debug-panel');
+        const debugOutput = document.getElementById('debug-output');
+        const copyButton = document.getElementById('copy-debug');
+        const clearButton = document.getElementById('clear-debug');
+        
+        // Toggle debug panel visibility
+        toggleButton.addEventListener('click', function() {
+            if (debugPanel.style.display === 'none') {
+                debugPanel.style.display = 'block';
+                toggleButton.textContent = 'Hide Debug Panel';
+            } else {
+                debugPanel.style.display = 'none';
+                toggleButton.textContent = 'Show Debug Panel';
+            }
+        });
+        
+        // Copy debug output to clipboard
+        copyButton.addEventListener('click', function() {
+            debugOutput.select();
+            document.execCommand('copy');
+            alert('Debug information copied to clipboard!');
+        });
+        
+        // Clear debug output
+        clearButton.addEventListener('click', function() {
+            debugOutput.value = '';
+            debugLogs = [];
+        });
+        
+        // Override console.log to capture logs
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+        
+        // Array to store logs
+        window.debugLogs = [];
+        
+        // Function to add log to debug panel
+        function addLog(type, args) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = Array.from(args).map(arg => {
+                if (typeof arg === 'object') {
+                    try {
+                        return JSON.stringify(arg, null, 2);
+                    } catch (e) {
+                        return String(arg);
+                    }
+                }
+                return String(arg);
+            }).join(' ');
+            
+            const formattedLog = `[${timestamp}] [${type}] ${logMessage}`;
+            window.debugLogs.push(formattedLog);
+            
+            // Keep only the last 500 logs to prevent memory issues
+            if (window.debugLogs.length > 500) {
+                window.debugLogs.shift();
+            }
+            
+            // Update debug output if panel is visible
+            if (debugPanel.style.display !== 'none') {
+                debugOutput.value = window.debugLogs.join('\n');
+                // Auto-scroll to bottom
+                debugOutput.scrollTop = debugOutput.scrollHeight;
+            }
+        }
+        
+        // Override console methods
+        console.log = function() {
+            addLog('INFO', arguments);
+            originalConsoleLog.apply(console, arguments);
+        };
+        
+        console.error = function() {
+            addLog('ERROR', arguments);
+            originalConsoleError.apply(console, arguments);
+        };
+        
+        console.warn = function() {
+            addLog('WARN', arguments);
+            originalConsoleWarn.apply(console, arguments);
+        };
+        
+        // Add initial log
+        console.log('Debug panel initialized');
     }
 }); 

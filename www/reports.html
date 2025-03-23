@@ -10,82 +10,95 @@
 <body>
     <div id="app-content">
         <div class="reports-container">
-            <div class="page-header content-container">
-                <h2>Reports</h2>
-            </div>
-            
-            <div class="report-controls content-container">
-                <div class="form-group">
-                    <label for="animal-report-type">Animal Reports:</label>
-                    <select id="animal-report-type" class="form-control">
-                        <option value="">Select type</option>
-                        <option value="all-animal">All Animal Records</option>
-                        <option value="animal-movement">Movements</option>
-                        <option value="animal-purchase">Purchases</option>
-                        <option value="animal-sale">Sales</option>
-                        <option value="animal-death">Deaths</option>
-                        <option value="animal-birth">Births</option>
-                        <option value="animal-count">Stock Counts</option>
-                    </select>
+            <div class="container">
+                <div class="page-header">
+                    <h1>Reports</h1>
+                    <p class="help-text">Generate reports from your farm data</p>
+                    <button id="toggle-debug-panel" class="btn btn-sm btn-info" style="position: absolute; top: 10px; right: 10px;">Show Debug Panel</button>
                 </div>
                 
-                <div class="form-group">
-                    <label for="feed-report-type">Feed Reports:</label>
-                    <select id="feed-report-type" class="form-control">
-                        <option value="">Select type</option>
-                        <option value="all-feed">All Feed Records</option>
-                        <option value="feed-purchase">Purchases</option>
-                        <option value="feed-usage">Usage</option>
-                        <option value="feed-inventory">Inventory</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="health-report-type">Health Reports:</label>
-                    <select id="health-report-type" class="form-control">
-                        <option value="">Select type</option>
-                        <option value="all-health">All Health Records</option>
-                        <option value="health-treatment">Treatments</option>
-                        <option value="health-vaccination">Vaccinations</option>
-                        <option value="health-medication">Medications</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="category-filter">Category:</label>
-                    <select id="category-filter" class="form-control">
-                        <option value="all">All Categories</option>
-                    </select>
-                    <span class="help-text">Select a category to filter</span>
-                </div>
-                
-                <div class="date-range">
+                <!-- Debug Panel -->
+                <div id="debug-panel" class="content-container" style="display: none; margin-bottom: 20px; border: 1px solid #ddd; padding: 10px; background-color: #f8f9fa;">
+                    <h4>Debug Information <button id="copy-debug" class="btn btn-sm btn-secondary">Copy</button> <button id="clear-debug" class="btn btn-sm btn-danger">Clear</button></h4>
                     <div class="form-group">
-                        <label for="date-from">From:</label>
-                        <input type="date" id="date-from" class="form-control" required>
+                        <textarea id="debug-output" class="form-control" style="height: 200px; font-family: monospace; font-size: 12px;" readonly></textarea>
+                    </div>
+                </div>
+                
+                <div class="report-controls content-container">
+                    <div class="form-group">
+                        <label for="animal-report-type">Animal Reports:</label>
+                        <select id="animal-report-type" class="form-control">
+                            <option value="">Select type</option>
+                            <option value="all-animal">All Animal Records</option>
+                            <option value="animal-movement">Movements</option>
+                            <option value="animal-purchase">Purchases</option>
+                            <option value="animal-sale">Sales</option>
+                            <option value="animal-death">Deaths</option>
+                            <option value="animal-birth">Births</option>
+                            <option value="animal-count">Stock Counts</option>
+                            <option value="animal-discrepancy">Count Discrepancies</option>
+                        </select>
                     </div>
                     
                     <div class="form-group">
-                        <label for="date-to">To:</label>
-                        <input type="date" id="date-to" class="form-control" required>
+                        <label for="feed-report-type">Feed Reports:</label>
+                        <select id="feed-report-type" class="form-control">
+                            <option value="">Select type</option>
+                            <option value="all-feed">All Feed Records</option>
+                            <option value="feed-purchase">Purchases</option>
+                            <option value="feed-usage">Usage</option>
+                            <option value="feed-inventory">Inventory</option>
+                        </select>
                     </div>
+                    
+                    <div class="form-group">
+                        <label for="health-report-type">Health Reports:</label>
+                        <select id="health-report-type" class="form-control">
+                            <option value="">Select type</option>
+                            <option value="all-health">All Health Records</option>
+                            <option value="health-treatment">Treatments</option>
+                            <option value="health-vaccination">Vaccinations</option>
+                            <option value="health-medication">Medications</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="category-filter">Category:</label>
+                        <select id="category-filter" class="form-control">
+                            <option value="all">All Categories</option>
+                        </select>
+                        <span class="help-text">Select a category to filter</span>
+                    </div>
+                    
+                    <div class="date-range">
+                        <div class="form-group">
+                            <label for="date-from">From:</label>
+                            <input type="date" id="date-from" class="form-control" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="date-to">To:</label>
+                            <input type="date" id="date-to" class="form-control" required>
+                        </div>
+                    </div>
+                    
+                    <button id="generate-report" class="action-button btn-primary">Generate Report</button>
                 </div>
                 
-                <button id="generate-report" class="action-button btn-primary">Generate Report</button>
+                <div class="report-content content-container">
+                    <div class="empty-state">Select report criteria and click Generate Report</div>
+                </div>
             </div>
             
-            <div class="report-content content-container">
-                <div class="empty-state">Select report criteria and click Generate Report</div>
+            <!-- Mobile Navigation -->
+            <div class="mobile-nav">
+                <a href="dashboard.html">Home</a>
+                <a href="animals.html">Animals</a>
+                <a href="feed.html">Feed</a>
+                <a href="health.html">Health</a>
+                <a href="reports.html" class="active">Reports</a>
             </div>
-        </div>
-        
-        <!-- Mobile Navigation -->
-        <div class="mobile-nav">
-            <a href="dashboard.html">Home</a>
-            <a href="animals.html">Animals</a>
-            <a href="feed.html">Feed</a>
-            <a href="health.html">Health</a>
-            <a href="reports.html" class="active">Reports</a>
         </div>
     </div>
     
