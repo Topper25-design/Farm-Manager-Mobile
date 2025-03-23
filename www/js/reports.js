@@ -395,11 +395,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 case 'feed':
                     // Load feed data
                     const feedInventoryStr = await mobileStorage.getItem('feedInventory');
-                    const feedCategoriesStr = await mobileStorage.getItem('feedCategories');
+                    // Use a different variable name to avoid redeclaration
+                    const feedCategoriesData = await mobileStorage.getItem('feedCategories');
                     const feedTransactionsStr = await mobileStorage.getItem('feedTransactions');
                     
                     const feedInventory = feedInventoryStr ? JSON.parse(feedInventoryStr) : {};
-                    const feedCategories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
+                    const feedCategories = feedCategoriesData ? JSON.parse(feedCategoriesData) : [];
                     const feedTransactions = feedTransactionsStr ? JSON.parse(feedTransactionsStr) : [];
                     
                     // Default category if none available
