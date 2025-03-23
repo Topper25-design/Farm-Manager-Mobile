@@ -27,6 +27,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Add event listeners
     setupEventListeners();
     
+    // Initialize currency format
+    const currencyFormatter = new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: userCurrency.trim() || 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    
     function setupKeyboardDetection() {
         // For iOS using visual viewport API
         if (window.visualViewport) {
@@ -281,6 +289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     console.log('Purchases data:', purchases.length);
                     console.log('Sales data:', sales.length);
                     console.log('Movements data:', movements.length);
+                    console.log('Discrepancies data:', stockDiscrepancies.length);
                     
                     // Get animal categories for later use
                     const animalCategories = await getAnimalCategories();
@@ -296,13 +305,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Process purchases
                     if (purchases && purchases.length > 0) {
                         purchases.forEach(purchase => {
+                            // Ensure cost is a proper number
+                            const cost = parseFloat(purchase.cost) || 0;
+                            
                             transactionRecords.push({
                                 type: 'purchase',
                                 date: purchase.date,
                                 category: purchase.category,
                                 quantity: purchase.quantity,
-                                cost: purchase.cost,
-                                description: `Purchased ${purchase.quantity} ${purchase.category} for ${formatCurrency(purchase.cost)}`,
+                                cost: cost, // Ensure cost is a number
+                                description: `Purchased ${purchase.quantity} ${purchase.category} for ${formatCurrency(cost)}`,
                                 recordMainType: 'animal'
                             });
                         });
@@ -311,13 +323,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Process sales
                     if (sales && sales.length > 0) {
                         sales.forEach(sale => {
+                            // Ensure revenue is a proper number
+                            const revenue = parseFloat(sale.revenue) || 0;
+                            
                             transactionRecords.push({
                                 type: 'sale',
                                 date: sale.date,
                                 category: sale.category,
                                 quantity: sale.quantity,
-                                revenue: sale.revenue,
-                                description: `Sold ${sale.quantity} ${sale.category} for ${formatCurrency(sale.revenue)}`,
+                                revenue: revenue, // Ensure revenue is a number
+                                description: `Sold ${sale.quantity} ${sale.category} for ${formatCurrency(revenue)}`,
                                 recordMainType: 'animal'
                             });
                         });
@@ -338,7 +353,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                         });
                     }
                     
+                    // Process discrepancies separately
+                    let discrepancyRecords = [];
+                    if (stockDiscrepancies && stockDiscrepancies.length > 0) {
+                        stockDiscrepancies.forEach(discrepancy => {
+                            // Skip resolved discrepancies (unless specifically looking for them)
+                            if (discrepancy.resolved && filters.reportType !== 'animal-discrepancy') {
+                                return;
+                            }
+                            
+                            discrepancyRecords.push({
+                                type: 'discrepancy',
+                                date: discrepancy.date,
+                                category: discrepancy.category,
+                                expected: discrepancy.expected,
+                                actual: discrepancy.actual,
+                                difference: discrepancy.difference,
+                                resolved: discrepancy.resolved,
+                                description: `Count discrepancy of ${discrepancy.difference > 0 ? '+' : ''}${discrepancy.difference} ${discrepancy.category}`,
+                                notes: discrepancy.notes,
+                                recordMainType: 'animal'
+                            });
+                        });
+                    }
+                    
                     console.log('Transactions processed:', transactionRecords.length);
+                    console.log('Discrepancies processed:', discrepancyRecords.length);
                     
                     // Filter animal-related activities
                     allRecords = activities.filter(activity => {
@@ -499,8 +539,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                             })];
                     }
                     
-                    // Combine all animal records (from activities, transactions and discrepancies)
-                    allRecords = [...allRecords, ...transactionRecords];
+                    // Combine all animal records
+                    allRecords = [...allRecords, ...transactionRecords, ...discrepancyRecords];
                     
                     console.log('Combined records count:', allRecords.length);
                     break;
@@ -783,7 +823,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     
                     // Fixed handling for all-animal case to include ALL animal record types
                     if (filters.reportType === 'all-animal') {
-                        const validTypes = ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction'];
+                        const validTypes = ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction', 'discrepancy'];
                         const isValidType = validTypes.includes(record.type);
                         
                         // Log more details about the record for debugging
@@ -809,10 +849,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                             return record.type === 'birth';
                         case 'count':
                             return record.type === 'stock-count' || record.type === 'count-correction';
+                        case 'discrepancy':
+                            return record.type === 'discrepancy';
                         default:
                             // Default case - should not reach here but included for safety
                             console.log('Unknown animal record type:', specificType);
-                            return ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction'].includes(record.type);
+                            return ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction', 'discrepancy'].includes(record.type);
                     }
                 });
                 
@@ -1073,17 +1115,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
             case 'purchase':
                 // Safely calculate unit price and handle missing cost data
-                const cost = Number(record.cost || 0);
-                const quantity = Number(record.quantity || 1);
+                const cost = parseFloat(record.cost || 0);
+                const quantity = parseInt(record.quantity || 1, 10);
                 const unitPrice = quantity > 0 ? cost / quantity : 0;
-                return `${record.quantity || ''} @ ${formatCurrency(unitPrice)}ea`;
+                
+                // If the unit price is 0, check if there's a unitCost or price field
+                let displayPrice = unitPrice;
+                if (displayPrice === 0 && record.unitCost) {
+                    displayPrice = parseFloat(record.unitCost);
+                } else if (displayPrice === 0 && record.price) {
+                    displayPrice = parseFloat(record.price);
+                }
+                
+                return `${record.quantity || ''} @ ${formatCurrency(displayPrice)} each`;
                 
             case 'sale':
                 // Safely calculate unit price and handle missing revenue data
-                const revenue = Number(record.revenue || 0);
-                const saleQuantity = Number(record.quantity || 1);
+                const revenue = parseFloat(record.revenue || 0);
+                const saleQuantity = parseInt(record.quantity || 1, 10);
                 const unitRevenue = saleQuantity > 0 ? revenue / saleQuantity : 0;
-                return `${record.quantity || ''} @ ${formatCurrency(unitRevenue)}ea`;
+                
+                // If the unit revenue is 0, check if there's a unitPrice or price field
+                let displayRevenue = unitRevenue;
+                if (displayRevenue === 0 && record.unitPrice) {
+                    displayRevenue = parseFloat(record.unitPrice);
+                } else if (displayRevenue === 0 && record.price) {
+                    displayRevenue = parseFloat(record.price);
+                }
+                
+                return `${record.quantity || ''} @ ${formatCurrency(displayRevenue)} each`;
                 
             case 'death':
                 return `${record.quantity || ''}${record.reason ? `: ${record.reason}` : ''}`;
@@ -1099,13 +1159,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                                record.actualCount !== undefined ? Number(record.actualCount) : 
                                record.quantity !== undefined ? Number(record.quantity) : null;
                 
-                // If description contains full information, use it
-                if (record.description && 
-                    record.description.includes('Expected') && 
-                    record.description.includes('Actual')) {
-                    return record.description.replace('Stock count for ', '');
-                }
-                
                 // If both values are null, try to get count from quantity
                 if (expected === null && actual === null) {
                     if (record.quantity) {
@@ -1119,9 +1172,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const diff = actual !== null && expected !== null ? actual - expected : null;
                 const diffStr = diff !== null ? (diff >= 0 ? `+${diff}` : `${diff}`) : 'N/A';
                 
-                return `Expected: ${expected !== null ? expected : 'N/A'}, ` + 
-                       `Actual: ${actual !== null ? actual : 'N/A'}, ` + 
-                       `Diff: ${diffStr}`;
+                // Format to match the shown report format
+                return `${record.category}: Expected ${expected !== null ? expected : 'N/A'}, Actual ${actual !== null ? actual : 'N/A'} (${diffStr})`;
                 
             case 'count-correction':
                 return `Adjusted by ${record.difference > 0 ? '+' : ''}${record.difference}`;
@@ -1145,6 +1197,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             case 'health-record':
                 return `${record.condition || ''}: ${record.severity || 'N/A'}`;
                 
+            case 'discrepancy':
+                // Format for stock count discrepancy
+                return `Expected: ${record.expected || 0}, ` +
+                       `Actual: ${record.actual || 0}, ` +
+                       `Diff: ${record.difference >= 0 ? '+' : ''}${record.difference || 0}` +
+                       `${record.resolved ? ' (Resolved)' : ''}`;
+                
             default:
                 // If there's a description, use that
                 if (record.description) {
@@ -1164,8 +1223,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     function formatCurrency(amount) {
-        if (amount === undefined || amount === null) return `${userCurrency}0`;
-        return `${userCurrency}${Number(amount).toFixed(2)}`;
+        if (amount === undefined || amount === null) return `${userCurrency}0.00`;
+        
+        try {
+            // Use the Intl formatter for proper currency display
+            return currencyFormatter.format(Number(amount));
+        } catch (e) {
+            // Fallback to simple formatting if Intl fails
+            return `${userCurrency}${Number(amount).toFixed(2)}`;
+        }
     }
     
     function summarizeRecords(reportType, records) {
