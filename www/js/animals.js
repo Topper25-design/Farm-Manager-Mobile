@@ -254,6 +254,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateInventoryDisplay();
         updateTransactionsDisplay();
         updateDiscrepanciesDisplay();
+        updateRecentCountsDisplay();
     }
     
     function updateInventoryDisplay() {
@@ -429,6 +430,52 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
             
             discrepanciesElem.appendChild(item);
+        });
+    }
+    
+    function updateRecentCountsDisplay() {
+        const recentCountsList = document.getElementById('recent-counts-list');
+        if (!recentCountsList) return;
+        
+        // Get all stock count activities
+        const stockCounts = recentActivities.filter(activity => 
+            activity.type === 'stock-count'
+        );
+        
+        if (stockCounts.length === 0) {
+            recentCountsList.innerHTML = '<p>No recent counts</p>';
+            return;
+        }
+        
+        // Sort by date (newest first)
+        stockCounts.sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date));
+        
+        recentCountsList.innerHTML = '';
+        
+        // Display the most recent 10 counts
+        stockCounts.slice(0, 10).forEach(count => {
+            const countItem = document.createElement('div');
+            countItem.className = 'count-item';
+            
+            const date = new Date(count.timestamp || count.date).toLocaleDateString();
+            const expected = count.expected || 0;
+            const actual = count.actual || count.quantity || 0;
+            const difference = actual - expected;
+            const differenceClass = difference === 0 ? 'match' : (difference > 0 ? 'surplus' : 'shortage');
+            
+            countItem.innerHTML = `
+                <div class="count-date">${date}</div>
+                <div class="count-category">${count.category}</div>
+                <div class="count-details">
+                    Expected: ${expected}, 
+                    Actual: ${actual}, 
+                    <span class="diff ${differenceClass}">
+                        Diff: ${difference > 0 ? '+' : ''}${difference}
+                    </span>
+                </div>
+            `;
+            
+            recentCountsList.appendChild(countItem);
         });
     }
     
