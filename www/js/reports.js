@@ -88,20 +88,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Define the formatCurrency function to handle fallback scenarios
     function formatCurrency(amount) {
-        if (amount === undefined || amount === null) return `${currencySymbol}0.00`;
+        if (amount === undefined || amount === null) return `R0.00 ZAR`;
         
         try {
-            // Use the Intl formatter for proper currency display
-            if (currencyFormatter) {
-                return currencyFormatter.format(Number(amount));
-            } else {
-                // Fallback to simple formatting
-                return `${currencySymbol}${Number(amount).toFixed(2)}`;
-            }
+            // Format currency in the requested style: "R187500.00 ZAR"
+            const numAmount = Number(amount);
+            const formattedAmount = numAmount.toFixed(2);
+            return `R${formattedAmount} ZAR`;
         } catch (e) {
             console.error('Error formatting currency:', e);
-            // Fallback to simple formatting if Intl fails
-            return `${currencySymbol}${Number(amount).toFixed(2)}`;
+            // Fallback to simple formatting if formatting fails
+            return `R${Number(amount).toFixed(2)} ZAR`;
         }
     }
     
@@ -1388,6 +1385,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                                record.actualCount !== undefined ? Number(record.actualCount) : 
                                record.quantity !== undefined ? Number(record.quantity) : null;
                 
+                // If we have description that includes expected/actual, parse that
+                if (record.description && record.description.includes('Expected')) {
+                    const match = record.description.match(/Expected (\d+), Actual (\d+) \(([\+\-]\d+)\)/);
+                    if (match) {
+                        return `Expected: ${match[1]}, Actual: ${match[2]}, Diff: ${match[3]}`;
+                    }
+                }
+                
                 // If both values are null, try to get count from quantity
                 if (expected === null && actual === null) {
                     if (record.quantity) {
@@ -1402,10 +1407,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const diffStr = diff !== null ? (diff >= 0 ? `+${diff}` : `${diff}`) : 'N/A';
                 
                 // Format to match the shown report format
-                return `${record.category}: Expected ${expected !== null ? expected : 'N/A'}, Actual ${actual !== null ? actual : 'N/A'} (${diffStr})`;
+                return `Expected: ${expected !== null ? expected : 'N/A'}, Actual: ${actual !== null ? actual : 'N/A'}, Diff: ${diffStr}`;
                 
             case 'count-correction':
                 return `Adjusted by ${record.difference > 0 ? '+' : ''}${record.difference}`;
+                
+            case 'discrepancy':
+                // Format for stock count discrepancy with resolution details
+                const discDetails = `Expected: ${record.expected || 0}, ` +
+                       `Actual: ${record.actual || 0}, ` +
+                       `Diff: ${record.difference >= 0 ? '+' : ''}${record.difference || 0}`;
+                
+                if (record.resolved) {
+                    let resolutionInfo = ' (Resolved)';
+                    if (record.resolutionNotes) {
+                        resolutionInfo += ` - ${record.resolutionNotes}`;
+                    }
+                    if (record.resolutionCount !== undefined) {
+                        resolutionInfo += ` - Final count: ${record.resolutionCount}`;
+                    }
+                    return discDetails + resolutionInfo;
+                }
+                return discDetails;
                 
             case 'inventory':
                 return `${record.quantity} ${record.unit || ''}, Val: ${formatCurrency(record.totalValue)}`;
@@ -1425,14 +1448,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
             case 'health-record':
                 return `${record.condition || ''}: ${record.severity || 'N/A'}`;
-                
-            case 'discrepancy':
-                // Format for stock count discrepancy
-                return `Expected: ${record.expected || 0}, ` +
-                       `Actual: ${record.actual || 0}, ` +
-                       `Diff: ${record.difference >= 0 ? '+' : ''}${record.difference || 0}` +
-                       `${record.resolved ? ' (Resolved)' : ''}`;
-                
+            
             default:
                 // If there's a description, use that
                 if (record.description) {
