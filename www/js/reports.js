@@ -38,6 +38,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Map common symbols to ISO codes or default to USD
     let currencyCode = 'USD'; // Always default to USD
     
+    // Define the formatter at the global scope so it's accessible everywhere
+    let currencyFormatter;
+    
     try {
         console.log('User currency value:', userCurrency);
         
@@ -73,7 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Create the formatter with a guaranteed valid ISO currency code
         console.log('Final currency code for formatter:', currencyCode);
         
-        const currencyFormatter = new Intl.NumberFormat(undefined, {
+        currencyFormatter = new Intl.NumberFormat(undefined, {
             style: 'currency',
             currency: currencyCode,
             minimumFractionDigits: 2,
@@ -81,11 +84,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     } catch (e) {
         console.error('Error creating currency formatter:', e);
-        // Define a fallback formatter function that doesn't use Intl
-        window.formatCurrency = function(amount) {
-            if (amount === undefined || amount === null) return `${currencySymbol}0.00`;
-            return `${currencySymbol}${Number(amount).toFixed(2)}`;
-        };
     }
     
     // Define the formatCurrency function to handle fallback scenarios
@@ -455,16 +453,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                         console.log('Processing', purchases.length, 'animal purchases');
                         purchases.forEach(purchase => {
                             // Ensure cost is a proper number
-                            const cost = parseFloat(purchase.cost || 0);
+                            const cost = parseFloat(purchase.price || purchase.cost || purchase.amount || 0);
                             
                             transactionRecords.push({
                                 type: 'purchase',
-                                date: purchase.date,
+                                date: purchase.date || purchase.timestamp || new Date().toISOString(),
                                 category: purchase.category,
                                 quantity: purchase.quantity,
                                 cost: cost, // Ensure cost is a number
+                                price: parseFloat(purchase.price || 0),
                                 description: `Purchased ${purchase.quantity} ${purchase.category} for ${formatCurrency(cost)}`,
-                                recordMainType: 'animal'
+                                recordMainType: 'animal',
+                                supplier: purchase.supplier
                             });
                         });
                     }
@@ -569,8 +569,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         let skippedCount = 0;
                         
                         stockDiscrepancies.forEach(discrepancy => {
-                            // Skip resolved discrepancies (unless specifically looking for them)
-                            if (discrepancy.resolved && filters.reportType !== 'animal-discrepancy') {
+                            // When viewing "All Animal Records", include all discrepancies
+                            // Only skip resolved ones for specific discrepancy reports
+                            if (filters.reportType !== 'all-animal' && discrepancy.resolved && filters.reportType !== 'animal-discrepancy') {
                                 skippedCount++;
                                 return;
                             }
@@ -596,147 +597,84 @@ document.addEventListener('DOMContentLoaded', async () => {
                     console.log('Discrepancies processed:', discrepancyRecords.length);
                     
                     // Filter animal-related activities
-                    allRecords = activities.filter(activity => {
-                        // Check if it's an animal-related activity
-                        if (typeof activity === 'string') {
-                            // Handle string-based activities
-                            const activityLower = activity.toLowerCase();
-                            
-                            // Make sure it's an animal record and NOT a feed or health record
-                            const isAnimalRecord = activityLower.includes('moved') ||
-                                activityLower.includes('purchased') ||
-                                activityLower.includes('sold') ||
-                                activityLower.includes('death') ||
-                                activityLower.includes('birth') ||
-                                activityLower.includes('stock count');
-                                
-                            const isFeedRecord = activityLower.includes('feed');
-                            const isHealthRecord = activityLower.includes('treatment') || 
-                                                  activityLower.includes('vaccination') || 
-                                                  activityLower.includes('medication') ||
-                                                  activityLower.includes('health');
-                            
-                            return isAnimalRecord && !isFeedRecord && !isHealthRecord;
-                        } else if (activity && typeof activity === 'object') {
-                            // Handle object-based activities
-                            const isAnimalRecord = activity.type === 'movement' ||
-                                activity.type === 'purchase' ||
-                                activity.type === 'sale' ||
-                                activity.type === 'death' ||
-                                activity.type === 'birth' ||
-                                activity.type === 'stock-count' ||
-                                activity.type === 'count-correction' ||
-                                // Also check description for older records
-                                (activity.description && (
-                                    activity.description.toLowerCase().includes('moved') ||
-                                    activity.description.toLowerCase().includes('purchased') ||
-                                    activity.description.toLowerCase().includes('sold') ||
-                                    activity.description.toLowerCase().includes('death') ||
-                                    activity.description.toLowerCase().includes('birth') ||
-                                    activity.description.toLowerCase().includes('stock count')
-                                ));
-                                
-                            // Exclude feed records by checking:
-                            // 1. If category contains "feed"
-                            // 2. If fromCategory contains "feed"
-                            // 3. If toCategory contains "feed"
-                            // 4. If description contains "feed"
-                            // 5. If category is in the list of feed categories
-                            const isFeedRecord = 
-                                (activity.category && (
-                                    activity.category.toLowerCase().includes('feed') ||
-                                    feedCategories.includes(activity.category)
-                                )) ||
-                                (activity.fromCategory && (
-                                    activity.fromCategory.toLowerCase().includes('feed') ||
-                                    feedCategories.includes(activity.fromCategory)
-                                )) ||
-                                (activity.toCategory && (
-                                    activity.toCategory.toLowerCase().includes('feed') ||
-                                    feedCategories.includes(activity.toCategory)
-                                )) ||
-                                (activity.description && activity.description.toLowerCase().includes('feed'));
-                                
-                            const isHealthRecord = 
-                                activity.type === 'treatment' || 
-                                activity.type === 'vaccination' || 
-                                activity.type === 'medication' ||
-                                activity.type === 'health-record' ||
-                                (activity.description && (
-                                    activity.description.toLowerCase().includes('treatment') ||
-                                    activity.description.toLowerCase().includes('vaccination') ||
-                                    activity.description.toLowerCase().includes('medication') ||
-                                    activity.description.toLowerCase().includes('health')
-                                ));
-                                
-                            return isAnimalRecord && !isFeedRecord && !isHealthRecord;
+                    const animalRecords = activities.filter(activity => {
+                        if (!activity) return false;
+                        
+                        // Map legacy types to standard types
+                        if (activity.type === 'buy') {
+                            activity.type = 'purchase';
+                            console.log('Mapped buy → purchase:', activity);
+                        } else if (activity.type === 'sell') {
+                            activity.type = 'sale';
+                            console.log('Mapped sell → sale:', activity);
+                        } else if (activity.type === 'count-discrepancy') {
+                            activity.type = 'discrepancy';
+                            console.log('Mapped count-discrepancy → discrepancy:', activity);
                         }
-                        return false;
+                        
+                        const animalTypes = ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction', 'discrepancy'];
+                        
+                        // Check if it's an animal record by type
+                        const isAnimalType = animalTypes.includes(activity.type);
+                        
+                        // Additional check for feed categories if type check is ambiguous
+                        let isFeedCategory = false;
+                        if (activity.category && feedCategoriesGlobal.length > 0) {
+                            isFeedCategory = feedCategoriesGlobal.some(cat => 
+                                activity.category.toLowerCase().includes(cat.toLowerCase())
+                            );
+                        }
+                        
+                        return isAnimalType && !isFeedCategory;
                     }).map(activity => {
-                        // Convert string activities to objects if needed
-                        if (typeof activity === 'string') {
-                            return parseActivityString(activity);
-                        }
-                        
-                        // Ensure record has a category - use first category as default if needed
-                        if (!activity.category && !activity.fromCategory && !activity.toCategory) {
-                            activity.category = animalCategories[0] || 'General';
-                        }
-                        
-                        // One final check to ensure no feed categories slip through
-                        if (activity.category && feedCategories.includes(activity.category)) {
-                            // Skip this record as it's a feed record
-                            return null;
-                        }
-                        
-                        // For stock-count activities, add expected and actual values from inventory if available
-                        if (activity.type === 'stock-count' && activity.category && animalInventory) {
-                            // Check if we have inventory data for this category
-                            const categoryInventory = animalInventory[activity.category];
-                            if (categoryInventory) {
-                                // Add expected count (the previous count before this stock count)
-                                if (!activity.expected && categoryInventory.count !== undefined) {
-                                    activity.expected = categoryInventory.count;
-                                }
-                                
-                                // Ensure actual is set from quantity if available
-                                if (!activity.actual && activity.quantity !== undefined) {
-                                    activity.actual = activity.quantity;
-                                }
+                        // For purchases and sales, ensure they have proper cost/revenue
+                        if (activity.type === 'purchase') {
+                            // Extract price/cost from appropriate field
+                            let cost = 0;
+                            if (activity.cost) {
+                                cost = parseFloat(activity.cost);
+                            } else if (activity.price) {
+                                cost = parseFloat(activity.price) * parseFloat(activity.quantity || 1);
+                            } else if (activity.amount) {
+                                cost = parseFloat(activity.amount);
                             }
-                        }
-                        
-                        // Ensure type is properly set for key animal activities
-                        // This fixes cases where the type might be missing or using a different format
-                        if (activity.description) {
-                            const desc = activity.description.toLowerCase();
-                            if (!activity.type || activity.type === '') {
-                                if (desc.includes('purchased') || desc.includes('bought')) {
-                                    activity.type = 'purchase';
-                                } else if (desc.includes('sold') || desc.includes('sale')) {
-                                    activity.type = 'sale';
-                                } else if (desc.includes('moved') || desc.includes('movement')) {
-                                    activity.type = 'movement';
-                                } else if (desc.includes('birth') || desc.includes('born')) {
-                                    activity.type = 'birth';
-                                } else if (desc.includes('death') || desc.includes('died')) {
-                                    activity.type = 'death';
-                                } else if (desc.includes('stock count') || desc.includes('counted')) {
-                                    activity.type = 'stock-count';
-                                }
+                            
+                            return {
+                                ...activity,
+                                cost: cost,
+                                recordMainType: 'animal'
+                            };
+                        } else if (activity.type === 'sale') {
+                            // Extract revenue from appropriate field
+                            let revenue = 0;
+                            if (activity.revenue) {
+                                revenue = parseFloat(activity.revenue);
+                            } else if (activity.price) {
+                                revenue = parseFloat(activity.price) * parseFloat(activity.quantity || 1);
+                            } else if (activity.amount) {
+                                revenue = parseFloat(activity.amount);
                             }
+                            
+                            return {
+                                ...activity,
+                                revenue: revenue,
+                                recordMainType: 'animal'
+                            };
                         }
                         
-                        // Mark this as an animal record for filtering
-                        return {...activity, recordMainType: 'animal'};
-                    }).filter(record => record !== null); // Remove any null records
+                        // Add recordMainType to all records
+                        return {
+                            ...activity,
+                            recordMainType: 'animal'
+                        };
+                    });
                     
-                    console.log('Mapped animal records:', allRecords.length);
-                    console.log('Sample animal records:', allRecords.slice(0, 3));
+                    console.log('Mapped animal records:', animalRecords.length);
+                    console.log('Sample animal records:', animalRecords.slice(0, 3));
                     
                     // Add stock discrepancies
                     if (stockDiscrepancies && Array.isArray(stockDiscrepancies)) {
-                        allRecords = [...allRecords, ...stockDiscrepancies
+                        allRecords = [...animalRecords, ...stockDiscrepancies
                             .filter(record => {
                                 // Ensure no feed records in discrepancies
                                 if (record.category) {
@@ -755,7 +693,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                     
                     // Combine all animal records
-                    allRecords = [...allRecords, ...transactionRecords, ...discrepancyRecords];
+                    allRecords = [...animalRecords, ...transactionRecords, ...discrepancyRecords];
                     
                     console.log('Combined records count:', allRecords.length);
                     break;
@@ -1036,9 +974,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         return false;
                     }
                     
-                    // Fixed handling for all-animal case to include ALL animal record types
+                    // For all-animal case, include all animal record types
                     if (filters.reportType === 'all-animal') {
-                        const validTypes = ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction', 'discrepancy'];
+                        const validTypes = ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction', 'discrepancy', 'resolution'];
                         const isValidType = validTypes.includes(record.type);
                         
                         // Log more details about the record for debugging
