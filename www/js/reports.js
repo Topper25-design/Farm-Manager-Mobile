@@ -27,10 +27,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Add event listeners
     setupEventListeners();
     
-    // Initialize currency format - fix error with currency trim
+    // Initialize currency format - fix error with invalid currency code
+    // Store the currency symbol for display
+    const currencySymbol = typeof userCurrency === 'string' ? userCurrency.trim() : '$';
+    
+    // For Intl.NumberFormat, we need an ISO currency code, not just a symbol
+    // Map common symbols to ISO codes or default to USD
+    let currencyCode = 'USD';
+    if (typeof userCurrency === 'string') {
+        const currencyMap = {
+            '$': 'USD',
+            '£': 'GBP',
+            '€': 'EUR',
+            '¥': 'JPY',
+            '₹': 'INR',
+            'R': 'ZAR',
+            'R$': 'BRL'
+        };
+        currencyCode = currencyMap[userCurrency.trim()] || 'USD';
+    }
+    
     const currencyFormatter = new Intl.NumberFormat(undefined, {
         style: 'currency',
-        currency: typeof userCurrency === 'string' ? userCurrency.trim() || 'USD' : 'USD',
+        currency: currencyCode,
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
@@ -1375,14 +1394,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     function formatCurrency(amount) {
-        if (amount === undefined || amount === null) return `${userCurrency}0.00`;
+        if (amount === undefined || amount === null) return `${currencySymbol}0.00`;
         
         try {
             // Use the Intl formatter for proper currency display
             return currencyFormatter.format(Number(amount));
         } catch (e) {
             // Fallback to simple formatting if Intl fails
-            return `${userCurrency}${Number(amount).toFixed(2)}`;
+            return `${currencySymbol}${Number(amount).toFixed(2)}`;
         }
     }
     
