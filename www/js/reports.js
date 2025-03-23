@@ -920,7 +920,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return `${record.quantity || ''}${record.notes ? `: ${record.notes}` : ''}`;
                 
             case 'stock-count':
-                return `Exp: ${record.expected || 0}, Act: ${record.actual || 0}, Diff: ${(record.actual || 0) - (record.expected || 0)}`;
+                // Improved stock count details display
+                const expected = record.expected !== undefined ? Number(record.expected) : null;
+                const actual = record.actual !== undefined ? Number(record.actual) : null;
+                
+                // If both values are null, try to get count from quantity
+                if (expected === null && actual === null) {
+                    if (record.quantity) {
+                        return `Count: ${record.quantity}${record.notes ? ` - ${record.notes}` : ''}`;
+                    }
+                    return record.notes || 'Count performed';
+                }
+                
+                // Calculate difference with sign
+                const diff = actual !== null && expected !== null ? actual - expected : null;
+                const diffStr = diff !== null ? (diff >= 0 ? `+${diff}` : `${diff}`) : 'N/A';
+                
+                return `Expected: ${expected !== null ? expected : 'N/A'}, ` + 
+                       `Actual: ${actual !== null ? actual : 'N/A'}, ` + 
+                       `Diff: ${diffStr}`;
                 
             case 'count-correction':
                 return `Adjusted by ${record.difference > 0 ? '+' : ''}${record.difference}`;
