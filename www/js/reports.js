@@ -400,11 +400,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const feedTransactionsStr = await mobileStorage.getItem('feedTransactions');
                     
                     const feedInventory = feedInventoryStr ? JSON.parse(feedInventoryStr) : {};
-                    const feedCategories = feedCategoriesData ? JSON.parse(feedCategoriesData) : [];
+                    const feedCategoriesList = feedCategoriesData ? JSON.parse(feedCategoriesData) : [];
                     const feedTransactions = feedTransactionsStr ? JSON.parse(feedTransactionsStr) : [];
                     
                     // Default category if none available
-                    const defaultFeedCategory = feedCategories.length > 0 ? feedCategories[0] : 'Feed';
+                    const defaultFeedCategory = feedCategoriesList.length > 0 ? feedCategoriesList[0] : 'Feed';
                     
                     // Also check recentActivities for feed-related entries
                     const allActivitiesStr = await mobileStorage.getItem('recentActivities');
@@ -486,7 +486,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             );
                             break;
                         case 'feed-inventory':
-                        allRecords = feedCategories.map(category => {
+                        allRecords = feedCategoriesList.map(category => {
                             const data = feedInventory[category] || {};
                             return {
                                 type: 'inventory',
