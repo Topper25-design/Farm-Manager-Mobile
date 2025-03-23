@@ -658,6 +658,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Apply type filtering even if 'all-' type is selected
             if (filters.mainType === 'animal') {
+                // First filter out non-animal records and feed categories
                 filteredRecords = filteredRecords.filter(record => {
                     if (!record || !record.type) return false;
                     
@@ -668,8 +669,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                         return false;
                     }
                     
-                    // Only include animal record types
-                    return ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction'].includes(record.type);
+                    // Return true for all animal record types if "all-animal" is selected
+                    if (filters.reportType === 'all-animal') {
+                        return ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction'].includes(record.type);
+                    }
+                    
+                    // For specific animal report types, apply additional filtering
+                    const specificType = filters.reportType.split('-')[1]; // 'movement', 'purchase', etc.
+                    switch (specificType) {
+                        case 'movement':
+                            return record.type === 'movement';
+                        case 'purchase':
+                            return record.type === 'purchase';
+                        case 'sale':
+                            return record.type === 'sale';
+                        case 'death':
+                            return record.type === 'death';
+                        case 'birth':
+                            return record.type === 'birth';
+                        case 'count':
+                            return record.type === 'stock-count' || record.type === 'count-correction';
+                        default:
+                            return ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction'].includes(record.type);
+                    }
                 });
             } else if (!filters.reportType.startsWith('all-')) {
                 // Filter by specific type for non-all reports
