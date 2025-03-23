@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initialize state
     let selectedReportType = '';
     let selectedMainType = '';
-    let userCurrency = await mobileStorage.getItem('currency') || '$';
+    let userCurrency = await mobileStorage.getItem('currency') || 'R';
     
     // Set default dates (last 30 days)
     const today = new Date();
@@ -32,11 +32,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Initialize currency format - fix error with invalid currency code
     // Store the currency symbol for display
-    const currencySymbol = typeof userCurrency === 'string' ? userCurrency.trim() : '$';
+    const currencySymbol = typeof userCurrency === 'string' ? userCurrency.trim() : 'R';
     
     // For Intl.NumberFormat, we need an ISO currency code, not just a symbol
     // Map common symbols to ISO codes or default to USD
-    let currencyCode = 'USD'; // Always default to USD
+    let currencyCode = 'ZAR'; // Default to ZAR instead of USD
     
     // Define the formatter at the global scope so it's accessible everywhere
     let currencyFormatter;
@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     currencyCode = trimmedCurrency;
                     console.log('Using currency as ISO code:', currencyCode);
                 } else {
-                    console.log('Using default USD code');
+                    console.log('Using default ZAR code');
                 }
             }
         }
@@ -445,6 +445,41 @@ document.addEventListener('DOMContentLoaded', async () => {
                     
                     console.log('Animal transactions from userTransactions:', animalTransactions.length);
 
+                    // Process all activities looking for movement records in recentActivities since animalMovements might be empty
+                    console.log('Checking for movement records in recent activities...');
+                    const movementRecords = [];
+                    
+                    // Check if activities contains movement records
+                    if (activities && activities.length > 0) {
+                        activities.forEach(activity => {
+                            if (!activity) return;
+                            
+                            // Look for explicit movement type or description containing movement keywords
+                            const isMovement = 
+                                activity.type === 'movement' || 
+                                (activity.description && activity.description.toLowerCase().includes('moved')) ||
+                                (activity.fromCategory && activity.toCategory); // Having both from/to categories is a strong indicator
+                            
+                            if (isMovement) {
+                                console.log('Found movement record in activities:', activity);
+                                
+                                // Enhance the movement record with properties needed for display
+                                const fromCat = activity.fromCategory || 'Unknown';
+                                const toCat = activity.toCategory || 'Unknown';
+                                const qty = activity.quantity || 1;
+                                
+                                movementRecords.push({
+                                    ...activity,
+                                    type: 'movement',
+                                    description: activity.description || `Moved ${qty} from ${fromCat} to ${toCat}`,
+                                    recordMainType: 'animal'
+                                });
+                            }
+                        });
+                    }
+                    
+                    console.log('Found', movementRecords.length, 'movement records in recent activities');
+
                     // Process animal transaction records
                     let transactionRecords = [];
                     
@@ -452,17 +487,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (purchases && purchases.length > 0) {
                         console.log('Processing', purchases.length, 'animal purchases');
                         purchases.forEach(purchase => {
-                            // Ensure cost is a proper number
-                            const cost = parseFloat(purchase.price || purchase.cost || purchase.amount || 0);
+                            // Ensure price is per item and cost is total
+                            const price = parseFloat(purchase.price || 0);
+                            const quantity = parseFloat(purchase.quantity || 1);
+                            
+                            // Calculate total cost - if amount exists use it, otherwise calculate from price * quantity
+                            let cost;
+                            if (purchase.amount) {
+                                cost = parseFloat(purchase.amount);
+                            } else if (price) {
+                                cost = price * quantity;
+                            } else if (purchase.cost) {
+                                cost = parseFloat(purchase.cost);
+                            } else {
+                                cost = 0;
+                            }
                             
                             transactionRecords.push({
                                 type: 'purchase',
                                 date: purchase.date || purchase.timestamp || new Date().toISOString(),
                                 category: purchase.category,
-                                quantity: purchase.quantity,
-                                cost: cost, // Ensure cost is a number
-                                price: parseFloat(purchase.price || 0),
-                                description: `Purchased ${purchase.quantity} ${purchase.category} for ${formatCurrency(cost)}`,
+                                quantity: quantity,
+                                cost: cost, // Total cost
+                                price: price, // Price per item
+                                description: `Purchased ${quantity} ${purchase.category} for ${formatCurrency(cost)}`,
                                 recordMainType: 'animal',
                                 supplier: purchase.supplier
                             });
@@ -493,17 +541,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (sales && sales.length > 0) {
                         console.log('Processing', sales.length, 'animal sales');
                         sales.forEach(sale => {
-                            // Ensure revenue is a proper number
-                            const revenue = parseFloat(sale.revenue || 0);
+                            // Ensure price is per item and revenue is total
+                            const price = parseFloat(sale.price || 0);
+                            const quantity = parseFloat(sale.quantity || 1);
+                            
+                            // Calculate total revenue - if amount exists use it, otherwise calculate from price * quantity
+                            let revenue;
+                            if (sale.amount) {
+                                revenue = parseFloat(sale.amount);
+                            } else if (price) {
+                                revenue = price * quantity;
+                            } else if (sale.revenue) {
+                                revenue = parseFloat(sale.revenue);
+                            } else {
+                                revenue = 0;
+                            }
                             
                             transactionRecords.push({
                                 type: 'sale',
-                                date: sale.date,
+                                date: sale.date || sale.timestamp || new Date().toISOString(),
                                 category: sale.category,
-                                quantity: sale.quantity,
-                                revenue: revenue, // Ensure revenue is a number
-                                description: `Sold ${sale.quantity} ${sale.category} for ${formatCurrency(revenue)}`,
-                                recordMainType: 'animal'
+                                quantity: quantity,
+                                revenue: revenue, // Total revenue
+                                price: price, // Price per item
+                                description: `Sold ${quantity} ${sale.category} for ${formatCurrency(revenue)}`,
+                                recordMainType: 'animal',
+                                buyer: sale.buyer
                             });
                         });
                     }
@@ -595,6 +658,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     
                     console.log('Transactions processed:', transactionRecords.length);
                     console.log('Discrepancies processed:', discrepancyRecords.length);
+                    console.log('Movements processed:', movementRecords.length);
                     
                     // Filter animal-related activities
                     const animalRecords = activities.filter(activity => {
@@ -693,7 +757,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                     
                     // Combine all animal records
-                    allRecords = [...animalRecords, ...transactionRecords, ...discrepancyRecords];
+                    allRecords = [...animalRecords, ...transactionRecords, ...discrepancyRecords, ...movementRecords];
                     
                     console.log('Combined records count:', allRecords.length);
                     break;
