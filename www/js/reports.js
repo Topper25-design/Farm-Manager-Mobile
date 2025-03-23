@@ -251,6 +251,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     async function collectReportData(filters) {
         let allRecords = [];
+        // Declare a variable to hold feed categories at the top level of the function scope
+        let feedCategoriesGlobal = [];
         
         try {
             console.log('Starting data collection:', filters);
@@ -272,6 +274,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Get feed categories to help with filtering out feed records
                     const feedCategoriesStr = await mobileStorage.getItem('feedCategories');
                     const feedCategories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
+                    // Store in the function-level variable for use later
+                    feedCategoriesGlobal = feedCategories;
                     
                     // Filter animal-related activities
                     allRecords = activities.filter(activity => {
@@ -643,7 +647,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Double check feed categories aren't included
                     const recordCategory = record.category || record.fromCategory || record.toCategory;
                     if (recordCategory && 
-                        (recordCategory.toLowerCase().includes('feed') || feedCategories.includes(recordCategory))) {
+                        (recordCategory.toLowerCase().includes('feed') || feedCategoriesGlobal.includes(recordCategory))) {
                         return false;
                     }
                     
