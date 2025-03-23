@@ -1513,7 +1513,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const toCountAfter = categoryInventory[record.toCategory] || 0;
                     
                     // Show inventory impact
-                    details += ` (${record.fromCategory} ${fromCountBefore} -${record.quantity} new total; ${record.toCategory} ${toCountBefore} +${record.quantity} new total)`;
+                    details += ` (${record.fromCategory} ${fromCountBefore} -${record.quantity} = ${fromCountAfter}; ${record.toCategory} ${toCountBefore} +${record.quantity} = ${toCountAfter})`;
                 }
             }
             
