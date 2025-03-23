@@ -371,6 +371,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                             return null;
                         }
                         
+                        // For stock-count activities, add expected and actual values from inventory if available
+                        if (activity.type === 'stock-count' && activity.category && animalInventory) {
+                            // Check if we have inventory data for this category
+                            const categoryInventory = animalInventory[activity.category];
+                            if (categoryInventory) {
+                                // Add expected count (the previous count before this stock count)
+                                if (!activity.expected && categoryInventory.count !== undefined) {
+                                    activity.expected = categoryInventory.count;
+                                }
+                                
+                                // Ensure actual is set from quantity if available
+                                if (!activity.actual && activity.quantity !== undefined) {
+                                    activity.actual = activity.quantity;
+                                }
+                            }
+                        }
+                        
                         // Mark this as an animal record for filtering
                         return {...activity, recordMainType: 'animal'};
                     }).filter(record => record !== null); // Remove any null records
@@ -927,6 +944,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // If both values are null, try to get count from quantity
                 if (expected === null && actual === null) {
                     if (record.quantity) {
+                        // Use quantity as the actual count
                         return `Count: ${record.quantity}${record.notes ? ` - ${record.notes}` : ''}`;
                     }
                     return record.notes || 'Count performed';

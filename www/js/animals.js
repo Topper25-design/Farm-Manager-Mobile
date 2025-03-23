@@ -1421,13 +1421,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const notes = data.notes || '';
         const countDate = data.date;
         
-        // Create stock count record
-            const stockCount = {
+        // Create stock count record with explicit expected and actual values
+        const stockCount = {
             type: 'stock-count',
-                date: countDate,
+            date: countDate,
             category: category,
-            expectedCount: expectedCount,
-            actualCount: actualCount,
+            expected: expectedCount,   // Use consistent property names
+            actual: actualCount,       // Use consistent property names
+            quantity: actualCount,     // Keep quantity for backward compatibility
             difference: difference,
             notes: notes
         };
@@ -1437,11 +1438,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         stockCounts.push(stockCount);
         await mobileStorage.setItem('stockCounts', JSON.stringify(stockCounts));
         
-        // Create activity record
+        // Create activity record with expected and actual values
         const stockCountActivity = {
-                type: 'stock-count',
-                date: countDate,
+            type: 'stock-count',
+            date: countDate,
             category: category,
+            expected: expectedCount,   // Add these fields to the activity record
+            actual: actualCount,       // so they are available in reports
+            quantity: actualCount,     // Keep quantity for backward compatibility
             description: `Stock count for ${category}: Expected ${expectedCount}, Actual ${actualCount} (${difference >= 0 ? '+' : ''}${difference})`,
             notes: notes,
             timestamp: countDate
@@ -1449,7 +1453,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Add to recent activities
         recentActivities.unshift(stockCountActivity);
-            await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+        await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
         
         // Handle discrepancy
         const existingDiscrepancyIndex = stockDiscrepancies.findIndex(d => 
@@ -1480,7 +1484,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Save discrepancies
             await mobileStorage.setItem('stockDiscrepancies', JSON.stringify(stockDiscrepancies));
             
-            // Notify user
+            // Only show alert for discrepancies
             alert(`Stock count recorded. Discrepancy of ${difference >= 0 ? '+' : ''}${difference} ${category} has been recorded.`);
         } else {
             // If this count matches expected count, resolve any existing discrepancy
@@ -1509,16 +1513,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 recentActivities.unshift(resolutionActivity);
                 await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
                 
-                // Notify user
-                alert(`Stock count matches the expected count. Previous discrepancy for ${category} has been resolved.`);
-            } else {
-                // Notify user of successful count with no discrepancies
-                alert(`Stock count matches the expected count. No discrepancies recorded.`);
+                // No alert needed here, let the UI update silently
             }
+            // No "else" message for matching counts with no existing discrepancy
         }
             
-            // Update UI
-            updateDisplays();
+        // Update UI
+        updateDisplays();
     }
 
     // Function to confirm and clear all animal data
