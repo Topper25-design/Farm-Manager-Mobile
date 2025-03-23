@@ -1222,11 +1222,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         
+        // Process records to link discrepancies with their resolving counts
+        const processedRecords = linkDiscrepancyResolutions(records);
+        
         // Get report title
         const reportTitle = getReportTitle(filters);
         
         // Create summary data
-        const summary = summarizeRecords(filters.reportType, records);
+        const summary = summarizeRecords(filters.reportType, processedRecords);
         
         // Create report content
         let reportContent = `
@@ -1254,46 +1257,198 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="report-details">
                 <div class="summary-title">Details</div>
                 <div class="report-table-container">
-                    <table class="report-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Type</th>
-                                <th>Category</th>
-                                <th>Details</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                    <table id="reportDetailsTable" class="report-table">
+                        <tbody id="reportDetailsBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <style>
+                .resolved-discrepancy { background-color: #f8f8f8; }
+                .unresolved-discrepancy { background-color: #fff0f0; }
+                .resolving-count { background-color: #f0fff0; }
+                .resolved-count { font-weight: bold; color: green; }
+            </style>
         `;
         
-        // Add records
-        records.forEach(record => {
-            const date = record.date ? new Date(record.date).toLocaleDateString() : 'N/A';
-            const type = formatRecordType(record.type);
-            const category = record.category || record.fromCategory || record.toCategory || 'N/A';
-            const details = formatDetails(record);
+        document.querySelector('.report-content').innerHTML = reportContent;
+        
+        // Display the details separately after the HTML is in place
+        displayReportDetails(processedRecords);
+        
+        // Apply orientation-specific styling
+        handleOrientationChange();
+    }
+    
+    // Function to link discrepancies to their resolving counts
+    function linkDiscrepancyResolutions(records) {
+        // Clone records to avoid modifying the original
+        const processedRecords = JSON.parse(JSON.stringify(records));
+        
+        // Find all resolved discrepancies
+        const resolvedDiscrepancies = processedRecords.filter(record => 
+            record.type === 'discrepancy' && record.resolved && record.resolutionCount !== undefined
+        );
+        
+        // Link each discrepancy to the stock count that resolved it
+        resolvedDiscrepancies.forEach(discrepancy => {
+            // For each discrepancy, find the stock count that matches its resolution count and category
+            const matchingStockCount = processedRecords.find(record => 
+                record.type === 'stock-count' && 
+                record.category === discrepancy.category &&
+                // Match either the quantity or actual field to the resolution count
+                (Number(record.quantity) === Number(discrepancy.resolutionCount) || 
+                 Number(record.actual) === Number(discrepancy.resolutionCount)) &&
+                // The stock count should be after or on the same date as the discrepancy
+                new Date(record.date) >= new Date(discrepancy.date)
+            );
             
-            reportContent += `
-                <tr>
+            if (matchingStockCount) {
+                // Mark this stock count as the one that resolved the discrepancy
+                matchingStockCount.resolvedDiscrepancy = true;
+                // Store the discrepancy ID or date to create a clear link
+                matchingStockCount.resolvedDiscrepancyDate = discrepancy.date;
+            }
+        });
+        
+        return processedRecords;
+    }
+    
+    function displayReportDetails(data) {
+        const detailsTable = document.getElementById('reportDetailsTable');
+        let html = `
+            <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Details</th>
+            </tr>
+        `;
+        
+        // Display details for each record
+        data.forEach(record => {
+            let details = '';
+            let date = formatDate(record.date);
+            
+            // Format details based on record type
+            if (record.type === 'purchase') {
+                // Display unit price and supplier information
+                const unitPrice = formatCurrency(record.price || (record.cost / record.quantity) || 0);
+                details = `${record.quantity} @ ${unitPrice} each`;
+                if (record.supplier) {
+                    details += ` from ${record.supplier}`;
+                }
+            } else if (record.type === 'sale') {
+                // Display unit price and buyer information
+                const unitPrice = formatCurrency(record.price || (record.revenue / record.quantity) || 0);
+                details = `${record.quantity} @ ${unitPrice} each`;
+                if (record.buyer) {
+                    details += ` to ${record.buyer}`;
+                }
+            } else if (record.type === 'death') {
+                details = `${record.quantity}`;
+                if (record.reason) {
+                    details += `: ${record.reason}`;
+                }
+            } else if (record.type === 'birth') {
+                details = `${record.quantity}`;
+            } else if (record.type === 'stock-count') {
+                // Enhanced stock count details to always show the actual count
+                if (record.description && record.description.includes('Expected')) {
+                    // Extract from description like "Stock count for Cows: Expected 9, Actual 9 (+0)"
+                    const match = record.description.match(/Expected (\d+), Actual (\d+) \(([\+\-]\d+)\)/);
+                    if (match) {
+                        const expected = match[1];
+                        const actual = match[2];
+                        const diff = match[3];
+                        details = `Expected: ${expected}, Actual: ${actual}, Diff: ${diff}`;
+                    } else {
+                        details = record.description.replace('Stock count for ', '');
+                    }
+                } else if (record.quantity || record.actual) {
+                    const count = record.quantity || record.actual;
+                    details = `Count: ${count}`;
+                } else if (record.notes) {
+                    details = record.notes;
+                } else {
+                    details = 'Count performed';
+                }
+
+                // If this count resolved a discrepancy, highlight it
+                if (record.resolvedDiscrepancy) {
+                    details += ` <span class="resolved-count">(Resolved discrepancy)</span>`;
+                }
+            } else if (record.type === 'discrepancy') {
+                details = `Expected: ${record.expected}, Actual: ${record.actual}, Diff: ${record.difference > 0 ? '+' : ''}${record.difference}`;
+                
+                if (record.resolved) {
+                    details += ' (Resolved';
+                    
+                    // Show the resolving count information
+                    if (record.resolutionCount !== undefined) {
+                        details += ` with count of ${record.resolutionCount}`;
+                        
+                        // Add resolution date if available
+                        if (record.resolvedDate) {
+                            const resolvedDate = new Date(record.resolvedDate).toLocaleDateString();
+                            details += ` on ${resolvedDate}`;
+                        }
+                    }
+                    
+                    if (record.resolutionNotes) {
+                        details += ` - ${record.resolutionNotes}`;
+                    }
+                    
+                    details += ')';
+                }
+            } else if (record.type === 'movement') {
+                details = `${record.quantity} moved`;
+                if (record.fromCategory && record.toCategory) {
+                    details += ` from ${record.fromCategory} to ${record.toCategory}`;
+                }
+            }
+            
+            // Capitalize record type for display
+            const displayType = record.type.charAt(0).toUpperCase() + record.type.slice(1);
+            
+            // Determine if we need to highlight this row
+            let rowClass = '';
+            if (record.type === 'discrepancy') {
+                rowClass = record.resolved ? 'resolved-discrepancy' : 'unresolved-discrepancy';
+            } else if (record.type === 'stock-count' && record.resolvedDiscrepancy) {
+                rowClass = 'resolving-count';
+            }
+            
+            // Build table row
+            html += `
+                <tr class="${rowClass}">
                     <td>${date}</td>
-                    <td>${type}</td>
-                    <td>${category}</td>
+                    <td>${displayType}</td>
+                    <td>${record.category || ''}</td>
                     <td>${details}</td>
                 </tr>
             `;
         });
         
-        reportContent += `
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
+        // Update the table body with the new rows
+        if (!detailsTable) {
+            console.error('Report details table not found');
+            return;
+        }
         
-        document.querySelector('.report-content').innerHTML = reportContent;
-        
-        // Apply orientation-specific styling
-        handleOrientationChange();
+        detailsTable.innerHTML = html;
+    }
+    
+    // Helper function to format dates consistently
+    function formatDate(dateString) {
+        if (!dateString) return 'N/A';
+        try {
+            return new Date(dateString).toLocaleDateString();
+        } catch (e) {
+            console.error('Error formatting date:', e);
+            return dateString;
+        }
     }
     
     function getReportTitle(filters) {
@@ -1424,6 +1579,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Show resolution count as primary resolution information
                     if (record.resolutionCount !== undefined) {
                         resolutionInfo += ` with count of ${record.resolutionCount}`;
+                        
+                        // Add resolution date if available
+                        if (record.resolvedDate) {
+                            const resolvedDate = new Date(record.resolvedDate).toLocaleDateString();
+                            resolutionInfo += ` on ${resolvedDate}`;
+                        }
                     }
                     
                     // Add any additional resolution notes
