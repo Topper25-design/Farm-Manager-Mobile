@@ -265,9 +265,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const inventoryStr = await mobileStorage.getItem('animalInventory');
                     const discrepanciesStr = await mobileStorage.getItem('stockDiscrepancies');
                     
+                    // Also get transaction records for purchases and sales
+                    const purchasesStr = await mobileStorage.getItem('animalPurchases');
+                    const salesStr = await mobileStorage.getItem('animalSales');
+                    const movementsStr = await mobileStorage.getItem('animalMovements');
+                    
                     const activities = activitiesStr ? JSON.parse(activitiesStr) : [];
                     const animalInventory = inventoryStr ? JSON.parse(inventoryStr) : {};
                     const stockDiscrepancies = discrepanciesStr ? JSON.parse(discrepanciesStr) : [];
+                    const purchases = purchasesStr ? JSON.parse(purchasesStr) : [];
+                    const sales = salesStr ? JSON.parse(salesStr) : [];
+                    const movements = movementsStr ? JSON.parse(movementsStr) : [];
+                    
+                    console.log('Raw activity data:', activities.length);
+                    console.log('Purchases data:', purchases.length);
+                    console.log('Sales data:', sales.length);
+                    console.log('Movements data:', movements.length);
                     
                     // Get animal categories for later use
                     const animalCategories = await getAnimalCategories();
@@ -276,6 +289,56 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const feedCategories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
                     // Store in the function-level variable for use later
                     feedCategoriesGlobal = feedCategories;
+
+                    // Process animal transaction records
+                    let transactionRecords = [];
+                    
+                    // Process purchases
+                    if (purchases && purchases.length > 0) {
+                        purchases.forEach(purchase => {
+                            transactionRecords.push({
+                                type: 'purchase',
+                                date: purchase.date,
+                                category: purchase.category,
+                                quantity: purchase.quantity,
+                                cost: purchase.cost,
+                                description: `Purchased ${purchase.quantity} ${purchase.category} for ${formatCurrency(purchase.cost)}`,
+                                recordMainType: 'animal'
+                            });
+                        });
+                    }
+                    
+                    // Process sales
+                    if (sales && sales.length > 0) {
+                        sales.forEach(sale => {
+                            transactionRecords.push({
+                                type: 'sale',
+                                date: sale.date,
+                                category: sale.category,
+                                quantity: sale.quantity,
+                                revenue: sale.revenue,
+                                description: `Sold ${sale.quantity} ${sale.category} for ${formatCurrency(sale.revenue)}`,
+                                recordMainType: 'animal'
+                            });
+                        });
+                    }
+                    
+                    // Process movements
+                    if (movements && movements.length > 0) {
+                        movements.forEach(movement => {
+                            transactionRecords.push({
+                                type: 'movement',
+                                date: movement.date,
+                                fromCategory: movement.fromCategory,
+                                toCategory: movement.toCategory,
+                                quantity: movement.quantity,
+                                description: `Moved ${movement.quantity} from ${movement.fromCategory} to ${movement.toCategory}`,
+                                recordMainType: 'animal'
+                            });
+                        });
+                    }
+                    
+                    console.log('Transactions processed:', transactionRecords.length);
                     
                     // Filter animal-related activities
                     allRecords = activities.filter(activity => {
@@ -388,9 +451,33 @@ document.addEventListener('DOMContentLoaded', async () => {
                             }
                         }
                         
+                        // Ensure type is properly set for key animal activities
+                        // This fixes cases where the type might be missing or using a different format
+                        if (activity.description) {
+                            const desc = activity.description.toLowerCase();
+                            if (!activity.type || activity.type === '') {
+                                if (desc.includes('purchased') || desc.includes('bought')) {
+                                    activity.type = 'purchase';
+                                } else if (desc.includes('sold') || desc.includes('sale')) {
+                                    activity.type = 'sale';
+                                } else if (desc.includes('moved') || desc.includes('movement')) {
+                                    activity.type = 'movement';
+                                } else if (desc.includes('birth') || desc.includes('born')) {
+                                    activity.type = 'birth';
+                                } else if (desc.includes('death') || desc.includes('died')) {
+                                    activity.type = 'death';
+                                } else if (desc.includes('stock count') || desc.includes('counted')) {
+                                    activity.type = 'stock-count';
+                                }
+                            }
+                        }
+                        
                         // Mark this as an animal record for filtering
                         return {...activity, recordMainType: 'animal'};
                     }).filter(record => record !== null); // Remove any null records
+                    
+                    console.log('Mapped animal records:', allRecords.length);
+                    console.log('Sample animal records:', allRecords.slice(0, 3));
                     
                     // Add stock discrepancies
                     if (stockDiscrepancies && Array.isArray(stockDiscrepancies)) {
@@ -411,6 +498,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 return {...record, recordMainType: 'animal'};
                             })];
                     }
+                    
+                    // Combine all animal records (from activities, transactions and discrepancies)
+                    allRecords = [...allRecords, ...transactionRecords];
+                    
+                    console.log('Combined records count:', allRecords.length);
                     break;
                     
                 case 'feed':
@@ -658,20 +750,48 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Apply type filtering even if 'all-' type is selected
             if (filters.mainType === 'animal') {
+                console.log('Pre-filter records for animal main type:', filteredRecords.length);
+                
+                // Log distribution of record types before filtering
+                const typeCounts = {};
+                filteredRecords.forEach(record => {
+                    if (record && record.type) {
+                        typeCounts[record.type] = (typeCounts[record.type] || 0) + 1;
+                    }
+                });
+                console.log('Record types before filtering:', typeCounts);
+                
                 // First filter out non-animal records and feed categories
                 filteredRecords = filteredRecords.filter(record => {
-                    if (!record || !record.type) return false;
+                    if (!record) {
+                        console.log('Skipping null/undefined record');
+                        return false;
+                    }
+                    
+                    if (!record.type) {
+                        console.log('Skipping record with no type:', record);
+                        return false;
+                    }
                     
                     // Double check feed categories aren't included
                     const recordCategory = record.category || record.fromCategory || record.toCategory;
                     if (recordCategory && 
                         (recordCategory.toLowerCase().includes('feed') || feedCategoriesGlobal.includes(recordCategory))) {
+                        console.log('Skipping feed record:', record);
                         return false;
                     }
                     
-                    // Return true for all animal record types if "all-animal" is selected
+                    // Fixed handling for all-animal case to include ALL animal record types
                     if (filters.reportType === 'all-animal') {
-                        return ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction'].includes(record.type);
+                        const validTypes = ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction'];
+                        const isValidType = validTypes.includes(record.type);
+                        
+                        // Log more details about the record for debugging
+                        if (!isValidType) {
+                            console.log('Skipping non-animal record type:', record.type, record);
+                        }
+                        
+                        return isValidType;
                     }
                     
                     // For specific animal report types, apply additional filtering
@@ -690,9 +810,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                         case 'count':
                             return record.type === 'stock-count' || record.type === 'count-correction';
                         default:
+                            // Default case - should not reach here but included for safety
+                            console.log('Unknown animal record type:', specificType);
                             return ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction'].includes(record.type);
                     }
                 });
+                
+                console.log('Post-filter records for animal main type:', filteredRecords.length);
+                
+                // Log distribution of record types after filtering
+                const filteredTypeCounts = {};
+                filteredRecords.forEach(record => {
+                    if (record && record.type) {
+                        filteredTypeCounts[record.type] = (filteredTypeCounts[record.type] || 0) + 1;
+                    }
+                });
+                console.log('Record types after filtering:', filteredTypeCounts);
             } else if (!filters.reportType.startsWith('all-')) {
                 // Filter by specific type for non-all reports
                 const specificType = filters.reportType.split('-')[1]; // 'movement', 'purchase', etc.
