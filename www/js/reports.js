@@ -1288,27 +1288,78 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Find all resolved discrepancies
         const resolvedDiscrepancies = processedRecords.filter(record => 
-            record.type === 'discrepancy' && record.resolved && record.resolutionCount !== undefined
+            record.type === 'discrepancy' && record.resolved
         );
+        
+        // Add debug to see if we're finding the resolved discrepancies
+        console.log('Found resolved discrepancies:', resolvedDiscrepancies.length);
+        if (resolvedDiscrepancies.length > 0) {
+            console.log('Sample resolved discrepancy:', resolvedDiscrepancies[0]);
+        }
         
         // Link each discrepancy to the stock count that resolved it
         resolvedDiscrepancies.forEach(discrepancy => {
+            // Get resolution count - either from resolutionCount field or expected count
+            const resolutionCount = discrepancy.resolutionCount !== undefined 
+                ? Number(discrepancy.resolutionCount) 
+                : Number(discrepancy.expected); // If no resolution count is specified, use the expected count
+            
+            console.log(`Looking for stock count that resolves discrepancy for ${discrepancy.category}, count: ${resolutionCount}`);
+            
             // For each discrepancy, find the stock count that matches its resolution count and category
-            const matchingStockCount = processedRecords.find(record => 
+            const matchingStockCounts = processedRecords.filter(record => 
                 record.type === 'stock-count' && 
                 record.category === discrepancy.category &&
-                // Match either the quantity or actual field to the resolution count
-                (Number(record.quantity) === Number(discrepancy.resolutionCount) || 
-                 Number(record.actual) === Number(discrepancy.resolutionCount)) &&
-                // The stock count should be after or on the same date as the discrepancy
-                new Date(record.date) >= new Date(discrepancy.date)
+                // Match either the quantity, actual field, or extract from description
+                (Number(record.quantity) === resolutionCount || 
+                 Number(record.actual) === resolutionCount ||
+                 (record.description && 
+                  record.description.includes('Expected') && 
+                  record.description.includes(`Actual ${resolutionCount}`)))
             );
             
-            if (matchingStockCount) {
-                // Mark this stock count as the one that resolved the discrepancy
-                matchingStockCount.resolvedDiscrepancy = true;
-                // Store the discrepancy ID or date to create a clear link
-                matchingStockCount.resolvedDiscrepancyDate = discrepancy.date;
+            console.log(`Found ${matchingStockCounts.length} potential resolving counts`);
+            
+            // Find the one that's closest in time (same day or after discrepancy)
+            if (matchingStockCounts.length > 0) {
+                // Sort by date (closest to discrepancy date first)
+                matchingStockCounts.sort((a, b) => {
+                    const aDate = new Date(a.date);
+                    const bDate = new Date(b.date);
+                    const discrepancyDate = new Date(discrepancy.date);
+                    
+                    // Calculate time difference
+                    const aDiff = Math.abs(aDate - discrepancyDate);
+                    const bDiff = Math.abs(bDate - discrepancyDate);
+                    
+                    // Sort by closest date first
+                    return aDiff - bDiff;
+                });
+                
+                // Take the closest one that's on the same day or after the discrepancy
+                const matchingStockCount = matchingStockCounts.find(count => {
+                    const countDate = new Date(count.date);
+                    const discrepancyDate = new Date(discrepancy.date);
+                    
+                    // Return stock counts on the same day or after the discrepancy
+                    return countDate >= discrepancyDate;
+                }) || matchingStockCounts[0]; // If none found after, take the closest one
+                
+                if (matchingStockCount) {
+                    // Mark this stock count as the one that resolved the discrepancy
+                    matchingStockCount.resolvedDiscrepancy = true;
+                    // Store the discrepancy ID or date to create a clear link
+                    matchingStockCount.resolvedDiscrepancyDate = discrepancy.date;
+                    
+                    console.log(`Linked discrepancy to stock count:`, {
+                        discrepancyDate: formatDate(discrepancy.date),
+                        stockCountDate: formatDate(matchingStockCount.date),
+                        category: discrepancy.category,
+                        expected: discrepancy.expected,
+                        actual: discrepancy.actual,
+                        resolutionCount: resolutionCount
+                    });
+                }
             }
         });
         
