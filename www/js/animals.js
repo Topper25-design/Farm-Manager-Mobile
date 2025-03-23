@@ -450,10 +450,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Sort by date (newest first)
         stockCounts.sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date));
         
+        // Remove duplicate entries (where a stock-count and resolution share the same timestamp and category)
+        const dedupedCounts = [];
+        const seenKeys = new Set();
+        
+        stockCounts.forEach(count => {
+            const timestamp = count.timestamp || count.date;
+            const key = `${timestamp}-${count.category}`;
+            
+            // For each timestamp+category combination, prefer the resolution record if it exists
+            if (!seenKeys.has(key)) {
+                seenKeys.add(key);
+                dedupedCounts.push(count);
+            } else if (count.type === 'resolution') {
+                // If we've seen this key before but this is a resolution, replace the previous entry
+                const existingIndex = dedupedCounts.findIndex(c => 
+                    (c.timestamp || c.date) === timestamp && c.category === count.category
+                );
+                if (existingIndex !== -1) {
+                    dedupedCounts[existingIndex] = count;
+                }
+            }
+        });
+        
         recentCountsList.innerHTML = '';
         
         // Display the most recent 10 counts
-        stockCounts.slice(0, 10).forEach(count => {
+        dedupedCounts.slice(0, 10).forEach(count => {
             const countItem = document.createElement('div');
             countItem.className = 'count-item';
             
