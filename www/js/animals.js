@@ -437,9 +437,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const recentCountsList = document.getElementById('recent-counts-list');
         if (!recentCountsList) return;
         
-        // Get all stock count activities
+        // Get all stock count activities and resolution activities
         const stockCounts = recentActivities.filter(activity => 
-            activity.type === 'stock-count'
+            activity.type === 'stock-count' || activity.type === 'resolution'
         );
         
         if (stockCounts.length === 0) {
@@ -458,22 +458,47 @@ document.addEventListener('DOMContentLoaded', async () => {
             countItem.className = 'count-item';
             
             const date = new Date(count.timestamp || count.date).toLocaleDateString();
-            const expected = count.expected || 0;
-            const actual = count.actual || count.quantity || 0;
-            const difference = actual - expected;
-            const differenceClass = difference === 0 ? 'match' : (difference > 0 ? 'surplus' : 'shortage');
             
-            countItem.innerHTML = `
-                <div class="count-date">${date}</div>
-                <div class="count-category">${count.category}</div>
-                <div class="count-details">
-                    Expected: ${expected}, 
-                    Actual: ${actual}, 
-                    <span class="diff ${differenceClass}">
-                        Diff: ${difference > 0 ? '+' : ''}${difference}
-                    </span>
-                </div>
-            `;
+            // Handle resolution activities differently
+            if (count.type === 'resolution') {
+                countItem.className = 'count-item resolution';
+                countItem.innerHTML = `
+                    <div class="count-date">${date}</div>
+                    <div class="count-category">${count.category}</div>
+                    <div class="count-details">
+                        <span class="resolution-text">✓ Discrepancy resolved</span>
+                        <span class="final-count">Final count: ${count.finalCount}</span>
+                    </div>
+                `;
+            } else {
+                // Regular stock count
+                const expected = count.expected || 0;
+                const actual = count.actual || count.quantity || 0;
+                const difference = actual - expected;
+                const differenceClass = difference === 0 ? 'match' : (difference > 0 ? 'surplus' : 'shortage');
+                
+                // Check if this count resolved a discrepancy
+                const resolvedDiscrepancy = difference === 0 && 
+                    stockDiscrepancies.some(d => 
+                        d.category === count.category && 
+                        d.resolved && 
+                        d.resolvedDate === count.timestamp
+                    );
+                
+                countItem.innerHTML = `
+                    <div class="count-date">${date}</div>
+                    <div class="count-category">${count.category}</div>
+                    <div class="count-details">
+                        Expected: ${expected}, 
+                        Actual: ${actual}, 
+                        <span class="diff ${differenceClass}">
+                            Diff: ${difference > 0 ? '+' : ''}${difference}
+                        </span>
+                        ${resolvedDiscrepancy ? '<span class="resolved-badge">Resolved discrepancy</span>' : ''}
+                    </div>
+                    ${count.notes ? `<div class="count-notes">Notes: ${count.notes}</div>` : ''}
+                `;
+            }
             
             recentCountsList.appendChild(countItem);
         });
