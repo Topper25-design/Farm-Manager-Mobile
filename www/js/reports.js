@@ -250,6 +250,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     
                     // Get animal categories for later use
                     const animalCategories = await getAnimalCategories();
+<<<<<<< HEAD
+=======
+                    // Get feed categories to help with filtering out feed records
+                    const feedCategoriesStr = await mobileStorage.getItem('feedCategories');
+                    const feedCategories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
+>>>>>>> d7769b7 (Fix animal reports filtering to properly exclude feed records)
                     
                     // Filter animal-related activities
                     allRecords = activities.filter(activity => {
@@ -268,9 +274,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 
                             const isFeedRecord = activityLower.includes('feed');
                             const isHealthRecord = activityLower.includes('treatment') || 
+<<<<<<< HEAD
                                                   activityLower.includes('vaccination') || 
                                                   activityLower.includes('medication') ||
                                                   activityLower.includes('health');
+=======
+                                                   activityLower.includes('vaccination') || 
+                                                   activityLower.includes('medication') ||
+                                                   activityLower.includes('health');
+>>>>>>> d7769b7 (Fix animal reports filtering to properly exclude feed records)
                             
                             return isAnimalRecord && !isFeedRecord && !isHealthRecord;
                         } else if (activity && typeof activity === 'object') {
@@ -292,9 +304,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     activity.description.toLowerCase().includes('stock count')
                                 ));
                                 
+<<<<<<< HEAD
                             // Exclude feed and health records
                             const isFeedRecord = 
                                 (activity.category && activity.category.toLowerCase().includes('feed')) ||
+=======
+                            // Exclude feed records by checking:
+                            // 1. If category contains "feed"
+                            // 2. If fromCategory contains "feed"
+                            // 3. If toCategory contains "feed"
+                            // 4. If description contains "feed"
+                            // 5. If category is in the list of feed categories
+                            const isFeedRecord = 
+                                (activity.category && (
+                                    activity.category.toLowerCase().includes('feed') ||
+                                    feedCategories.includes(activity.category)
+                                )) ||
+                                (activity.fromCategory && (
+                                    activity.fromCategory.toLowerCase().includes('feed') ||
+                                    feedCategories.includes(activity.fromCategory)
+                                )) ||
+                                (activity.toCategory && (
+                                    activity.toCategory.toLowerCase().includes('feed') ||
+                                    feedCategories.includes(activity.toCategory)
+                                )) ||
+>>>>>>> d7769b7 (Fix animal reports filtering to properly exclude feed records)
                                 (activity.description && activity.description.toLowerCase().includes('feed'));
                                 
                             const isHealthRecord = 
@@ -323,6 +357,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             activity.category = animalCategories[0] || 'General';
                         }
                         
+<<<<<<< HEAD
                         // Mark this as an animal record for filtering
                         return {...activity, recordMainType: 'animal'};
                     });
@@ -336,6 +371,36 @@ document.addEventListener('DOMContentLoaded', async () => {
                             }
                             return {...record, recordMainType: 'animal'};
                         })];
+=======
+                        // One final check to ensure no feed categories slip through
+                        if (activity.category && feedCategories.includes(activity.category)) {
+                            // Skip this record as it's a feed record
+                            return null;
+                        }
+                        
+                        // Mark this as an animal record for filtering
+                        return {...activity, recordMainType: 'animal'};
+                    }).filter(record => record !== null); // Remove any null records
+                    
+                    // Add stock discrepancies
+                    if (stockDiscrepancies && Array.isArray(stockDiscrepancies)) {
+                        allRecords = [...allRecords, ...stockDiscrepancies
+                            .filter(record => {
+                                // Ensure no feed records in discrepancies
+                                if (record.category) {
+                                    return !record.category.toLowerCase().includes('feed') && 
+                                           !feedCategories.includes(record.category);
+                                }
+                                return true;
+                            })
+                            .map(record => {
+                                // Ensure record has a category
+                                if (!record.category && !record.fromCategory && !record.toCategory) {
+                                    record.category = animalCategories[0] || 'General';
+                                }
+                                return {...record, recordMainType: 'animal'};
+                            })];
+>>>>>>> d7769b7 (Fix animal reports filtering to properly exclude feed records)
                     }
                     break;
                     
@@ -583,6 +648,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Apply type filtering even if 'all-' type is selected
             if (filters.mainType === 'animal') {
+<<<<<<< HEAD
                 filteredRecords = filteredRecords.filter(record => {
                     if (!record || !record.type) return false;
                     
@@ -622,6 +688,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                         default:
                             return false;
                     }
+=======
+                filteredRecords = filteredRecords.filter(record => {
+                    if (!record || !record.type) return false;
+                    
+                    // Double check feed categories aren't included
+                    const feedCategoriesStr = await mobileStorage.getItem('feedCategories');
+                    const feedCategories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
+                    
+                    // Verify not a feed category
+                    const recordCategory = record.category || record.fromCategory || record.toCategory;
+                    if (recordCategory && 
+                        (recordCategory.toLowerCase().includes('feed') || feedCategories.includes(recordCategory))) {
+                        return false;
+                    }
+                    
+                    // Only include animal record types
+                    return ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'count-correction'].includes(record.type);
+>>>>>>> d7769b7 (Fix animal reports filtering to properly exclude feed records)
                 });
             }
             

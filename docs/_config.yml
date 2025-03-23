@@ -1,0 +1,5 @@
+theme: jekyll-theme-cayman
+title: Farm Manager Mobile
+description: Mobile application for farmers to manage livestock, feed, health records, and generate reports
+show_downloads: false
+google_analytics: 
