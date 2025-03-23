@@ -1420,12 +1420,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 if (record.resolved) {
                     let resolutionInfo = ' (Resolved)';
+                    
+                    // Show resolution count as primary resolution information
+                    if (record.resolutionCount !== undefined) {
+                        resolutionInfo += ` with count of ${record.resolutionCount}`;
+                    }
+                    
+                    // Add any additional resolution notes
                     if (record.resolutionNotes) {
                         resolutionInfo += ` - ${record.resolutionNotes}`;
                     }
-                    if (record.resolutionCount !== undefined) {
-                        resolutionInfo += ` - Final count: ${record.resolutionCount}`;
-                    }
+                    
                     return discDetails + resolutionInfo;
                 }
                 return discDetails;
