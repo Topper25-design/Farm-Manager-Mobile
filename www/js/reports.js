@@ -938,8 +938,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
             case 'stock-count':
                 // Improved stock count details display
-                const expected = record.expected !== undefined ? Number(record.expected) : null;
-                const actual = record.actual !== undefined ? Number(record.actual) : null;
+                const expected = record.expected !== undefined ? Number(record.expected) : 
+                                 record.expectedCount !== undefined ? Number(record.expectedCount) : null;
+                const actual = record.actual !== undefined ? Number(record.actual) : 
+                               record.actualCount !== undefined ? Number(record.actualCount) : 
+                               record.quantity !== undefined ? Number(record.quantity) : null;
+                
+                // If description contains full information, use it
+                if (record.description && 
+                    record.description.includes('Expected') && 
+                    record.description.includes('Actual')) {
+                    return record.description.replace('Stock count for ', '');
+                }
                 
                 // If both values are null, try to get count from quantity
                 if (expected === null && actual === null) {
