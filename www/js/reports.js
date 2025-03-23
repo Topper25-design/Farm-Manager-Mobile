@@ -265,19 +265,60 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             console.log('Starting data collection:', filters);
             
+            // Debug: Log all storage keys to check what data is available
+            console.log('-------- DEBUG STORAGE DATA START --------');
+            
+            try {
+                // For animal data
+                const activitiesStr = await mobileStorage.getItem('recentActivities');
+                const inventoryStr = await mobileStorage.getItem('animalInventory');
+                const discrepanciesStr = await mobileStorage.getItem('stockDiscrepancies');
+                const purchasesStr = await mobileStorage.getItem('animalPurchases');
+                const salesStr = await mobileStorage.getItem('animalSales');
+                const movementsStr = await mobileStorage.getItem('animalMovements');
+                
+                console.log('STORAGE CHECK:');
+                console.log('Activities present:', !!activitiesStr);
+                console.log('Animal inventory present:', !!inventoryStr);
+                console.log('Stock discrepancies present:', !!discrepanciesStr);
+                console.log('Animal purchases present:', !!purchasesStr);
+                console.log('Animal sales present:', !!salesStr);
+                console.log('Animal movements present:', !!movementsStr);
+                
+                // Parse the data to see what's inside
+                if (movementsStr) {
+                    try {
+                        const movements = JSON.parse(movementsStr);
+                        console.log('Movements data:', movements.length, 'records');
+                        if (movements.length > 0) {
+                            console.log('Sample movement:', movements[0]);
+                        }
+                    } catch (e) {
+                        console.error('Error parsing movements:', e);
+                    }
+                }
+                
+                if (discrepanciesStr) {
+                    try {
+                        const discrepancies = JSON.parse(discrepanciesStr);
+                        console.log('Discrepancies data:', discrepancies.length, 'records');
+                        if (discrepancies.length > 0) {
+                            console.log('Sample discrepancy:', discrepancies[0]);
+                        }
+                    } catch (e) {
+                        console.error('Error parsing discrepancies:', e);
+                    }
+                }
+            } catch (e) {
+                console.error('Error checking storage:', e);
+            }
+            
+            console.log('-------- DEBUG STORAGE DATA END --------');
+            
             // Get all relevant records based on main type
             switch (filters.mainType) {
                 case 'animal':
                     // Get data from all relevant sources
-                    const activitiesStr = await mobileStorage.getItem('recentActivities');
-                    const inventoryStr = await mobileStorage.getItem('animalInventory');
-                    const discrepanciesStr = await mobileStorage.getItem('stockDiscrepancies');
-                    
-                    // Also get transaction records for purchases and sales
-                    const purchasesStr = await mobileStorage.getItem('animalPurchases');
-                    const salesStr = await mobileStorage.getItem('animalSales');
-                    const movementsStr = await mobileStorage.getItem('animalMovements');
-                    
                     const activities = activitiesStr ? JSON.parse(activitiesStr) : [];
                     const animalInventory = inventoryStr ? JSON.parse(inventoryStr) : {};
                     const stockDiscrepancies = discrepanciesStr ? JSON.parse(discrepanciesStr) : [];
@@ -340,6 +381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     
                     // Process movements
                     if (movements && movements.length > 0) {
+                        console.log('Processing', movements.length, 'animal movements');
                         movements.forEach(movement => {
                             transactionRecords.push({
                                 type: 'movement',
@@ -351,14 +393,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 recordMainType: 'animal'
                             });
                         });
+                        console.log('Added', movements.length, 'movement records');
+                    } else {
+                        console.log('No movement records found in storage');
                     }
                     
                     // Process discrepancies separately
                     let discrepancyRecords = [];
                     if (stockDiscrepancies && stockDiscrepancies.length > 0) {
+                        console.log('Processing', stockDiscrepancies.length, 'stock discrepancies');
+                        let skippedCount = 0;
+                        
                         stockDiscrepancies.forEach(discrepancy => {
                             // Skip resolved discrepancies (unless specifically looking for them)
                             if (discrepancy.resolved && filters.reportType !== 'animal-discrepancy') {
+                                skippedCount++;
                                 return;
                             }
                             
@@ -375,6 +424,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 recordMainType: 'animal'
                             });
                         });
+                        
+                        console.log('Added', discrepancyRecords.length, 'discrepancy records, skipped', skippedCount, 'resolved records');
+                    } else {
+                        console.log('No stock discrepancy records found in storage');
                     }
                     
                     console.log('Transactions processed:', transactionRecords.length);
@@ -868,6 +921,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 });
                 console.log('Record types after filtering:', filteredTypeCounts);
+                
+                // Debug: Show sample records for each type to verify data
+                console.log('-------- SAMPLE RECORDS BY TYPE --------');
+                ['movement', 'purchase', 'sale', 'death', 'birth', 'stock-count', 'discrepancy'].forEach(recordType => {
+                    const typeRecords = filteredRecords.filter(r => r.type === recordType);
+                    if (typeRecords.length > 0) {
+                        console.log(`${recordType} sample:`, typeRecords[0]);
+                    } else {
+                        console.log(`No ${recordType} records found after filtering`);
+                    }
+                });
+                console.log('-------- END SAMPLE RECORDS --------');
             } else if (!filters.reportType.startsWith('all-')) {
                 // Filter by specific type for non-all reports
                 const specificType = filters.reportType.split('-')[1]; // 'movement', 'purchase', etc.
