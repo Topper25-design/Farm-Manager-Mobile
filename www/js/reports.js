@@ -27,10 +27,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Add event listeners
     setupEventListeners();
     
-    // Initialize currency format
+    // Initialize currency format - fix error with currency trim
     const currencyFormatter = new Intl.NumberFormat(undefined, {
         style: 'currency',
-        currency: userCurrency.trim() || 'USD',
+        currency: typeof userCurrency === 'string' ? userCurrency.trim() || 'USD' : 'USD',
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
@@ -268,49 +268,53 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Debug: Log all storage keys to check what data is available
             console.log('-------- DEBUG STORAGE DATA START --------');
             
-            try {
-                // For animal data
-                const activitiesStr = await mobileStorage.getItem('recentActivities');
-                const inventoryStr = await mobileStorage.getItem('animalInventory');
-                const discrepanciesStr = await mobileStorage.getItem('stockDiscrepancies');
-                const purchasesStr = await mobileStorage.getItem('animalPurchases');
-                const salesStr = await mobileStorage.getItem('animalSales');
-                const movementsStr = await mobileStorage.getItem('animalMovements');
-                
-                console.log('STORAGE CHECK:');
-                console.log('Activities present:', !!activitiesStr);
-                console.log('Animal inventory present:', !!inventoryStr);
-                console.log('Stock discrepancies present:', !!discrepanciesStr);
-                console.log('Animal purchases present:', !!purchasesStr);
-                console.log('Animal sales present:', !!salesStr);
-                console.log('Animal movements present:', !!movementsStr);
-                
-                // Parse the data to see what's inside
-                if (movementsStr) {
-                    try {
-                        const movements = JSON.parse(movementsStr);
-                        console.log('Movements data:', movements.length, 'records');
-                        if (movements.length > 0) {
-                            console.log('Sample movement:', movements[0]);
+            // Get ALL possible data sources first to ensure nothing is missed
+            const dataSourceKeys = [
+                'recentActivities',
+                'animalInventory',
+                'stockDiscrepancies',
+                'animalPurchases',
+                'animalSales',
+                'animalMovements',
+                'feedTransactions',
+                'feedInventory',
+                'feedCategories',
+                'healthRecords',
+                'animalCategories',
+                'userTransactions',
+                'allActivities'
+            ];
+            
+            // Create an object to hold all data
+            const allDataSources = {};
+            
+            // Load all possible data sources
+            for (const key of dataSourceKeys) {
+                try {
+                    const value = await mobileStorage.getItem(key);
+                    if (value) {
+                        allDataSources[key] = value;
+                        console.log(`Found data for ${key}: ${value.length} characters`);
+                        
+                        try {
+                            const parsed = JSON.parse(value);
+                            if (Array.isArray(parsed)) {
+                                console.log(`${key} contains ${parsed.length} records`);
+                                if (parsed.length > 0) {
+                                    console.log(`Sample ${key} record:`, parsed[0]);
+                                }
+                            } else if (typeof parsed === 'object') {
+                                console.log(`${key} contains ${Object.keys(parsed).length} keys`);
+                            }
+                        } catch (e) {
+                            console.error(`Error parsing ${key}:`, e);
                         }
-                    } catch (e) {
-                        console.error('Error parsing movements:', e);
+                    } else {
+                        console.log(`No data found for ${key}`);
                     }
+                } catch (e) {
+                    console.error(`Error retrieving ${key}:`, e);
                 }
-                
-                if (discrepanciesStr) {
-                    try {
-                        const discrepancies = JSON.parse(discrepanciesStr);
-                        console.log('Discrepancies data:', discrepancies.length, 'records');
-                        if (discrepancies.length > 0) {
-                            console.log('Sample discrepancy:', discrepancies[0]);
-                        }
-                    } catch (e) {
-                        console.error('Error parsing discrepancies:', e);
-                    }
-                }
-            } catch (e) {
-                console.error('Error checking storage:', e);
             }
             
             console.log('-------- DEBUG STORAGE DATA END --------');
@@ -319,35 +323,64 @@ document.addEventListener('DOMContentLoaded', async () => {
             switch (filters.mainType) {
                 case 'animal':
                     // Get data from all relevant sources
+                    const activitiesStr = allDataSources.recentActivities || await mobileStorage.getItem('recentActivities');
+                    const inventoryStr = allDataSources.animalInventory || await mobileStorage.getItem('animalInventory');
+                    const discrepanciesStr = allDataSources.stockDiscrepancies || await mobileStorage.getItem('stockDiscrepancies');
+                    const purchasesStr = allDataSources.animalPurchases || await mobileStorage.getItem('animalPurchases');
+                    const salesStr = allDataSources.animalSales || await mobileStorage.getItem('animalSales');
+                    const movementsStr = allDataSources.animalMovements || await mobileStorage.getItem('animalMovements');
+                    
+                    // Also check for transactions in userTransactions that might contain animal data
+                    const userTransactionsStr = allDataSources.userTransactions || await mobileStorage.getItem('userTransactions');
+                    
+                    // Parse all the data
                     const activities = activitiesStr ? JSON.parse(activitiesStr) : [];
                     const animalInventory = inventoryStr ? JSON.parse(inventoryStr) : {};
                     const stockDiscrepancies = discrepanciesStr ? JSON.parse(discrepanciesStr) : [];
                     const purchases = purchasesStr ? JSON.parse(purchasesStr) : [];
                     const sales = salesStr ? JSON.parse(salesStr) : [];
                     const movements = movementsStr ? JSON.parse(movementsStr) : [];
+                    const userTransactions = userTransactionsStr ? JSON.parse(userTransactionsStr) : [];
                     
                     console.log('Raw activity data:', activities.length);
                     console.log('Purchases data:', purchases.length);
                     console.log('Sales data:', sales.length);
                     console.log('Movements data:', movements.length);
                     console.log('Discrepancies data:', stockDiscrepancies.length);
+                    console.log('User transactions:', userTransactions.length);
                     
                     // Get animal categories for later use
                     const animalCategories = await getAnimalCategories();
                     // Get feed categories to help with filtering out feed records
-                    const feedCategoriesStr = await mobileStorage.getItem('feedCategories');
+                    const feedCategoriesStr = allDataSources.feedCategories || await mobileStorage.getItem('feedCategories');
                     const feedCategories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
                     // Store in the function-level variable for use later
                     feedCategoriesGlobal = feedCategories;
 
+                    // Filter userTransactions for animal-related transactions
+                    const animalTransactions = userTransactions.filter(transaction => {
+                        if (!transaction) return false;
+                        
+                        // Check if this is an animal transaction
+                        const isAnimalTransaction = 
+                            (transaction.type === 'purchase' || transaction.type === 'sale' || 
+                             transaction.type === 'movement') && 
+                            (!transaction.category || !transaction.category.toLowerCase().includes('feed'));
+                            
+                        return isAnimalTransaction;
+                    });
+                    
+                    console.log('Animal transactions from userTransactions:', animalTransactions.length);
+
                     // Process animal transaction records
                     let transactionRecords = [];
                     
-                    // Process purchases
+                    // Process purchases - first from dedicated purchases array
                     if (purchases && purchases.length > 0) {
+                        console.log('Processing', purchases.length, 'animal purchases');
                         purchases.forEach(purchase => {
                             // Ensure cost is a proper number
-                            const cost = parseFloat(purchase.cost) || 0;
+                            const cost = parseFloat(purchase.cost || 0);
                             
                             transactionRecords.push({
                                 type: 'purchase',
@@ -361,11 +394,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                         });
                     }
                     
-                    // Process sales
+                    // Also check for purchases in userTransactions
+                    animalTransactions.forEach(transaction => {
+                        if (transaction.type === 'purchase') {
+                            const cost = parseFloat(transaction.cost || 0);
+                            
+                            transactionRecords.push({
+                                type: 'purchase',
+                                date: transaction.date,
+                                category: transaction.category,
+                                quantity: transaction.quantity,
+                                cost: cost,
+                                description: `Purchased ${transaction.quantity} ${transaction.category} for ${formatCurrency(cost)}`,
+                                recordMainType: 'animal'
+                            });
+                        }
+                    });
+                    
+                    console.log('Total purchases after combining sources:', 
+                        transactionRecords.filter(r => r.type === 'purchase').length);
+                    
+                    // Process sales from dedicated sales array
                     if (sales && sales.length > 0) {
+                        console.log('Processing', sales.length, 'animal sales');
                         sales.forEach(sale => {
                             // Ensure revenue is a proper number
-                            const revenue = parseFloat(sale.revenue) || 0;
+                            const revenue = parseFloat(sale.revenue || 0);
                             
                             transactionRecords.push({
                                 type: 'sale',
@@ -379,7 +433,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                         });
                     }
                     
-                    // Process movements
+                    // Also check for sales in userTransactions
+                    animalTransactions.forEach(transaction => {
+                        if (transaction.type === 'sale') {
+                            const revenue = parseFloat(transaction.revenue || 0);
+                            
+                            transactionRecords.push({
+                                type: 'sale',
+                                date: transaction.date,
+                                category: transaction.category,
+                                quantity: transaction.quantity,
+                                revenue: revenue,
+                                description: `Sold ${transaction.quantity} ${transaction.category} for ${formatCurrency(revenue)}`,
+                                recordMainType: 'animal'
+                            });
+                        }
+                    });
+                    
+                    console.log('Total sales after combining sources:', 
+                        transactionRecords.filter(r => r.type === 'sale').length);
+                    
+                    // Process movements from dedicated movements array
                     if (movements && movements.length > 0) {
                         console.log('Processing', movements.length, 'animal movements');
                         movements.forEach(movement => {
@@ -393,10 +467,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 recordMainType: 'animal'
                             });
                         });
-                        console.log('Added', movements.length, 'movement records');
-                    } else {
-                        console.log('No movement records found in storage');
                     }
+                    
+                    // Also check for movements in userTransactions
+                    animalTransactions.forEach(transaction => {
+                        if (transaction.type === 'movement') {
+                            transactionRecords.push({
+                                type: 'movement',
+                                date: transaction.date,
+                                fromCategory: transaction.fromCategory,
+                                toCategory: transaction.toCategory,
+                                quantity: transaction.quantity,
+                                description: `Moved ${transaction.quantity} from ${transaction.fromCategory} to ${transaction.toCategory}`,
+                                recordMainType: 'animal'
+                            });
+                        }
+                    });
+                    
+                    console.log('Total movements after combining sources:', 
+                        transactionRecords.filter(r => r.type === 'movement').length);
                     
                     // Process discrepancies separately
                     let discrepancyRecords = [];
@@ -426,8 +515,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         });
                         
                         console.log('Added', discrepancyRecords.length, 'discrepancy records, skipped', skippedCount, 'resolved records');
-                    } else {
-                        console.log('No stock discrepancy records found in storage');
                     }
                     
                     console.log('Transactions processed:', transactionRecords.length);
