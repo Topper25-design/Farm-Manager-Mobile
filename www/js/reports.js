@@ -1377,6 +1377,53 @@ document.addEventListener('DOMContentLoaded', async () => {
             </tr>
         `;
         
+        // First, calculate the current inventory for categories that have movements
+        // This will track inventory changes as we display records chronologically
+        const categoryInventory = {};
+        
+        // Get initial inventory counts from the most recent records
+        data.forEach(record => {
+            if (!record.category) return;
+            
+            // Extract inventory from stock counts
+            if (record.type === 'stock-count' && (record.quantity || record.actual)) {
+                categoryInventory[record.category] = record.quantity || record.actual;
+            }
+        });
+        
+        // Sort records by date (oldest first) to track inventory changes correctly
+        const sortedRecords = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        // Process records chronologically to build the category inventory
+        sortedRecords.forEach(record => {
+            if (!record.type) return;
+            
+            if (record.type === 'stock-count' && (record.quantity || record.actual)) {
+                // Update inventory from stock counts
+                categoryInventory[record.category] = record.quantity || record.actual;
+            } else if (record.type === 'purchase' || record.type === 'birth') {
+                // Increase inventory
+                if (record.category) {
+                    categoryInventory[record.category] = (categoryInventory[record.category] || 0) + Number(record.quantity || 0);
+                }
+            } else if (record.type === 'sale' || record.type === 'death') {
+                // Decrease inventory
+                if (record.category) {
+                    categoryInventory[record.category] = (categoryInventory[record.category] || 0) - Number(record.quantity || 0);
+                }
+            } else if (record.type === 'movement') {
+                // Transfer between categories
+                if (record.fromCategory) {
+                    categoryInventory[record.fromCategory] = (categoryInventory[record.fromCategory] || 0) - Number(record.quantity || 0);
+                }
+                if (record.toCategory) {
+                    categoryInventory[record.toCategory] = (categoryInventory[record.toCategory] || 0) + Number(record.quantity || 0);
+                }
+            }
+        });
+        
+        console.log('Calculated category inventory:', categoryInventory);
+        
         // Display details for each record
         data.forEach(record => {
             let details = '';
@@ -1458,6 +1505,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 details = `${record.quantity} moved`;
                 if (record.fromCategory && record.toCategory) {
                     details += ` from ${record.fromCategory} to ${record.toCategory}`;
+                    
+                    // Calculate inventory impact
+                    const fromCountBefore = (categoryInventory[record.fromCategory] || 0) + Number(record.quantity || 0);
+                    const fromCountAfter = categoryInventory[record.fromCategory] || 0;
+                    const toCountBefore = (categoryInventory[record.toCategory] || 0) - Number(record.quantity || 0);
+                    const toCountAfter = categoryInventory[record.toCategory] || 0;
+                    
+                    // Show inventory impact
+                    details += ` (${record.fromCategory} ${fromCountBefore} -${record.quantity} new total; ${record.toCategory} ${toCountBefore} +${record.quantity} new total)`;
                 }
             }
             
