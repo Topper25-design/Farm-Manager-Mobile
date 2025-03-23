@@ -1094,6 +1094,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 });
                 console.log('-------- END SAMPLE RECORDS --------');
+                
+                // Filter out duplicate records
+                const uniqueRecords = [];
+                const seenRecords = new Map();
+                
+                console.log('Checking for duplicate records in', filteredRecords.length, 'records');
+                
+                filteredRecords.forEach(record => {
+                    // Create a unique key for each record based on its properties
+                    const recordKey = createRecordKey(record);
+                    
+                    if (!seenRecords.has(recordKey)) {
+                        // First time seeing this record
+                        seenRecords.set(recordKey, 1);
+                        uniqueRecords.push(record);
+                    } else {
+                        // This is a duplicate - increment the count
+                        const count = seenRecords.get(recordKey) + 1;
+                        seenRecords.set(recordKey, count);
+                        console.log(`Found duplicate record (${count}):`, record);
+                    }
+                });
+                
+                console.log(`Removed ${filteredRecords.length - uniqueRecords.length} duplicate records`);
+                
+                // Use unique records instead of original filtered records
+                filteredRecords = uniqueRecords;
+                
+                console.log('Post-filter and deduplication records:', filteredRecords.length);
             } else if (!filters.reportType.startsWith('all-')) {
                 // Filter by specific type for non-all reports
                 const specificType = filters.reportType.split('-')[1]; // 'movement', 'purchase', etc.
@@ -1377,42 +1406,68 @@ document.addEventListener('DOMContentLoaded', async () => {
             </tr>
         `;
         
-        // First, sort records by date (oldest first) to track inventory changes correctly
-        const sortedRecords = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+        // Important: Resort data by date with newest first for display
+        const sortedData = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
         
-        // Find the latest stock count for each category to use as a baseline
-        const categoryBaseCounts = {};
+        // Track inventory separately for calculations
+        const categoryInventory = {};
         
-        // First pass: find all stock counts
-        sortedRecords.forEach(record => {
-            if (record.type === 'stock-count' && record.category && (record.quantity || record.actual)) {
+        // First, find the latest stock counts to initialize our inventory
+        const stockCounts = new Map();
+        
+        // Process all records to find the latest stock count for each category
+        data.forEach(record => {
+            if (record.type === 'stock-count' && record.category) {
+                const recordDate = new Date(record.date);
                 const quantity = Number(record.quantity || record.actual || 0);
-                categoryBaseCounts[record.category] = {
-                    count: quantity,
-                    date: new Date(record.date)
-                };
+                
+                // Check if we have a stock count for this category yet or if this one is newer
+                if (!stockCounts.has(record.category) || 
+                    recordDate > stockCounts.get(record.category).date) {
+                    
+                    stockCounts.set(record.category, {
+                        date: recordDate,
+                        quantity: quantity
+                    });
+                }
             }
         });
         
-        console.log('Initial category base counts from stock counts:', categoryBaseCounts);
-        
-        // Create a running inventory that will be updated as we process records
-        const categoryInventory = {};
-        
-        // Initialize inventory with the baseline counts
-        Object.keys(categoryBaseCounts).forEach(category => {
-            categoryInventory[category] = categoryBaseCounts[category].count;
+        // Initialize inventory from the found stock counts
+        stockCounts.forEach((value, category) => {
+            categoryInventory[category] = value.quantity;
         });
         
-        console.log('Initial category inventory:', categoryInventory);
+        console.log('Initial inventory from latest stock counts:', categoryInventory);
         
-        // Display details for each record
-        data.forEach(record => {
+        // Create a reverse chronological array for calculating inventory at each point
+        const reverseChronologicalRecords = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        // Process all records chronologically to build running inventory totals
+        const runningInventory = {};
+        
+        // Initialize with the same values as categoryInventory
+        Object.keys(categoryInventory).forEach(category => {
+            runningInventory[category] = categoryInventory[category];
+        });
+        
+        // Store the inventory state at each record date
+        const inventoryAtRecord = new Map();
+        
+        reverseChronologicalRecords.forEach(record => {
+            // First store the current inventory state for this record
+            inventoryAtRecord.set(record, {...runningInventory});
+            
+            // Then update the running inventory for the next record
+            updateInventoryForRecord(record, runningInventory);
+        });
+        
+        console.log('Calculated running inventory at each record point');
+        
+        // Display details for each record using the stored inventory state
+        sortedData.forEach(record => {
             let details = '';
             let date = formatDate(record.date);
-            
-            // Update inventory based on this record before displaying it
-            updateCategoryInventory(record, categoryInventory);
             
             // Format details based on record type
             if (record.type === 'purchase') {
@@ -1491,16 +1546,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (record.fromCategory && record.toCategory) {
                     details += ` from ${record.fromCategory} to ${record.toCategory}`;
                     
-                    // Get current inventory values for display
-                    const fromCount = categoryInventory[record.fromCategory] || 0;
-                    const toCount = categoryInventory[record.toCategory] || 0;
-                    
-                    // Calculate the before counts by adding/subtracting the movement quantity
-                    const fromCountBefore = fromCount + Number(record.quantity || 0);
-                    const toCountBefore = toCount - Number(record.quantity || 0);
-                    
-                    // Show inventory impact
-                    details += ` (${record.fromCategory} ${fromCountBefore} -${record.quantity} = ${fromCount}; ${record.toCategory} ${toCountBefore} +${record.quantity} = ${toCount})`;
+                    // Get the inventory values right after this record
+                    const inventory = inventoryAtRecord.get(record);
+                    if (inventory) {
+                        const fromCount = inventory[record.fromCategory] || 0;
+                        const toCount = inventory[record.toCategory] || 0;
+                        
+                        // Calculate the before counts
+                        const quantity = Number(record.quantity || 0);
+                        const fromCountBefore = fromCount + quantity; // Add back the animals that were moved out
+                        const toCountBefore = toCount - quantity; // Subtract the animals that were moved in
+                        
+                        // Show inventory impact
+                        details += ` (${record.fromCategory} ${fromCountBefore} -${record.quantity} = ${fromCount}; ${record.toCategory} ${toCountBefore} +${record.quantity} = ${toCount})`;
+                    }
                 }
             }
             
@@ -1535,59 +1594,50 @@ document.addEventListener('DOMContentLoaded', async () => {
         detailsTable.innerHTML = html;
     }
     
-    // Helper function to update the category inventory based on a record
-    function updateCategoryInventory(record, categoryInventory) {
+    // Helper function to update inventory for a record
+    function updateInventoryForRecord(record, inventory) {
         if (!record || !record.type) return;
         
-        if (record.type === 'stock-count' && (record.quantity || record.actual)) {
-            // Update inventory directly from stock counts
-            if (record.category) {
-                categoryInventory[record.category] = Number(record.quantity || record.actual || 0);
-            }
-        } else if (record.type === 'purchase' || record.type === 'birth') {
-            // Increase inventory
-            if (record.category) {
-                // If category doesn't exist yet, initialize it
-                if (categoryInventory[record.category] === undefined) {
-                    categoryInventory[record.category] = 0;
-                }
-                
-                categoryInventory[record.category] += Number(record.quantity || 0);
-            }
-        } else if (record.type === 'sale' || record.type === 'death') {
-            // Decrease inventory
-            if (record.category) {
-                // If category doesn't exist yet, initialize it
-                if (categoryInventory[record.category] === undefined) {
-                    categoryInventory[record.category] = 0;
-                }
-                
-                categoryInventory[record.category] -= Number(record.quantity || 0);
-            }
-        } else if (record.type === 'movement') {
-            // Transfer between categories
+        // Process based on record type
+        if (record.type === 'stock-count' && record.category) {
+            // Stock count sets the absolute value
+            const quantity = Number(record.quantity || record.actual || 0);
+            inventory[record.category] = quantity;
+        } 
+        else if (record.type === 'purchase' && record.category) {
+            // Purchase increases inventory
+            if (!inventory[record.category]) inventory[record.category] = 0;
+            inventory[record.category] += Number(record.quantity || 0);
+        } 
+        else if (record.type === 'birth' && record.category) {
+            // Birth increases inventory
+            if (!inventory[record.category]) inventory[record.category] = 0;
+            inventory[record.category] += Number(record.quantity || 0);
+        } 
+        else if (record.type === 'sale' && record.category) {
+            // Sale decreases inventory
+            if (!inventory[record.category]) inventory[record.category] = 0;
+            inventory[record.category] -= Number(record.quantity || 0);
+        } 
+        else if (record.type === 'death' && record.category) {
+            // Death decreases inventory
+            if (!inventory[record.category]) inventory[record.category] = 0;
+            inventory[record.category] -= Number(record.quantity || 0);
+        } 
+        else if (record.type === 'movement') {
+            // Movement transfers between categories
             const quantity = Number(record.quantity || 0);
             
             if (record.fromCategory) {
-                // If category doesn't exist yet, initialize it
-                if (categoryInventory[record.fromCategory] === undefined) {
-                    categoryInventory[record.fromCategory] = 0;
-                }
-                
-                categoryInventory[record.fromCategory] -= quantity;
+                if (!inventory[record.fromCategory]) inventory[record.fromCategory] = 0;
+                inventory[record.fromCategory] -= quantity;
             }
             
             if (record.toCategory) {
-                // If category doesn't exist yet, initialize it
-                if (categoryInventory[record.toCategory] === undefined) {
-                    categoryInventory[record.toCategory] = 0;
-                }
-                
-                categoryInventory[record.toCategory] += quantity;
+                if (!inventory[record.toCategory]) inventory[record.toCategory] = 0;
+                inventory[record.toCategory] += quantity;
             }
         }
-        
-        return categoryInventory;
     }
     
     // Helper function to format dates consistently
@@ -1974,5 +2024,48 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Add initial log
         console.log('Debug panel initialized');
+    }
+    
+    // Helper function to create a unique key for a record
+    function createRecordKey(record) {
+        if (!record) return 'null';
+        
+        // Create a key that includes all relevant fields to identify duplicates
+        let key = '';
+        
+        // Include date (normalize to date only, no time)
+        if (record.date) {
+            try {
+                const dateObj = new Date(record.date);
+                key += dateObj.toISOString().split('T')[0] + '|';
+            } catch (e) {
+                key += record.date + '|';
+            }
+        }
+        
+        // Include type
+        key += (record.type || 'unknown') + '|';
+        
+        // Include category or from/to categories for movements
+        if (record.type === 'movement') {
+            key += (record.fromCategory || '') + '>' + (record.toCategory || '') + '|';
+        } else {
+            key += (record.category || '') + '|';
+        }
+        
+        // Include quantity
+        key += (record.quantity || '') + '|';
+        
+        // For purchases, include supplier and price
+        if (record.type === 'purchase') {
+            key += (record.supplier || '') + '|' + (record.price || record.cost || '') + '|';
+        }
+        
+        // For sales, include buyer and price
+        if (record.type === 'sale') {
+            key += (record.buyer || '') + '|' + (record.price || record.revenue || '') + '|';
+        }
+        
+        return key;
     }
 }); 
