@@ -305,8 +305,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totalAnimalsElem = document.getElementById('total-animals');
         const inventoryBreakdownElem = document.getElementById('inventory-breakdown');
         
-        // Calculate total animals
-        const totalAnimals = Object.values(animalInventory).reduce((sum, count) => sum + count, 0);
+        // Calculate total animals - if it's not an object, initialize as empty object
+        if (!animalInventory || typeof animalInventory !== 'object') {
+            animalInventory = {};
+        }
+        
+        const totalAnimals = Object.values(animalInventory).reduce((sum, count) => {
+            // Ensure count is a number
+            const numCount = parseInt(count) || 0;
+            return sum + numCount;
+        }, 0);
+        
+        console.log('Total animals calculated:', totalAnimals, 'from inventory:', animalInventory);
         
         // Update total count
         if (totalAnimalsElem) {
@@ -377,6 +387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const expected = discrepancy.expected || 0;
             const actual = discrepancy.actual || 0;
             const difference = actual - expected;
+            const counterName = discrepancy.counterName || 'Unknown';
             
             // Determine if it's a positive or negative difference
             const diffClass = difference < 0 ? 'negative-diff' : 'positive-diff';
@@ -386,6 +397,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="discrepancy-details">
                     <span class="discrepancy-category">${category}</span>
                     <span class="discrepancy-date">${date}</span>
+                    <span class="counter-name">Counted by: ${counterName}</span>
                 </div>
                 <div class="discrepancy-counts">
                     <div class="expected-count">Expected: <span>${expected}</span></div>

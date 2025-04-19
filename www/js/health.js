@@ -780,7 +780,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
         
-        // Default categories if nothing found
-        return ['Cattle', 'Sheep', 'Goats', 'Pigs', 'Chickens'];
+        // Return empty array if no categories found
+        return [];
     }
 }); 

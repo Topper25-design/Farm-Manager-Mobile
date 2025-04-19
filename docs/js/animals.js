@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let animalSales = JSON.parse(await mobileStorage.getItem('animalSales') || '[]');
     let animalPurchases = JSON.parse(await mobileStorage.getItem('animalPurchases') || '[]');
     let stockDiscrepancies = JSON.parse(await mobileStorage.getItem('stockDiscrepancies') || '[]');
+    let stockCounts = [];  // Add stockCounts variable
     
     // Check for animal categories and initialize if needed
     await initializeAnimalCategories();
@@ -1332,6 +1333,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <span class="expected-count"></span>
                     </div>
                     <div class="form-group">
+                        <label for="counter-name">Name of Person Counting:</label>
+                        <input type="text" id="counter-name" name="counter-name" required placeholder="Enter your name">
+                    </div>
+                    <div class="form-group">
                         <label for="notes">Notes:</label>
                         <textarea id="notes" name="notes" placeholder="Add any notes about this count" inputmode="text"></textarea>
                     </div>
@@ -1377,6 +1382,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             
+            const counterName = popup.querySelector('#counter-name').value.trim();
+            if (!counterName) {
+                alert('Please enter the name of the person counting');
+                return;
+            }
+            
             const expectedCount = parseInt(actualCountInput.dataset.expectedCount || 0);
             const notes = popup.querySelector('#notes').value.trim();
             const difference = actualCount - expectedCount;
@@ -1384,12 +1395,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Handle the stock count without changing inventory
             await handleStockCount({
-                    category,
+                category,
                 actualCount,
                 expectedCount,
                 difference,
                 notes,
-                date: countDate
+                date: countDate,
+                counterName
             });
             
             // Close popup
@@ -1415,6 +1427,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const difference = data.difference;
         const notes = data.notes || '';
         const countDate = data.date;
+        const counterName = data.counterName || 'Unknown';
         
         // Create stock count record
             const stockCount = {
@@ -1424,7 +1437,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             expectedCount: expectedCount,
             actualCount: actualCount,
             difference: difference,
-            notes: notes
+            notes: notes,
+            counterName: counterName
         };
         
         // Save to stockCounts
@@ -1439,7 +1453,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             category: category,
             description: `Stock count for ${category}: Expected ${expectedCount}, Actual ${actualCount} (${difference >= 0 ? '+' : ''}${difference})`,
             notes: notes,
-            timestamp: countDate
+            timestamp: countDate,
+            counterName: counterName
         };
         
         // Add to recent activities
@@ -1463,7 +1478,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 description: `Stock count discrepancy in ${category}: Expected ${expectedCount}, Actual ${actualCount} (Difference: ${difference >= 0 ? '+' : ''}${difference})`,
                 notes: notes,
                 resolved: false,
-                timestamp: countDate
+                timestamp: countDate,
+                counterName: counterName
             };
             
             if (existingDiscrepancyIndex !== -1) {
@@ -1700,6 +1716,94 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Cancel button handling
         popup.querySelector('.cancel-btn').addEventListener('click', () => {
             popup.remove();
+        });
+    }
+
+    function updateRecentCountsDisplay() {
+        const recentCountsList = document.getElementById('recent-counts-list');
+        if (!recentCountsList) return;
+        
+        if (!stockCounts || stockCounts.length === 0) {
+            recentCountsList.innerHTML = '<p class="no-data">No recent stock counts</p>';
+            return;
+        }
+        
+        // Sort by date, most recent first
+        const sortedCounts = [...stockCounts].sort((a, b) => {
+            const dateA = new Date(a.timestamp || a.date);
+            const dateB = new Date(b.timestamp || b.date);
+            return dateB - dateA;
+        });
+        
+        recentCountsList.innerHTML = '';
+        
+        // Remove duplicates by category + date (keep only the most recent count for each category on the same day)
+        const countsByDay = {};
+        sortedCounts.forEach(count => {
+            const dateStr = new Date(count.timestamp || count.date).toLocaleDateString();
+            const key = `${dateStr}-${count.category}`;
+            if (!countsByDay[key]) {
+                countsByDay[key] = count;
+            }
+        });
+        
+        const dedupedCounts = Object.values(countsByDay);
+        
+        // Display the most recent counts
+        dedupedCounts.slice(0, 10).forEach(count => {
+            const countItem = document.createElement('div');
+            countItem.className = 'count-item';
+            
+            // Format the date
+            const countDate = new Date(count.timestamp || count.date);
+            const date = countDate.toLocaleDateString();
+            
+            if (count.type === 'resolution') {
+                // This is a discrepancy resolution
+                countItem.classList.add('resolution');
+                
+                countItem.innerHTML = `
+                    <div class="count-date">${date}</div>
+                    <div class="count-category">${count.category}</div>
+                    <div class="count-details">
+                        Resolved discrepancy: ${count.description || 'Stock count discrepancy resolved'}
+                    </div>
+                    ${count.notes ? `<div class="count-notes">Notes: ${count.notes}</div>` : ''}
+                    ${count.counterName ? `<div class="counter-name">Counted by: ${count.counterName}</div>` : ''}
+                `;
+            } else {
+                // Regular stock count
+                const expected = count.expected || 0;
+                const actual = count.actual || count.quantity || 0;
+                const difference = actual - expected;
+                const differenceClass = difference === 0 ? 'match' : (difference > 0 ? 'surplus' : 'shortage');
+                const counterName = count.counterName || 'Unknown';
+                
+                // Check if this count resolved a discrepancy
+                const resolvedDiscrepancy = difference === 0 && 
+                    stockDiscrepancies.some(d => 
+                        d.category === count.category && 
+                        d.resolved && 
+                        d.resolvedDate === count.timestamp
+                    );
+                
+                countItem.innerHTML = `
+                    <div class="count-date">${date}</div>
+                    <div class="count-category">${count.category}</div>
+                    <div class="count-details">
+                        Expected: ${expected}, 
+                        Actual: ${actual}, 
+                        <span class="diff ${differenceClass}">
+                            Diff: ${difference > 0 ? '+' : ''}${difference}
+                        </span>
+                        ${resolvedDiscrepancy ? '<span class="resolved-badge">Resolved discrepancy</span>' : ''}
+                    </div>
+                    ${count.notes ? `<div class="count-notes">Notes: ${count.notes}</div>` : ''}
+                    <div class="counter-name">Counted by: ${counterName}</div>
+                `;
+            }
+            
+            recentCountsList.appendChild(countItem);
         });
     }
 }); 

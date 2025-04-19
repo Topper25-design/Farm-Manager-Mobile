@@ -257,7 +257,7 @@ select.form-control {
 
 /* Discrepancy report styling */
 .unresolved-discrepancy {
-    background-color: #ffebee;
+    background-color: #fff0f0;
 }
 
 .resolved-discrepancy {
@@ -265,33 +265,714 @@ select.form-control {
 }
 
 .resolution {
-    background-color: #e8f7f0;
-    border-left: 4px solid #27ae60;
+    background-color: #f8f9fa;
 }
 
 .resolving-count {
-    background-color: #e3f2fd;
+    background-color: #f0fff0;
+}
+
+.resolution-text {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.unresolved-text {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.final-count {
+    color: #28a745;
+    display: inline-block;
+    margin-left: 10px;
+}
+
+.counter-name {
+    color: #666;
+    font-style: italic;
+    display: inline-block;
+    margin-top: 4px;
+    padding-left: 4px;
+    border-left: 2px solid #ddd;
+}
+
+.notes {
+    color: #666;
+    font-style: italic;
+    margin-top: 5px;
+}
+
+/* Row styles */
+.resolution {
+    background-color: #f8fff8;
+    border-left: 4px solid #28a745;
+}
+
+.unresolved-discrepancy {
+    background-color: #fff8f8;
+    border-left: 4px solid #dc3545;
+}
+
+.resolving-count {
+    background-color: #f0fff0;
+    border-left: 4px solid #28a745;
+}
+
+/* Table styles for better readability */
+.report-table td {
+    padding: 10px;
+    vertical-align: top;
+}
+
+.report-table tr.resolution td,
+.report-table tr.unresolved-discrepancy td,
+.report-table tr.resolving-count td {
+    padding: 15px 10px;
+}
+
+/* Add spacing between lines in details cell */
+.report-table td span {
+    display: block;
+    margin: 2px 0;
+}
+
+.report-table td span:first-child {
+    margin-top: 0;
+}
+
+.report-table td span:last-child {
+    margin-bottom: 0;
 }
 
 .resolved-badge {
     display: inline-block;
-    background-color: #27ae60;
-    color: white;
+    background-color: #e8f5e9;
+    color: #28a745;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    margin-left: 8px;
+}
+
+/* Stock count styling */
+.stock-count-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Row styles for feed transaction types */
+.purchase-row {
+    background-color: rgba(52, 152, 219, 0.05);
+}
+
+.usage-row {
+    background-color: rgba(155, 89, 182, 0.05);
+}
+
+/* Color swatches for the notes */
+.purchase-note {
+    background-color: rgba(52, 152, 219, 0.2);
     padding: 2px 6px;
     border-radius: 4px;
-    font-size: 0.8em;
-    margin-left: 8px;
+}
+
+.usage-note {
+    background-color: rgba(155, 89, 182, 0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* Style for calculated costs */
+.calculated-cost {
+    position: relative;
+    display: inline-block;
+    color: #e67e22;
+    font-style: italic;
+    padding-right: 5px;
+}
+
+.calculated-cost::after {
+    content: "*";
+    position: absolute;
+    top: -5px;
+    right: -2px;
+    font-size: 1.1em;
+    color: #e67e22;
+    font-weight: bold;
+}
+
+/* Explanation for calculated costs */
+.cost-explanation {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: #7f8c8d;
+    font-style: italic;
+}
+
+/* Change for net change values */
+.positive-change {
+    color: #2ecc71;
+}
+
+.negative-change {
+    color: #e74c3c;
+}
+
+/* Add a subtle highlight to the total row */
+.total-row {
+    background-color: rgba(236, 240, 241, 0.5);
+    font-weight: bold;
+}
+
+/* Styling for month separators in reports */
+.month-separator {
+    background-color: #f4f6f7;
+}
+
+.month-separator td {
+    font-size: 0.9rem;
+    color: #7f8c8d;
+    text-align: center;
+    padding: 8px;
+}
+
+/* Report notes section styling */
+.report-notes {
+    margin-top: 25px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.report-notes p {
+    margin: 0 0 10px 0;
+}
+
+.report-notes p:last-child {
+    margin-bottom: 0;
+}
+
+.report-notes strong {
+    color: #333;
+}
+
+/* Report sections styling */
+.report-section {
+    margin-bottom: 25px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
+}
+
+.report-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.report-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #2c3e50;
+    font-size: 1.2rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+}
+
+/* Report header styling */
+.report-header {
+    margin-bottom: 20px;
+}
+
+.report-header h2 {
+    margin-bottom: 10px;
+}
+
+.report-summary {
+    background-color: #f8f9fa;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.report-summary p {
+    margin: 5px 0;
+    font-size: 0.95rem;
+}
+
+/* Make notes and explanations more readable on mobile */
+@media screen and (max-width: 600px) {
+    .report-notes {
+        padding: 12px;
+    }
+    
+    .report-notes li {
+        font-size: 0.85rem;
+    }
+    
+    .report-summary p {
+        font-size: 0.9rem;
+    }
+}
+
+/* Summary table styling */
+.summary-table {
+    margin-bottom: 15px;
+}
+
+.summary-table th {
+    background-color: #f0f3f6;
+    color: #2c3e50;
+    font-weight: bold;
+    padding: 10px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.summary-table td {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.summary-table tr:last-child td {
+    border-bottom: none;
+}
+
+.summary-table tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Empty report state */
+.report-empty {
+    text-align: center;
+    padding: 40px 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    margin: 20px 0;
+    color: #777;
+}
+
+.report-empty p:first-child {
+    font-size: 1.1em;
+    margin-bottom: 8px;
+    color: #555;
+}
+
+.report-empty p:last-child {
+    margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+    .report-empty {
+        padding: 30px 15px;
+    }
+}
+
+/* Print styling improvements */
+@media print {
+    .reports-container {
+        padding: 0;
+    }
+    
+    .report-controls,
+    .mobile-nav,
+    .report-actions button {
+        display: none !important;
+    }
+    
+    .report-content {
+        box-shadow: none;
+        padding: 0;
+    }
+    
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .report-table th {
+        background-color: #f5f5f5 !important;
+        color: #000 !important;
+    }
+    
+    .calculated-cost {
+        color: #000 !important;
+    }
+    
+    .calculated-cost::after {
+        color: #000 !important;
+    }
+}
+
+/* Report actions styling */
+.report-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+    justify-content: flex-end;
+}
+
+.report-actions button {
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.report-actions button:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+.print-button::before {
+    content: "🖨️";
+    margin-right: 6px;
+}
+
+.export-button::before {
+    content: "📋";
+    margin-right: 6px;
+}
+
+/* Improve the report type headers */
+.report-type-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.report-type-title {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .report-type-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .report-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .inventory-summary,
+    .low-stock-alerts {
+        padding: 10px;
+    }
+}
+
+/* Status indicators */
+.status-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.status-good {
+    background-color: #28a745;
+}
+
+.status-low {
+    background-color: #ffc107;
+}
+
+.status-critical {
+    background-color: #dc3545;
+}
+
+/* Inventory summary styles */
+.inventory-summary {
+    margin-top: 15px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.inventory-summary h4 {
+    margin-top: 0;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.summary-item {
+    background-color: white;
+    padding: 10px;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.summary-item .label {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.summary-item .value {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #333;
+}
+
+.summary-item .value.positive {
+    color: #28a745;
+}
+
+.summary-item .value.negative {
+    color: #dc3545;
+}
+
+/* Low Stock Alerts */
+.low-stock-alerts {
+    margin-top: 20px;
+    background-color: #fff8f8;
+    border-radius: 8px;
+    padding: 15px;
+    border-left: 4px solid #dc3545;
+    margin-bottom: 20px;
+}
+
+.low-stock-alerts h4 {
+    color: #dc3545;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.low-stock-alerts table {
+    width: 100%;
+}
+
+/* Days remaining indicators */
+.days-critical {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.days-warning {
+    color: #f0ad4e;
+    font-weight: bold;
+}
+
+.days-good {
+    color: #28a745;
+}
+
+/* Print specific styles */
+@media print {
+    .inventory-summary, 
+    .low-stock-alerts,
+    .report-section {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        margin-bottom: 20px;
+    }
+    
+    .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .report-actions {
+        display: none;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .inventory-summary,
+    .low-stock-alerts {
+        padding: 10px;
+    }
+}
+
+/* Inventory report additional styles */
+.inventory-table .feed-type {
     font-weight: 500;
 }
 
-.resolution-text {
-    color: #27ae60;
-    font-weight: 600;
-    display: block;
+.inventory-table .supplier {
+    font-style: italic;
+    color: #666;
 }
 
-.final-count {
+/* Print styles refinements */
+@media print {
+    .report {
+        margin: 0;
+        padding: 0;
+    }
+    
+    .report-header {
+        margin-bottom: 20px;
+    }
+    
+    .report-actions {
+        display: none;
+    }
+    
+    .status-indicator {
+        border: 1px solid #333;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+    
+    .table th {
+        background-color: #f0f0f0 !important;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+    
+    .report-notes {
+        margin-top: 20px;
+        font-size: 0.9em;
+        border-top: 1px solid #ddd;
+        padding-top: 15px;
+    }
+}
+
+/* Feed Calculation Cards Styling */
+.report-section .calculation-card, 
+.feed-calculation-card {
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.report-section .calculation-card .card-header,
+.feed-calculation-card .card-header {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.report-section .calculation-card .card-header h4,
+.feed-calculation-card .card-header h4 {
+    margin: 0;
     color: #2c3e50;
-    display: block;
-    margin-top: 2px;
+    font-size: 1.1rem;
+}
+
+.report-section .calculation-card .calculation-date,
+.feed-calculation-card .calculation-date {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.report-section .calculation-card .card-body,
+.feed-calculation-card .card-body {
+    padding: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.report-section .calculation-card .feed-details,
+.report-section .calculation-card .cost-details,
+.feed-calculation-card .feed-details,
+.feed-calculation-card .cost-details {
+    flex: 1;
+    min-width: 200px;
+}
+
+.report-section .calculation-card p,
+.feed-calculation-card p {
+    margin: 8px 0;
+}
+
+.report-section .calculation-card strong,
+.feed-calculation-card strong {
+    color: #2c3e50;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.total-row {
+    background-color: #f8f9fa;
+    font-weight: bold;
+}
+
+/* Responsive adjustments for feed calculations */
+@media (max-width: 768px) {
+    .report-section .calculation-card .card-body {
+        flex-direction: column;
+    }
+    
+    .report-section .calculation-card .feed-details,
+    .report-section .calculation-card .cost-details {
+        width: 100%;
+    }
+}
+
+/* Style adjustments for print */
+@media print {
+    .report-section .calculation-card {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+}
+
+/* Status column styles in reports */
+.unresolved {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.resolved {
+    color: #27ae60;
+    font-weight: bold;
+}
+
+/* Animal discrepancy report specific styles */
+.animal-discrepancy .addition {
+    color: #27ae60;
+}
+
+.animal-discrepancy .reduction {
+    color: #e74c3c;
+}
+
+.animal-discrepancy .no-change {
+    color: #7f8c8d;
 } 

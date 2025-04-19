@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let animalSales = JSON.parse(await mobileStorage.getItem('animalSales') || '[]');
     let animalPurchases = JSON.parse(await mobileStorage.getItem('animalPurchases') || '[]');
     let stockDiscrepancies = JSON.parse(await mobileStorage.getItem('stockDiscrepancies') || '[]');
+    let stockCounts = [];  // Add stockCounts variable
     
     // Check for animal categories and initialize if needed
     await initializeAnimalCategories();
@@ -220,13 +221,42 @@ document.addEventListener('DOMContentLoaded', async () => {
             select.setAttribute('data-lpignore', 'true');
         });
         
+        // Automatically set up cancel button functionality for all popups
+        const cancelBtn = popup.querySelector('.cancel-btn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                popup.remove();
+            });
+        }
+        
+        // Add Escape key support to close popup
+        const handleEscapeKey = (event) => {
+            if (event.key === 'Escape') {
+                popup.remove();
+                document.removeEventListener('keydown', handleEscapeKey);
+            }
+        };
+        document.addEventListener('keydown', handleEscapeKey);
+        
+        // Ensure popup is automatically removed when a new popup is created
+        popup.addEventListener('remove', () => {
+            document.removeEventListener('keydown', handleEscapeKey);
+        });
+        
         // Focus the first input or select element to trigger keyboard
         setTimeout(() => {
             const firstInput = popup.querySelector('input:not([type="hidden"]), select, textarea');
             if (firstInput) {
                 firstInput.focus();
+                // On iOS, sometimes the keyboard doesn't appear, so we try focusing again
+                if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                    setTimeout(() => {
+                        firstInput.blur();
+                        firstInput.focus();
+                    }, 100);
+                }
             }
-        }, 300); // Small delay to ensure the popup is rendered
+        }, 100); // Reduced delay for faster appearance
         
         return popup;
     }
@@ -246,6 +276,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('record-birth-btn')?.addEventListener('click', showBirthPopup, { passive: true });
         
         // Management buttons
+        document.getElementById('undo-last-action-btn')?.addEventListener('click', showUndoLastActionPopup, { passive: true });
         document.getElementById('reverse-last-btn')?.addEventListener('click', showReverseLastAdditionPopup, { passive: true });
         document.getElementById('clear-animal-data-btn')?.addEventListener('click', confirmClearAnimalData, { passive: true });
     }
@@ -261,8 +292,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totalAnimalsElem = document.getElementById('total-animals');
         const inventoryBreakdownElem = document.getElementById('inventory-breakdown');
         
-        // Calculate total animals
-        const totalAnimals = Object.values(animalInventory).reduce((sum, count) => sum + count, 0);
+        // Calculate total animals with new structure
+        const totalAnimals = Object.values(animalInventory).reduce((sum, value) => {
+            // Handle both old (number) and new (object) formats
+            if (typeof value === 'number') {
+                return sum + value;
+            } else if (value && typeof value === 'object') {
+                return sum + (value.total || 0);
+            }
+            return sum;
+        }, 0);
         
         // Update total count
         if (totalAnimalsElem) {
@@ -284,12 +323,37 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             
-            Object.entries(animalInventory).forEach(([category, count]) => {
+            Object.entries(animalInventory).forEach(([category, value]) => {
                 const item = document.createElement('div');
                 item.className = 'inventory-item';
+                
+                // Get the count based on the data structure
+                let count;
+                let locationInfo = '';
+                
+                if (typeof value === 'number') {
+                    count = value;
+                } else if (value && typeof value === 'object') {
+                    count = value.total || 0;
+                    
+                    // Add location breakdown if available
+                    if (value.locations && Object.keys(value.locations).length > 0) {
+                        locationInfo = '<div class="location-breakdown">';
+                        Object.entries(value.locations).forEach(([location, locationCount]) => {
+                            locationInfo += `<div class="location-item"><span class="location-name">${location}:</span> <span class="location-count">${locationCount}</span></div>`;
+                        });
+                        locationInfo += '</div>';
+                    }
+                } else {
+                    count = 0;
+                }
+                
                 item.innerHTML = `
-                    <span class="category">${category}</span>
-                    <span class="count">${count}</span>
+                    <div class="main-info">
+                        <span class="category">${category}</span>
+                        <span class="count">${count}</span>
+                    </div>
+                    ${locationInfo}
                 `;
                 inventoryBreakdownElem.appendChild(item);
             });
@@ -327,31 +391,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             const date = new Date(transaction.timestamp || transaction.date).toLocaleDateString();
             let description = '';
             
+            // Handle location information
+            const locationInfo = transaction.location ? ` at ${transaction.location}` : '';
+            
             switch (transaction.type) {
                 case 'add':
-                    description = `Added ${transaction.quantity} ${transaction.category}`;
+                    description = `Added ${transaction.quantity} ${transaction.category}${locationInfo}`;
                     break;
                 case 'sell':
-                    description = `Sold ${transaction.quantity} ${transaction.category}`;
+                    description = `Sold ${transaction.quantity} ${transaction.category}${locationInfo}`;
                     break;
                 case 'buy':
-                    description = `Purchased ${transaction.quantity} ${transaction.category}`;
+                    description = `Purchased ${transaction.quantity} ${transaction.category}${locationInfo}`;
                     break;
                 case 'move':
                     if (transaction.fromCategory && transaction.toCategory) {
-                        description = `Moved ${transaction.quantity} ${transaction.fromCategory} from ${transaction.fromCategory} to ${transaction.toCategory}`;
+                        // Handle category moves
+                        const fromLocationInfo = transaction.fromLocation ? ` (${transaction.fromLocation})` : '';
+                        const toLocationInfo = transaction.toLocation ? ` (${transaction.toLocation})` : '';
+                        description = `Moved ${transaction.quantity} from ${transaction.fromCategory}${fromLocationInfo} to ${transaction.toCategory}${toLocationInfo}`;
                     } else if (transaction.fromLocation && transaction.toLocation) {
-                        // Handle legacy move records
+                        // Handle location moves
                         description = `Moved ${transaction.quantity} ${transaction.category} from ${transaction.fromLocation} to ${transaction.toLocation}`;
                     } else {
                         description = `Moved ${transaction.quantity} ${transaction.category || 'animals'}`;
                     }
                     break;
                 case 'death':
-                    description = `Recorded death of ${transaction.quantity} ${transaction.category}`;
+                    description = `Recorded death of ${transaction.quantity} ${transaction.category}${locationInfo}`;
                     break;
                 case 'birth':
-                    description = `Recorded birth of ${transaction.quantity} ${transaction.category}`;
+                    description = `Recorded birth of ${transaction.quantity} ${transaction.category}${locationInfo}`;
                     break;
             }
             
@@ -414,6 +484,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             const differenceClass = discrepancy.difference > 0 ? 'positive-diff' : 'negative-diff';
             const differencePrefix = discrepancy.difference > 0 ? '+' : '';
             
+            // Find any resolution attempts for this category
+            const resolutionAttempts = recentActivities.filter(activity => 
+                activity.type === 'stock-count' && 
+                activity.category === discrepancy.category &&
+                new Date(activity.timestamp) > new Date(discrepancy.timestamp)
+            );
+            
+            // Get the latest resolution attempt if any
+            const latestResolution = resolutionAttempts.length > 0 ? 
+                resolutionAttempts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0] : null;
+            
             item.innerHTML = `
                 <div class="discrepancy-header">
                     <span class="discrepancy-category">${discrepancy.category}</span>
@@ -425,6 +506,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="difference ${differenceClass}">
                         Difference: ${differencePrefix}${discrepancy.difference}
                     </div>
+                    ${latestResolution ? `
+                        <div class="resolution-attempt">
+                            <div class="resolution-count">Latest Count: ${latestResolution.actual}</div>
+                            <div class="counter-name">Counted by: ${latestResolution.counterName || 'Unknown'}</div>
+                            <div class="resolution-date">Date: ${new Date(latestResolution.timestamp).toLocaleDateString()}</div>
+                        </div>
+                    ` : ''}
                     ${discrepancy.notes ? `<div class="notes">Notes: ${discrepancy.notes}</div>` : ''}
                 </div>
             `;
@@ -437,61 +525,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         const recentCountsList = document.getElementById('recent-counts-list');
         if (!recentCountsList) return;
         
-        // Get all stock count activities and resolution activities
+        // Get stock count activities from recentActivities
         const stockCounts = recentActivities.filter(activity => 
             activity.type === 'stock-count' || activity.type === 'resolution'
         );
         
         if (stockCounts.length === 0) {
-            recentCountsList.innerHTML = '<p>No recent counts</p>';
+            recentCountsList.innerHTML = '<p class="no-data">No recent stock counts</p>';
             return;
         }
         
-        // Sort by date (newest first)
-        stockCounts.sort((a, b) => new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date));
-        
-        // Remove duplicate entries (where a stock-count and resolution share the same timestamp and category)
-        const dedupedCounts = [];
-        const seenKeys = new Set();
-        
-        stockCounts.forEach(count => {
-            const timestamp = count.timestamp || count.date;
-            const key = `${timestamp}-${count.category}`;
-            
-            // For each timestamp+category combination, prefer the resolution record if it exists
-            if (!seenKeys.has(key)) {
-                seenKeys.add(key);
-                dedupedCounts.push(count);
-            } else if (count.type === 'resolution') {
-                // If we've seen this key before but this is a resolution, replace the previous entry
-                const existingIndex = dedupedCounts.findIndex(c => 
-                    (c.timestamp || c.date) === timestamp && c.category === count.category
-                );
-                if (existingIndex !== -1) {
-                    dedupedCounts[existingIndex] = count;
-                }
-            }
+        // Sort by date, most recent first
+        const sortedCounts = [...stockCounts].sort((a, b) => {
+            const dateA = new Date(a.timestamp || a.date);
+            const dateB = new Date(b.timestamp || b.date);
+            return dateB - dateA;
         });
         
         recentCountsList.innerHTML = '';
         
-        // Display the most recent 10 counts
+        // Remove duplicates by category + date (keep only the most recent count for each category on the same day)
+        const countsByDay = {};
+        sortedCounts.forEach(count => {
+            const dateStr = new Date(count.timestamp || count.date).toLocaleDateString();
+            const key = `${dateStr}-${count.category}`;
+            if (!countsByDay[key]) {
+                countsByDay[key] = count;
+            }
+        });
+        
+        const dedupedCounts = Object.values(countsByDay);
+        
+        // Display the most recent counts
         dedupedCounts.slice(0, 10).forEach(count => {
             const countItem = document.createElement('div');
             countItem.className = 'count-item';
             
-            const date = new Date(count.timestamp || count.date).toLocaleDateString();
+            // Format the date
+            const countDate = new Date(count.timestamp || count.date);
+            const date = countDate.toLocaleDateString();
             
-            // Handle resolution activities differently
             if (count.type === 'resolution') {
-                countItem.className = 'count-item resolution';
+                // This is a discrepancy resolution
+                countItem.classList.add('resolution');
+                
                 countItem.innerHTML = `
                     <div class="count-date">${date}</div>
                     <div class="count-category">${count.category}</div>
                     <div class="count-details">
-                        <span class="resolution-text">✓ Discrepancy resolved</span>
-                        <span class="final-count">Final count: ${count.finalCount}</span>
+                        Resolved discrepancy: ${count.description || 'Stock count discrepancy resolved'}
                     </div>
+                    ${count.notes ? `<div class="count-notes">Notes: ${count.notes}</div>` : ''}
+                    ${count.counterName ? `<div class="counter-name">Counted by: ${count.counterName}</div>` : ''}
                 `;
             } else {
                 // Regular stock count
@@ -499,6 +584,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const actual = count.actual || count.quantity || 0;
                 const difference = actual - expected;
                 const differenceClass = difference === 0 ? 'match' : (difference > 0 ? 'surplus' : 'shortage');
+                const counterName = count.counterName || 'Unknown';
+                const locationInfo = count.location ? ` at ${count.location}` : '';
                 
                 // Check if this count resolved a discrepancy
                 const resolvedDiscrepancy = difference === 0 && 
@@ -510,7 +597,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 countItem.innerHTML = `
                     <div class="count-date">${date}</div>
-                    <div class="count-category">${count.category}</div>
+                    <div class="count-category">${count.category}${locationInfo}</div>
                     <div class="count-details">
                         Expected: ${expected}, 
                         Actual: ${actual}, 
@@ -520,6 +607,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         ${resolvedDiscrepancy ? '<span class="resolved-badge">Resolved discrepancy</span>' : ''}
                     </div>
                     ${count.notes ? `<div class="count-notes">Notes: ${count.notes}</div>` : ''}
+                    <div class="counter-name">Counted by: ${counterName}</div>
                 `;
             }
             
@@ -615,39 +703,51 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     async function showAddAnimalPopup() {
-        const categories = await getAnimalCategories();
+        // Ensure we have the latest farm properties before showing the popup
+        await initializeProperties();
+        console.log("showAddAnimalPopup - Current farmProperties:", farmProperties);
         
-        // We no longer redirect to create category popup
-        // if (categories.length === 0) {
-        //     showCreateCategoryPopup();
-        //     return;
-        // }
+        // Create popup content HTML
+        const categoriesHTML = animalCategories.map(category => `<option value="${category}">${category}</option>`).join('');
+        
+        // Create the locations dropdown with the latest properties
+        const locationsHTML = farmProperties.map(property => `<option value="${property}">${property}</option>`).join('');
         
         const popupContent = `
             <div class="popup-content">
                 <h3>Add Livestock</h3>
-                <form id="add-animal-form">
+                <form id="add-form">
                     <div class="form-group">
-                        <label for="category">Category:</label>
-                        <select id="category" name="category" required>
-                            <option value="" disabled selected>Select a category</option>
-                            ${categories.map(category => 
-                                `<option value="${category}">${category}</option>`
-                            ).join('')}
+                        <label for="category">Animal Category:</label>
+                        <select id="category" required>
+                            <option value="" disabled selected>Select category</option>
+                            ${categoriesHTML}
                             <option value="new">+ Add New Category</option>
                         </select>
                     </div>
                     <div class="form-group new-category-input" style="display: none;">
                         <label for="new-category">New Category:</label>
-                        <input type="text" id="new-category" name="new-category" placeholder="Enter new category name" inputmode="text" autocomplete="off">
+                        <input type="text" id="new-category" placeholder="Enter new category name" inputmode="text" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label for="quantity">Quantity:</label>
-                        <input type="number" id="quantity" name="quantity" min="1" placeholder="Enter quantity" required>
+                        <input type="number" id="quantity" value="1" min="1" required>
                     </div>
                     <div class="form-group">
-                        <label for="add-date">Date:</label>
-                        <input type="date" id="add-date" name="add-date" required value="${new Date().toISOString().split('T')[0]}">
+                        <label for="location">Location:</label>
+                        <select id="location" required>
+                            <option value="" selected>Select location</option>
+                            ${locationsHTML}
+                            <option value="manage">+ Manage Properties</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="date">Date:</label>
+                        <input type="date" id="date" value="${new Date().toISOString().split('T')[0]}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="notes">Notes:</label>
+                        <textarea id="notes" rows="2" placeholder="Optional notes"></textarea>
                     </div>
                     <div class="form-actions">
                         <button type="button" class="cancel-btn">Cancel</button>
@@ -659,15 +759,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const popup = createPopup(popupContent);
         
-        // Category selection handling
+        // Get form elements
+        const form = popup.querySelector('#add-form');
         const categorySelect = popup.querySelector('#category');
         const newCategoryInput = popup.querySelector('.new-category-input');
+        const locationSelect = popup.querySelector('#location');
+        const cancelBtn = popup.querySelector('.cancel-btn');
         
+        // Handle new category option
         categorySelect.addEventListener('change', () => {
             if (categorySelect.value === 'new') {
                 newCategoryInput.style.display = 'block';
                 
-                // Focus the new category input after a short delay to allow the display change to complete
+                // Focus the new category input after a short delay
                 setTimeout(() => {
                     const inputField = newCategoryInput.querySelector('input');
                     if (inputField) {
@@ -683,64 +787,146 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 newCategoryInput.style.display = 'none';
             }
-        }, { passive: true });
+        });
+        
+        // Handle manage properties option
+        locationSelect.addEventListener('change', () => {
+            if (locationSelect.value === 'manage') {
+                // Open properties management popup
+                popup.remove(); // Close the current popup
+                showManagePropertiesPopup().then(() => {
+                    showAddAnimalPopup();
+                });
+            }
+        });
+        
+        // Explicitly handle cancel button click
+        cancelBtn.addEventListener('click', () => {
+            popup.remove();
+        });
         
         // Form submission handling
-        const form = popup.querySelector('form');
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            // Disable the submit button to prevent double-clicks
+            const submitBtn = form.querySelector('.save-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Adding...';
+            
+            try {
+                // Get values from form
+                const quantity = parseInt(popup.querySelector('#quantity').value, 10);
+                const date = popup.querySelector('#date').value;
+                const notes = popup.querySelector('#notes').value.trim();
+                const location = locationSelect.value === 'manage' ? '' : locationSelect.value;
+                
+                // Handle category (could be new or existing)
             let category;
             if (categorySelect.value === 'new') {
                 category = popup.querySelector('#new-category').value.trim();
                 if (!category) {
-                    alert('Please enter a category name');
+                        alert('Please enter a new category name');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Add';
                     return;
                 }
                 
                 // Add new category to saved categories
-                const categories = await getAnimalCategories();
-                if (!categories.includes(category)) {
-                    categories.push(category);
-                    await mobileStorage.setItem('animalCategories', JSON.stringify(categories));
+                    if (!animalCategories.includes(category)) {
+                        animalCategories.push(category);
+                        await mobileStorage.setItem('animalCategories', JSON.stringify(animalCategories));
                     // Also update localStorage for dashboard.js
-                    localStorage.setItem('animalCategories', JSON.stringify(categories));
-                    // Update our local copy
-                    animalCategories = categories;
+                        localStorage.setItem('animalCategories', JSON.stringify(animalCategories));
                 }
             } else {
                 category = categorySelect.value;
             }
             
-            const quantity = parseInt(popup.querySelector('#quantity').value, 10);
-            const date = popup.querySelector('#add-date').value;
+                // Create transaction record
+                const transaction = {
+                    type: 'add',
+                    category,
+                    quantity,
+                    location,
+                    date,
+                    timestamp: new Date().toISOString()
+                };
+                
+                if (notes) {
+                    transaction.notes = notes;
+                }
+                
+                // Add transaction to the list
+                recentActivities.unshift(transaction);
+                await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+                
+                // Update inventory
+            if (!animalInventory[category]) {
+                    // Initialize with new format
+                animalInventory[category] = {
+                        total: quantity,
+                    locations: {}
+                };
+                    
+                    // Add location if provided
+                    if (location) {
+                        animalInventory[category].locations[location] = quantity;
+                    } else {
+                        animalInventory[category].locations['Unspecified'] = quantity;
+                    }
+                } else {
+                    // Convert old format to new format if needed
+                    if (typeof animalInventory[category] === 'number') {
+                animalInventory[category] = {
+                            total: animalInventory[category] + quantity,
+                            locations: {
+                                'Unspecified': animalInventory[category]
+                            }
+                        };
+                        
+                        // Add location if provided
+                        if (location) {
+                            animalInventory[category].locations[location] = quantity;
+                        } else {
+                            animalInventory[category].locations['Unspecified'] += quantity;
+                        }
+                    } else {
+                        // Update new format
+            animalInventory[category].total += quantity;
             
-            // Update inventory
-            animalInventory[category] = (animalInventory[category] || 0) + quantity;
+                        // Update location
+                        if (location) {
+                            if (!animalInventory[category].locations[location]) {
+                                animalInventory[category].locations[location] = 0;
+                            }
+                            animalInventory[category].locations[location] += quantity;
+                        } else {
+                            // Default to Unspecified location
+                            if (!animalInventory[category].locations['Unspecified']) {
+                                animalInventory[category].locations['Unspecified'] = 0;
+                            }
+                            animalInventory[category].locations['Unspecified'] += quantity;
+                        }
+                    }
+                }
+                
+                // Save updated inventory
             await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
             
-            // Add to recent activities
-            const activity = {
-                type: 'add',
-                category,
-                quantity,
-                date,
-                timestamp: new Date().toISOString()
-            };
-            
-            recentActivities.unshift(activity);
-            await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
-            
-            // Update UI
+                // Update displays
             updateDisplays();
             
-            // Close popup
+                // Close the popup
             popup.remove();
-        });
-        
-        // Cancel button handling
-        popup.querySelector('.cancel-btn').addEventListener('click', () => {
-            popup.remove();
+            } catch (error) {
+                console.error('Error adding livestock:', error);
+                alert('There was an error adding livestock. Please try again.');
+                
+                // Re-enable the submit button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Add';
+            }
         });
     }
     
@@ -760,14 +946,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <label for="category">Category:</label>
                         <select id="category" name="category" required>
                             <option value="" disabled selected>Select a category</option>
-                            ${Object.keys(animalInventory).map(category => 
-                                `<option value="${category}">${category} (${animalInventory[category]} available)</option>`
-                            ).join('')}
+                            ${Object.keys(animalInventory).map(category => {
+                                // Get count based on structure
+                                const count = typeof animalInventory[category] === 'number' ? 
+                                    animalInventory[category] : 
+                                    (animalInventory[category]?.total || 0);
+                                return `<option value="${category}">${category} (${count} available)</option>`;
+                            }).join('')}
                         </select>
                     </div>
                     <div class="form-group">
                         <label for="quantity">Quantity:</label>
                         <input type="number" id="quantity" name="quantity" min="1" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="location">Location:</label>
+                        <select id="location" name="location" required>
+                            <option value="" selected>Select location</option>
+                            ${farmProperties.map(property => 
+                                `<option value="${property}">${property}</option>`
+                            ).join('')}
+                            <option value="manage">+ Manage Properties</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="price">Price per Animal (${worldCurrencies.find(c => c.code === selectedCurrency)?.symbol || 'R'}):</label>
@@ -791,68 +991,220 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const popup = createPopup(popupContent);
         
-        // Form submission handling
-        const form = popup.querySelector('form');
+        // Get form elements
+        const form = popup.querySelector('#sell-form');
         const categorySelect = popup.querySelector('#category');
         const quantityInput = popup.querySelector('#quantity');
+        const locationSelect = popup.querySelector('#location');
+        const cancelBtn = popup.querySelector('.cancel-btn');
         
-        // Update max quantity based on selection
+        // Explicitly handle cancel button click
+        cancelBtn.addEventListener('click', () => {
+            popup.remove();
+        });
+        
+        // Update location options when category changes
         categorySelect.addEventListener('change', () => {
             const category = categorySelect.value;
-            const availableQuantity = animalInventory[category] || 0;
+            const categoryData = animalInventory[category];
+            
+            // Populate location dropdown with all farm properties
+            locationSelect.innerHTML = '<option value="">Select location (or leave blank)</option>';
+            farmProperties.forEach(property => {
+                // Check if this property has animals of this category
+                let locationCount = 0;
+                if (categoryData && typeof categoryData === 'object' && categoryData.locations && categoryData.locations[property]) {
+                    locationCount = categoryData.locations[property];
+                }
+                locationSelect.innerHTML += `<option value="${property}">${property}${locationCount > 0 ? ` (${locationCount} available)` : ''}</option>`;
+            });
+            locationSelect.innerHTML += '<option value="manage">+ Manage Properties</option>';
+            
+            // Update max quantity based on the data structure
+            let availableQuantity = 0;
+            if (typeof categoryData === 'number') {
+                availableQuantity = categoryData;
+            } else if (categoryData && typeof categoryData === 'object') {
+                availableQuantity = categoryData.total || 0;
+            }
+            
             quantityInput.max = availableQuantity;
             quantityInput.value = Math.min(quantityInput.value, availableQuantity);
-        }, { passive: true });
+        });
+        
+        // Handle manage properties option in location dropdown
+        locationSelect.addEventListener('change', () => {
+            if (locationSelect.value === 'manage') {
+                // Save current form state to restore later
+                const formValues = {
+                    category: categorySelect.value,
+                    quantity: quantityInput.value,
+                    price: popup.querySelector('#price').value,
+                    buyer: popup.querySelector('#buyer').value,
+                    date: popup.querySelector('#sell-date').value
+                };
+                
+                // Store form state in session storage
+                sessionStorage.setItem('sellFormValues', JSON.stringify(formValues));
+                
+                // Open properties management popup
+                popup.remove(); // Close the current popup
+                showManagePropertiesPopup().then(() => {
+                    showSellAnimalPopup();
+                    
+                    // Restore values manually since handleRestore is causing issues
+                    try {
+                        const savedValues = JSON.parse(sessionStorage.getItem('sellFormValues'));
+                        if (savedValues) {
+                            const newPopup = document.querySelector('.popup');
+                            if (newPopup) {
+                                // Restore category and update location dropdown
+                                if (savedValues.category) {
+                                    const categoryField = newPopup.querySelector('#category');
+                                    if (categoryField) {
+                                        categoryField.value = savedValues.category;
+                                        const event = new Event('change');
+                                        categoryField.dispatchEvent(event);
+                                    }
+                                }
+                                
+                                if (savedValues.quantity) {
+                                    const quantityField = newPopup.querySelector('#quantity');
+                                    if (quantityField) {
+                                        quantityField.value = savedValues.quantity;
+                                    }
+                                }
+                                
+                                if (savedValues.price) {
+                                    const priceField = newPopup.querySelector('#price');
+                                    if (priceField) {
+                                        priceField.value = savedValues.price;
+                                    }
+                                }
+                                
+                                if (savedValues.buyer) {
+                                    const buyerField = newPopup.querySelector('#buyer');
+                                    if (buyerField) {
+                                        buyerField.value = savedValues.buyer;
+                                    }
+                                }
+                                
+                                if (savedValues.date) {
+                                    const dateField = newPopup.querySelector('#sell-date');
+                                    if (dateField) {
+                                        dateField.value = savedValues.date;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Error restoring form values:", error);
+                    }
+                });
+            }
+        });
         
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            // Disable the submit button to prevent double-clicks
+            const submitBtn = form.querySelector('.save-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+            
+            try {
             const category = categorySelect.value;
             const quantity = parseInt(quantityInput.value, 10);
+            const location = locationSelect.value;
             const price = parseFloat(popup.querySelector('#price').value);
             const buyer = popup.querySelector('#buyer').value.trim();
             const date = popup.querySelector('#sell-date').value;
             
-            if (quantity > animalInventory[category]) {
-                alert(`Not enough ${category} in inventory. Available: ${animalInventory[category]}`);
+            // Check if there are enough animals
+            const categoryData = animalInventory[category];
+            let availableQuantity = 0;
+            
+            if (typeof categoryData === 'number') {
+                availableQuantity = categoryData;
+            } else if (categoryData && typeof categoryData === 'object') {
+                if (location && categoryData.locations && categoryData.locations[location]) {
+                    // If specific location, check that location's count
+                    availableQuantity = categoryData.locations[location];
+                } else {
+                    // If no specific location, use total
+                    availableQuantity = categoryData.total || 0;
+                }
+            }
+            
+            if (quantity > availableQuantity) {
+                const locationText = location ? ` in ${location}` : '';
+                alert(`Not enough ${category}${locationText}. Available: ${availableQuantity}`);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Sell';
                 return;
             }
             
             // Update inventory
-            animalInventory[category] -= quantity;
-            if (animalInventory[category] <= 0) {
-                delete animalInventory[category];
+            if (typeof categoryData === 'number') {
+                // Convert old format to new format
+                animalInventory[category] = {
+                    total: categoryData - quantity,
+                    locations: {}
+                };
+                if (animalInventory[category].total <= 0) {
+                    delete animalInventory[category];
+                }
+            } else {
+                // Update total
+                categoryData.total -= quantity;
+                
+                // Update specific location if provided
+                if (location) {
+                    categoryData.locations[location] -= quantity;
+                    
+                    // Remove location if count is 0
+                    if (categoryData.locations[location] <= 0) {
+                        delete categoryData.locations[location];
+                    }
+                } else {
+                    // If no specific location, reduce from 'Unspecified'
+                    const unspecifiedLocation = 'Unspecified';
+                    if (!categoryData.locations[unspecifiedLocation]) {
+                        categoryData.locations[unspecifiedLocation] = categoryData.total + quantity;
+                    }
+                    categoryData.locations[unspecifiedLocation] -= quantity;
+                    
+                    if (categoryData.locations[unspecifiedLocation] <= 0) {
+                        delete categoryData.locations[unspecifiedLocation];
+                    }
+                }
+                
+                    // Remove category if no locations or count is 0
+                    if (categoryData.total <= 0 || Object.keys(categoryData.locations).length === 0) {
+                    delete animalInventory[category];
+                }
             }
+            
+                // Save updated inventory
             await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
             
-            // Add to sales
-            const sale = {
-                category,
-                quantity,
-                price,
-                amount: price * quantity,
-                buyer,
-                date,
-                currency: selectedCurrency,
-                timestamp: new Date().toISOString()
-            };
-            
-            animalSales.unshift(sale);
-            await mobileStorage.setItem('animalSales', JSON.stringify(animalSales));
-            
-            // Add to recent activities
-            const activity = {
+                // Calculate total revenue
+                const totalRevenue = price * quantity;
+                
+                // Add to sales transactions
+                const transaction = {
                 type: 'sell',
                 category,
                 quantity,
                 price,
+                    revenue: totalRevenue,
                 buyer,
+                    location,
                 date,
-                currency: selectedCurrency,
                 timestamp: new Date().toISOString()
             };
             
-            recentActivities.unshift(activity);
+                recentActivities.unshift(transaction);
             await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
             
             // Update UI
@@ -860,21 +1212,43 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Close popup
             popup.remove();
-        });
-        
-        // Cancel button handling
-        popup.querySelector('.cancel-btn').addEventListener('click', () => {
-            popup.remove();
+            } catch (error) {
+                console.error('Error selling animals:', error);
+                alert('There was an error processing the sale. Please try again.');
+                
+                // Re-enable the submit button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Sell';
+            }
         });
     }
     
-    function showMoveAnimalPopup() {
+    async function showMoveAnimalPopup() {
         // We no longer redirect to create category popup
         // Instead we check if there are animals in inventory
         if (Object.keys(animalInventory).length === 0) {
             alert('No animals in inventory to move');
             return;
         }
+        
+        // Make sure farmProperties is initialized
+        // Reload from storage to ensure we have the latest data
+        try {
+            const propertiesStr = await mobileStorage.getItem('farmProperties');
+            if (propertiesStr) {
+                farmProperties = JSON.parse(propertiesStr);
+            }
+        } catch (error) {
+            console.error('Error loading farm properties:', error);
+            if (!farmProperties || farmProperties.length === 0) {
+                farmProperties = [];
+            }
+        }
+        
+        // Get the properties/locations options for dropdowns
+        const propertiesOptions = farmProperties.map(property => 
+            `<option value="${property}">${property}</option>`
+        ).join('');
         
         const popupContent = `
             <div class="popup-content">
@@ -884,9 +1258,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <label for="from-category">From Category:</label>
                         <select id="from-category" name="from-category" required>
                             <option value="" disabled selected>Select source category</option>
-                            ${Object.keys(animalInventory).map(category => 
-                                `<option value="${category}">${category} (${animalInventory[category]} available)</option>`
+                            ${Object.keys(animalInventory).map(category => {
+                                // Get count based on structure
+                                const count = typeof animalInventory[category] === 'number' ? 
+                                    animalInventory[category] : 
+                                    (animalInventory[category]?.total || 0);
+                                return `<option value="${category}">${category} (${count} available)</option>`;
+                            }).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="from-location">From Location:</label>
+                        <select id="from-location" name="from-location" required>
+                            <option value="" selected>Select source location</option>
+                            ${farmProperties.map(property => 
+                                `<option value="${property}">${property}</option>`
                             ).join('')}
+                            <option value="manage">+ Manage Properties</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -906,6 +1294,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="form-group new-category-input" style="display: none;">
                         <label for="new-category">New Category:</label>
                         <input type="text" id="new-category" name="new-category" placeholder="Enter new category name" inputmode="text" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="to-location">To Location:</label>
+                        <select id="to-location" name="to-location" required>
+                            <option value="" selected>Select destination location</option>
+                            ${propertiesOptions}
+                            <option value="manage">+ Manage Properties</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="move-date">Date:</label>
@@ -931,14 +1327,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         const toCategorySelect = popup.querySelector('#to-category');
         const newCategoryInput = popup.querySelector('.new-category-input');
         const quantityInput = popup.querySelector('#quantity');
+        const fromLocationSelect = popup.querySelector('#from-location');
+        const toLocationSelect = popup.querySelector('#to-location');
         
-        // Update max quantity based on selection
+        // Update location dropdowns initially if a category is already selected
+        if (fromCategorySelect.value) {
+            const event = new Event('change');
+            fromCategorySelect.dispatchEvent(event);
+        }
+        
+        // Update from location options when category changes
         fromCategorySelect.addEventListener('change', () => {
             const category = fromCategorySelect.value;
-            const availableQuantity = animalInventory[category] || 0;
+            const categoryData = animalInventory[category];
+            
+            // Update max quantity based on selection
+            let availableQuantity = 0;
+            if (typeof categoryData === 'number') {
+                availableQuantity = categoryData;
+            } else if (categoryData && typeof categoryData === 'object') {
+                availableQuantity = categoryData.total || 0;
+            }
+            
             quantityInput.max = availableQuantity;
             quantityInput.value = Math.min(quantityInput.value, availableQuantity);
-        }, { passive: true });
+            
+            // Populate from-location dropdown with farm properties
+            fromLocationSelect.innerHTML = '<option value="">Select source location (or leave blank)</option>';
+            farmProperties.forEach(property => {
+                // Check if this property has animals of this category
+                let locationCount = 0;
+                if (categoryData && typeof categoryData === 'object' && categoryData.locations && categoryData.locations[property]) {
+                    locationCount = categoryData.locations[property];
+                }
+                fromLocationSelect.innerHTML += `<option value="${property}">${property}${locationCount > 0 ? ` (${locationCount} available)` : ''}</option>`;
+            });
+            fromLocationSelect.innerHTML += '<option value="manage">+ Manage Properties</option>';
+        });
         
         // Handle new category option
         toCategorySelect.addEventListener('change', () => {
@@ -950,31 +1375,204 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const inputField = newCategoryInput.querySelector('input');
                     if (inputField) {
                         inputField.focus();
-                        
-                        // Force keyboard to show on mobile devices
-                        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-                            inputField.blur();  // First blur
-                            inputField.focus(); // Then focus again to ensure keyboard appears
-                        }
                     }
                 }, 100);
             } else {
                 newCategoryInput.style.display = 'none';
             }
-        }, { passive: true });
+        });
+        
+        // Handle manage properties option in toLocation dropdown
+        toLocationSelect.addEventListener('change', () => {
+            if (toLocationSelect.value === 'manage') {
+                // Save current form state to restore later
+                const formValues = {
+                    fromCategory: fromCategorySelect.value,
+                    toCategory: toCategorySelect.value,
+                    newCategory: newCategoryInput.querySelector('input')?.value || '',
+                    quantity: quantityInput.value,
+                    fromLocation: fromLocationSelect.value,
+                    notes: popup.querySelector('#notes').value,
+                    date: popup.querySelector('#move-date').value
+                };
+                
+                // Store form state in session storage
+                sessionStorage.setItem('moveFormValues', JSON.stringify(formValues));
+                
+                // Open properties management popup
+                popup.remove(); // Close the current popup
+                showManagePropertiesPopup().then(() => {
+                    showMoveAnimalPopup();
+                    
+                    // Restore values manually
+                    try {
+                        const savedValues = JSON.parse(sessionStorage.getItem('moveFormValues'));
+                        if (savedValues) {
+                            const newPopup = document.querySelector('.popup');
+                            if (newPopup) {
+                                // Restore from category and update from location dropdown
+                                if (savedValues.fromCategory) {
+                                    const fromCatSelect = newPopup.querySelector('#from-category');
+                                    if (fromCatSelect) {
+                                        fromCatSelect.value = savedValues.fromCategory;
+                                        
+                                        // Trigger change event to populate from location dropdown
+                                        const event = new Event('change');
+                                        fromCatSelect.dispatchEvent(event);
+                                        
+                                        // After populating locations, restore selected location
+                                        setTimeout(() => {
+                                            if (savedValues.fromLocation) {
+                                                const fromLocSelect = newPopup.querySelector('#from-location');
+                                                if (fromLocSelect) {
+                                                    fromLocSelect.value = savedValues.fromLocation;
+                                                }
+                                            }
+                                        }, 100);
+                                    }
+                                }
+                                
+                                // Restore to category
+                                if (savedValues.toCategory && savedValues.toCategory !== 'new') {
+                                    const toCatSelect = newPopup.querySelector('#to-category');
+                                    if (toCatSelect) {
+                                        toCatSelect.value = savedValues.toCategory;
+                                    }
+                                } else if (savedValues.toCategory === 'new' && savedValues.newCategory) {
+                                    const toCatSelect = newPopup.querySelector('#to-category');
+                                    if (toCatSelect) {
+                                        toCatSelect.value = 'new';
+                                        const event = new Event('change');
+                                        toCatSelect.dispatchEvent(event);
+                                        
+                                        setTimeout(() => {
+                                            const newCatInput = newPopup.querySelector('#new-category');
+                                            if (newCatInput) {
+                                                newCatInput.value = savedValues.newCategory;
+                                            }
+                                        }, 100);
+                                    }
+                                }
+                                
+                                // Restore other fields
+                                if (savedValues.quantity) {
+                                    const quantityField = newPopup.querySelector('#quantity');
+                                    if (quantityField) quantityField.value = savedValues.quantity;
+                                }
+                                
+                                if (savedValues.notes) {
+                                    const notesField = newPopup.querySelector('#notes');
+                                    if (notesField) notesField.value = savedValues.notes;
+                                }
+                                
+                                if (savedValues.date) {
+                                    const dateField = newPopup.querySelector('#move-date');
+                                    if (dateField) dateField.value = savedValues.date;
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Error restoring form values:", error);
+                    }
+                });
+            }
+        });
+        
+        // Handle manage properties option in fromLocation dropdown
+        fromLocationSelect.addEventListener('change', () => {
+            if (fromLocationSelect.value === 'manage') {
+                // Save current form state
+                const formValues = {
+                    category: fromCategorySelect.value,
+                    fromLocation: '', // We'll need to select a new one after returning
+                    toCategory: toCategorySelect.value,
+                    toLocation: toLocationSelect.value,
+                    quantity: quantityInput.value,
+                    date: popup.querySelector('#move-date').value
+                };
+                
+                // Store form state in session storage
+                sessionStorage.setItem('moveFormValues', JSON.stringify(formValues));
+                
+                // Open properties management popup
+                popup.remove();
+                showManagePropertiesPopup().then(() => {
+                    showMoveAnimalPopup();
+                    
+                    // Restore form values
+                    try {
+                        const savedValues = JSON.parse(sessionStorage.getItem('moveFormValues'));
+                        if (savedValues) {
+                            const newPopup = document.querySelector('.popup');
+                            if (newPopup) {
+                                // Restore category selections first to trigger the dropdowns to update
+                                if (savedValues.category) {
+                                    const fromCategoryField = newPopup.querySelector('#from-category');
+                                    if (fromCategoryField) {
+                                        fromCategoryField.value = savedValues.category;
+                                        const event = new Event('change');
+                                        fromCategoryField.dispatchEvent(event);
+                                    }
+                                }
+                                
+                                if (savedValues.toCategory) {
+                                    const toCategoryField = newPopup.querySelector('#to-category');
+                                    if (toCategoryField) {
+                                        toCategoryField.value = savedValues.toCategory;
+                                        const event = new Event('change');
+                                        toCategoryField.dispatchEvent(event);
+                                    }
+                                }
+                                
+                                if (savedValues.toLocation) {
+                                    const toLocationField = newPopup.querySelector('#to-location');
+                                    if (toLocationField) {
+                                        toLocationField.value = savedValues.toLocation;
+                                    }
+                                }
+                                
+                                if (savedValues.quantity) {
+                                    const quantityField = newPopup.querySelector('#quantity');
+                                    if (quantityField) {
+                                        quantityField.value = savedValues.quantity;
+                                    }
+                                }
+                                
+                                if (savedValues.date) {
+                                    const dateField = newPopup.querySelector('#move-date');
+                                    if (dateField) {
+                                        dateField.value = savedValues.date;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error restoring move form values:', error);
+                    }
+                });
+            }
+        });
         
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const fromCategory = fromCategorySelect.value;
-            const quantity = parseInt(quantityInput.value, 10);
+            // Disable submit button to prevent double submission
+            const submitBtn = form.querySelector('.save-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
             
-            // Handle destination category (could be new or existing)
+            try {
+            const fromCategory = fromCategorySelect.value;
+                const fromLocation = fromLocationSelect.value;
+            
+                // Get or create destination category
             let toCategory;
             if (toCategorySelect.value === 'new') {
-                toCategory = popup.querySelector('#new-category').value.trim();
+                    toCategory = newCategoryInput.querySelector('input').value.trim();
                 if (!toCategory) {
-                    alert('Please enter a new category name');
+                        alert('Please enter a name for the new category');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Move';
                     return;
                 }
                 
@@ -982,34 +1580,107 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (!animalCategories.includes(toCategory)) {
                     animalCategories.push(toCategory);
                     await mobileStorage.setItem('animalCategories', JSON.stringify(animalCategories));
-                    // Also update localStorage for dashboard.js
                     localStorage.setItem('animalCategories', JSON.stringify(animalCategories));
                 }
             } else {
                 toCategory = toCategorySelect.value;
             }
             
-            if (fromCategory === toCategory) {
-                alert('Source and destination categories cannot be the same');
-                return;
-            }
-            
-            const date = popup.querySelector('#move-date').value;
+                const toLocation = toLocationSelect.value === 'manage' ? '' : toLocationSelect.value;
+                const quantity = parseInt(quantityInput.value, 10);
             const notes = popup.querySelector('#notes').value.trim();
+                const date = popup.querySelector('#move-date').value;
             
-            if (quantity > animalInventory[fromCategory]) {
-                alert(`Not enough ${fromCategory} in inventory. Available: ${animalInventory[fromCategory]}`);
+                // Validate: Check if we have enough animals in the source category
+            const fromCategoryData = animalInventory[fromCategory];
+            let availableQuantity = 0;
+            
+            if (typeof fromCategoryData === 'number') {
+                availableQuantity = fromCategoryData;
+            } else if (fromCategoryData && typeof fromCategoryData === 'object') {
+                if (fromLocation && fromCategoryData.locations && fromCategoryData.locations[fromLocation]) {
+                    // If specific location, check that location's count
+                    availableQuantity = fromCategoryData.locations[fromLocation];
+                } else {
+                    // If no specific location, use total
+                    availableQuantity = fromCategoryData.total || 0;
+                }
+            }
+            
+            if (quantity > availableQuantity) {
+                const locationText = fromLocation ? ` in ${fromLocation}` : '';
+                alert(`Not enough ${fromCategory}${locationText}. Available: ${availableQuantity}`);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Move';
                 return;
             }
             
-            // Update inventory - reduce from source category
-            animalInventory[fromCategory] -= quantity;
-            if (animalInventory[fromCategory] <= 0) {
-                delete animalInventory[fromCategory];
+                // Update inventory: Remove from source
+            if (typeof fromCategoryData === 'number') {
+                // Convert old format to new format
+                animalInventory[fromCategory] = {
+                    total: fromCategoryData - quantity,
+                        locations: {
+                            'Unspecified': fromCategoryData - quantity
+                        }
+                };
+            } else {
+                // Update total
+                fromCategoryData.total -= quantity;
+                
+                // Update specific location if provided
+                    if (fromLocation && fromCategoryData.locations[fromLocation]) {
+                    fromCategoryData.locations[fromLocation] -= quantity;
+                    
+                    // Remove location if count is 0
+                    if (fromCategoryData.locations[fromLocation] <= 0) {
+                        delete fromCategoryData.locations[fromLocation];
+                    }
+                } else {
+                    // If no specific location, reduce from 'Unspecified'
+                    const unspecifiedLocation = 'Unspecified';
+                    if (!fromCategoryData.locations[unspecifiedLocation]) {
+                        fromCategoryData.locations[unspecifiedLocation] = fromCategoryData.total + quantity;
+                    }
+                    fromCategoryData.locations[unspecifiedLocation] -= quantity;
+                    
+                    if (fromCategoryData.locations[unspecifiedLocation] <= 0) {
+                        delete fromCategoryData.locations[unspecifiedLocation];
+                    }
+                }
+                
+                    // Remove category if total is 0 or no locations left
+                    if (fromCategoryData.total <= 0 || Object.keys(fromCategoryData.locations).length === 0) {
+                    delete animalInventory[fromCategory];
+                }
             }
             
-            // Update inventory - add to destination category
-            animalInventory[toCategory] = (animalInventory[toCategory] || 0) + quantity;
+            // Update inventory for destination category
+            if (!animalInventory[toCategory]) {
+                animalInventory[toCategory] = {
+                    total: 0,
+                    locations: {}
+                };
+            } else if (typeof animalInventory[toCategory] === 'number') {
+                // Convert old format to new format
+                animalInventory[toCategory] = {
+                    total: animalInventory[toCategory],
+                        locations: {
+                            'Unspecified': animalInventory[toCategory]
+                        }
+                };
+            }
+            
+            // Update total count
+            animalInventory[toCategory].total += quantity;
+            
+            // Update location count
+            const toLocationKey = toLocation || 'Unspecified';
+                if (!animalInventory[toCategory].locations[toLocationKey]) {
+                    animalInventory[toCategory].locations[toLocationKey] = 0;
+                }
+                animalInventory[toCategory].locations[toLocationKey] += quantity;
+            
             await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
             
             // Add to recent activities
@@ -1017,6 +1688,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 type: 'move',
                 fromCategory,
                 toCategory,
+                fromLocation,
+                toLocation,
                 quantity,
                 notes,
                 date,
@@ -1029,24 +1702,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Update UI
             updateDisplays();
             
-            // Close popup and ensure it doesn't reappear immediately
-            if (popup && document.body.contains(popup)) {
-                document.body.removeChild(popup);
-            }
-            
-            // Add a small delay before allowing another popup to be shown
-            const moveButton = document.getElementById('move-animals-btn');
-            if (moveButton) {
-                moveButton.disabled = true;
-                setTimeout(() => {
-                    moveButton.disabled = false;
-                }, 1000);
-            }
+                // Close popup
+                popup.remove();
             
             // Show success message
             setTimeout(() => {
                 alert(`Successfully moved ${quantity} ${fromCategory} to ${toCategory}`);
             }, 300);
+            } catch (error) {
+                console.error('Error moving animals:', error);
+                alert('There was an error moving the animals. Please try again.');
+                
+                // Re-enable the submit button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Move';
+            }
         });
         
         // Cancel button handling
@@ -1055,12 +1725,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     
-    function showDeathPopup() {
+    async function showDeathPopup() {
         // We no longer redirect to create category popup
         // Instead we check if there are animals in inventory
         if (Object.keys(animalInventory).length === 0) {
-            alert('No animals in inventory to record death');
+            alert('No animals in inventory to record death for');
             return;
+        }
+        
+        // Reload farm properties to ensure we have the latest data
+        try {
+            const propertiesStr = await mobileStorage.getItem('farmProperties');
+            if (propertiesStr) {
+                farmProperties = JSON.parse(propertiesStr);
+            }
+        } catch (error) {
+            console.error('Error loading farm properties:', error);
+            if (!farmProperties || farmProperties.length === 0) {
+                farmProperties = [];
+            }
         }
         
         const popupContent = `
@@ -1071,14 +1754,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <label for="category">Category:</label>
                         <select id="category" name="category" required>
                             <option value="" disabled selected>Select a category</option>
-                            ${Object.keys(animalInventory).map(category => 
-                                `<option value="${category}">${category} (${animalInventory[category]} available)</option>`
-                            ).join('')}
+                            ${Object.keys(animalInventory).map(category => {
+                                // Get count based on structure
+                                const count = typeof animalInventory[category] === 'number' ? 
+                                    animalInventory[category] : 
+                                    (animalInventory[category]?.total || 0);
+                                return `<option value="${category}">${category} (${count} available)</option>`;
+                            }).join('')}
                         </select>
                     </div>
                     <div class="form-group">
                         <label for="quantity">Quantity:</label>
                         <input type="number" id="quantity" name="quantity" min="1" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="location">Location:</label>
+                        <select id="location" name="location" required>
+                            <option value="" selected>Select location</option>
+                            ${farmProperties.map(property => 
+                                `<option value="${property}">${property}</option>`
+                            ).join('')}
+                            <option value="manage">+ Manage Properties</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="reason">Reason:</label>
@@ -1102,13 +1799,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         const form = popup.querySelector('form');
         const categorySelect = popup.querySelector('#category');
         const quantityInput = popup.querySelector('#quantity');
+        const locationSelect = popup.querySelector('#location');
         
-        // Update max quantity based on selection
+        // Update location dropdown initially if a category is already selected
+        if (categorySelect.value) {
+            const event = new Event('change');
+            categorySelect.dispatchEvent(event);
+        }
+        
+        // Update locations dropdown and max quantity based on category selection
         categorySelect.addEventListener('change', () => {
             const category = categorySelect.value;
-            const availableQuantity = animalInventory[category] || 0;
+            const categoryData = animalInventory[category];
+            
+            // Update max quantity based on selection
+            let availableQuantity = 0;
+            if (typeof categoryData === 'number') {
+                availableQuantity = categoryData;
+            } else if (categoryData && typeof categoryData === 'object') {
+                availableQuantity = categoryData.total || 0;
+            }
+            
             quantityInput.max = availableQuantity;
             quantityInput.value = Math.min(quantityInput.value, availableQuantity);
+            
+            // Populate location dropdown with all farm properties
+            locationSelect.innerHTML = '<option value="">Select location (or leave blank)</option>';
+            farmProperties.forEach(property => {
+                // Check if this property has animals of this category
+                let locationCount = 0;
+                if (categoryData && typeof categoryData === 'object' && categoryData.locations && categoryData.locations[property]) {
+                    locationCount = categoryData.locations[property];
+                }
+                locationSelect.innerHTML += `<option value="${property}">${property}${locationCount > 0 ? ` (${locationCount} available)` : ''}</option>`;
+            });
+            locationSelect.innerHTML += '<option value="manage">+ Manage Properties</option>';
         }, { passive: true });
         
         form.addEventListener('submit', async (e) => {
@@ -1116,19 +1841,73 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             const category = categorySelect.value;
             const quantity = parseInt(quantityInput.value, 10);
+            const location = locationSelect.value;
             const reason = popup.querySelector('#reason').value.trim();
             const date = popup.querySelector('#death-date').value;
             
-            if (quantity > animalInventory[category]) {
-                alert(`Not enough ${category} in inventory. Available: ${animalInventory[category]}`);
+            // Check if there are enough animals
+            const categoryData = animalInventory[category];
+            let availableQuantity = 0;
+            
+            if (typeof categoryData === 'number') {
+                availableQuantity = categoryData;
+            } else if (categoryData && typeof categoryData === 'object') {
+                if (location && categoryData.locations && categoryData.locations[location]) {
+                    // If specific location, check that location's count
+                    availableQuantity = categoryData.locations[location];
+                } else {
+                    // If no specific location, use total
+                    availableQuantity = categoryData.total || 0;
+                }
+            }
+            
+            if (quantity > availableQuantity) {
+                const locationText = location ? ` in ${location}` : '';
+                alert(`Not enough ${category}${locationText}. Available: ${availableQuantity}`);
                 return;
             }
             
             // Update inventory
-            animalInventory[category] -= quantity;
-            if (animalInventory[category] <= 0) {
-                delete animalInventory[category];
+            if (typeof categoryData === 'number') {
+                // Convert old format to new format
+                animalInventory[category] = {
+                    total: categoryData - quantity,
+                    locations: {}
+                };
+                if (animalInventory[category].total <= 0) {
+                    delete animalInventory[category];
+                }
+            } else {
+                // Update total
+                categoryData.total -= quantity;
+                
+                // Update specific location if provided
+                if (location) {
+                    categoryData.locations[location] -= quantity;
+                    
+                    // Remove location if count is 0
+                    if (categoryData.locations[location] <= 0) {
+                        delete categoryData.locations[location];
+                    }
+                } else {
+                    // If no specific location, reduce from 'Unspecified'
+                    const unspecifiedLocation = 'Unspecified';
+                    if (!categoryData.locations[unspecifiedLocation]) {
+                        categoryData.locations[unspecifiedLocation] = categoryData.total + quantity;
+                    }
+                    categoryData.locations[unspecifiedLocation] -= quantity;
+                    
+                    if (categoryData.locations[unspecifiedLocation] <= 0) {
+                        delete categoryData.locations[unspecifiedLocation];
+                    }
+                }
+                
+                // Remove category if total is 0
+                if (categoryData.total <= 0) {
+                    delete animalInventory[category];
+                }
             }
+            
             await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
             
             // Add to recent activities
@@ -1136,6 +1915,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 type: 'death',
                 category,
                 quantity,
+                location,
                 reason,
                 date,
                 timestamp: new Date().toISOString()
@@ -1155,14 +1935,91 @@ document.addEventListener('DOMContentLoaded', async () => {
         popup.querySelector('.cancel-btn').addEventListener('click', () => {
             popup.remove();
         });
+        
+        // Handle manage properties option
+        locationSelect.addEventListener('change', () => {
+            if (locationSelect.value === 'manage') {
+                // Save current form state to restore later
+                const formValues = {
+                    category: categorySelect.value,
+                    quantity: quantityInput.value,
+                    reason: popup.querySelector('#reason').value,
+                    date: popup.querySelector('#death-date').value
+                };
+                
+                // Store form state in session storage
+                sessionStorage.setItem('deathFormValues', JSON.stringify(formValues));
+                
+                // Open properties management popup
+                popup.remove();
+                showManagePropertiesPopup().then(() => {
+                    showDeathPopup();
+                    
+                    // Restore values manually
+                    try {
+                        const savedValues = JSON.parse(sessionStorage.getItem('deathFormValues'));
+                        if (savedValues) {
+                            const newPopup = document.querySelector('.popup');
+                            if (newPopup) {
+                                // Restore category and update location dropdown
+                                if (savedValues.category) {
+                                    const categoryField = newPopup.querySelector('#category');
+                                    if (categoryField) {
+                                        categoryField.value = savedValues.category;
+                                        const event = new Event('change');
+                                        categoryField.dispatchEvent(event);
+                                    }
+                                }
+                                
+                                if (savedValues.quantity) {
+                                    const quantityField = newPopup.querySelector('#quantity');
+                                    if (quantityField) {
+                                        quantityField.value = savedValues.quantity;
+                                    }
+                                }
+                                
+                                if (savedValues.reason) {
+                                    const reasonField = newPopup.querySelector('#reason');
+                                    if (reasonField) {
+                                        reasonField.value = savedValues.reason;
+                                    }
+                                }
+                                
+                                if (savedValues.date) {
+                                    const dateField = newPopup.querySelector('#death-date');
+                                    if (dateField) {
+                                        dateField.value = savedValues.date;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Error restoring form values:", error);
+                    }
+                });
+            }
+        });
     }
     
-    function showBirthPopup() {
+    async function showBirthPopup() {
         // We no longer redirect to create category popup
         // Instead we check if there are animals in inventory
         if (Object.keys(animalInventory).length === 0) {
             alert('No parent animals in inventory to record birth');
             return;
+        }
+        
+        // Reload farm properties to ensure we have the latest data
+        try {
+            const propertiesStr = await mobileStorage.getItem('farmProperties');
+            if (propertiesStr) {
+                farmProperties = JSON.parse(propertiesStr);
+            }
+        } catch (error) {
+            console.error('Error loading farm properties:', error);
+            if (!farmProperties || farmProperties.length === 0) {
+                farmProperties = [];
+            }
         }
         
         const popupContent = `
@@ -1183,6 +2040,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <input type="number" id="quantity" name="quantity" min="1" value="1" required>
                     </div>
                     <div class="form-group">
+                        <label for="location">Location:</label>
+                        <select id="location" name="location" required>
+                            <option value="" selected>Select location</option>
+                            ${farmProperties.map(property => 
+                                `<option value="${property}">${property}</option>`
+                            ).join('')}
+                            <option value="manage">+ Manage Properties</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="notes">Notes:</label>
                         <textarea id="notes" name="notes" rows="3"></textarea>
                     </div>
@@ -1200,19 +2067,94 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const popup = createPopup(popupContent);
         
-        // Form submission handling
-        const form = popup.querySelector('form');
+        // Form elements
+        const form = popup.querySelector('#birth-form');
+        const categorySelect = popup.querySelector('#category');
+        const locationSelect = popup.querySelector('#location');
         
+        // Update location dropdown initially if a category is already selected
+        if (categorySelect.value) {
+            const event = new Event('change');
+            categorySelect.dispatchEvent(event);
+        }
+        
+        // Add change listener to update location options
+        categorySelect.addEventListener('change', () => {
+            // Populate location dropdown with all farm properties
+            locationSelect.innerHTML = '<option value="">Select location (or leave blank)</option>';
+            farmProperties.forEach(property => {
+                locationSelect.innerHTML += `<option value="${property}">${property}</option>`;
+            });
+            locationSelect.innerHTML += '<option value="manage">+ Manage Properties</option>';
+        }, { passive: true });
+        
+        // Form submission handling
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const category = popup.querySelector('#category').value;
+            // Disable submit button to prevent double submission
+            const submitBtn = form.querySelector('.save-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Recording...';
+            
+            try {
+            const category = categorySelect.value;
             const quantity = parseInt(popup.querySelector('#quantity').value, 10);
+                const location = locationSelect.value === 'manage' ? '' : locationSelect.value;
             const notes = popup.querySelector('#notes').value.trim();
             const date = popup.querySelector('#birth-date').value;
             
-            // Update inventory
-            animalInventory[category] = (animalInventory[category] || 0) + quantity;
+                // Update inventory with proper location handling
+                if (!animalInventory[category]) {
+                    // Initialize with new format if category doesn't exist
+                    animalInventory[category] = {
+                        total: quantity,
+                        locations: {}
+                    };
+                    
+                    // Add location if provided
+                    if (location) {
+                        animalInventory[category].locations[location] = quantity;
+                    } else {
+                        animalInventory[category].locations['Unspecified'] = quantity;
+                    }
+                } else {
+                    // Convert old format to new format if needed
+                    if (typeof animalInventory[category] === 'number') {
+                        animalInventory[category] = {
+                            total: animalInventory[category] + quantity,
+                            locations: {
+                                'Unspecified': animalInventory[category]
+                            }
+                        };
+                        
+                        // Add location if provided
+                        if (location) {
+                            animalInventory[category].locations[location] = quantity;
+                        } else {
+                            animalInventory[category].locations['Unspecified'] += quantity;
+                        }
+                    } else {
+                        // Update new format
+                        animalInventory[category].total += quantity;
+                        
+                        // Update location
+                        if (location) {
+                            if (!animalInventory[category].locations[location]) {
+                                animalInventory[category].locations[location] = 0;
+                            }
+                            animalInventory[category].locations[location] += quantity;
+                        } else {
+                            // Default to Unspecified location
+                            if (!animalInventory[category].locations['Unspecified']) {
+                                animalInventory[category].locations['Unspecified'] = 0;
+                            }
+                            animalInventory[category].locations['Unspecified'] += quantity;
+                        }
+                    }
+                }
+                
+                // Save updated inventory
             await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
             
             // Add to recent activities
@@ -1220,6 +2162,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 type: 'birth',
                 category,
                 quantity,
+                    location,
                 notes,
                 date,
                 timestamp: new Date().toISOString()
@@ -1233,22 +2176,83 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Close popup
             popup.remove();
+            } catch (error) {
+                console.error('Error recording birth:', error);
+                alert('There was an error recording the birth. Please try again.');
+                
+                // Re-enable the submit button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Record';
+            }
         });
         
-        // Cancel button handling
-        popup.querySelector('.cancel-btn').addEventListener('click', () => {
-            popup.remove();
+        // Handle manage properties option
+        locationSelect.addEventListener('change', () => {
+            if (locationSelect.value === 'manage') {
+                // Save current form state to restore later
+                const formValues = {
+                    category: categorySelect.value,
+                    quantity: popup.querySelector('#quantity').value,
+                    notes: popup.querySelector('#notes').value,
+                    date: popup.querySelector('#birth-date').value
+                };
+                
+                // Store form state in session storage
+                sessionStorage.setItem('birthFormValues', JSON.stringify(formValues));
+                
+                // Open properties management popup
+                popup.remove(); // Close the current popup
+                showManagePropertiesPopup().then(() => {
+                    showBirthPopup();
+                    
+                    // Restore values manually
+                    try {
+                        const savedValues = JSON.parse(sessionStorage.getItem('birthFormValues'));
+                        if (savedValues) {
+                            const newPopup = document.querySelector('.popup');
+                            if (newPopup) {
+                                if (savedValues.category) {
+                                    const categoryField = newPopup.querySelector('#category');
+                                    if (categoryField) {
+                                        categoryField.value = savedValues.category;
+                                        const event = new Event('change');
+                                        categoryField.dispatchEvent(event);
+                                    }
+                                }
+                                if (savedValues.quantity) {
+                                    const quantityField = newPopup.querySelector('#quantity');
+                                    if (quantityField) quantityField.value = savedValues.quantity;
+                                }
+                                if (savedValues.notes) {
+                                    const notesField = newPopup.querySelector('#notes');
+                                    if (notesField) notesField.value = savedValues.notes;
+                                }
+                                if (savedValues.date) {
+                                    const dateField = newPopup.querySelector('#birth-date');
+                                    if (dateField) dateField.value = savedValues.date;
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error restoring form values:', error);
+                    }
+                });
+            }
         });
     }
     
-    function showPurchaseAnimalPopup() {
-        const categories = animalCategories;
-        
-        // We no longer redirect to create category popup
-        // Instead, we still check if there are categories, but offer guidance if not
-        if (!categories || categories.length === 0) {
-            alert('No livestock categories exist yet. Please add a category using the "Add Livestock" button first.');
-            return;
+    async function showPurchaseAnimalPopup() {
+        // Reload farm properties to ensure we have the latest data
+        try {
+            const propertiesStr = await mobileStorage.getItem('farmProperties');
+            if (propertiesStr) {
+                farmProperties = JSON.parse(propertiesStr);
+            }
+        } catch (error) {
+            console.error('Error loading farm properties:', error);
+            if (!farmProperties || farmProperties.length === 0) {
+                farmProperties = [];
+            }
         }
         
         const popupContent = `
@@ -1259,7 +2263,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <label for="category">Category:</label>
                         <select id="category" name="category" required>
                             <option value="" disabled selected>Select a category</option>
-                            ${categories.map(category => 
+                            ${animalCategories.map(category => 
                                 `<option value="${category}">${category}</option>`
                             ).join('')}
                             <option value="new">+ Add New Category</option>
@@ -1267,11 +2271,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                             </div>
                     <div class="form-group new-category-input" style="display: none;">
                         <label for="new-category">New Category:</label>
-                        <input type="text" id="new-category" name="new-category" placeholder="Enter new category name" inputmode="text" autocomplete="off" data-lpignore="true">
+                        <input type="text" id="new-category" name="new-category" placeholder="Enter new category name" inputmode="text" autocomplete="off">
                         </div>
                     <div class="form-group">
                         <label for="quantity">Quantity:</label>
                         <input type="number" id="quantity" name="quantity" min="1" value="1" required inputmode="numeric" pattern="[0-9]*">
+                    </div>
+                    <div class="form-group">
+                        <label for="location">Location:</label>
+                        <select id="location" name="location" required>
+                            <option value="" selected>Select location</option>
+                            ${farmProperties.map(property => 
+                                `<option value="${property}">${property}</option>`
+                            ).join('')}
+                            <option value="manage">+ Manage Properties</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="price">Price per Animal (${worldCurrencies.find(c => c.code === selectedCurrency)?.symbol || 'R'}):</label>
@@ -1299,10 +2313,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const popup = createPopup(popupContent);
         
-        // Category selection handling
+        // Get form elements
+        const form = popup.querySelector('#purchase-form');
         const categorySelect = popup.querySelector('#category');
         const newCategoryInput = popup.querySelector('.new-category-input');
+        const locationSelect = popup.querySelector('#location');
         
+        // Category selection handling
         categorySelect.addEventListener('change', () => {
             if (categorySelect.value === 'new') {
                 newCategoryInput.style.display = 'block';
@@ -1323,18 +2340,100 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } else {
                 newCategoryInput.style.display = 'none';
             }
-        }, { passive: true });
+        });
+        
+        // Handle manage properties option
+        locationSelect.addEventListener('change', () => {
+            if (locationSelect.value === 'manage') {
+                // Save current form state to restore later
+                const formValues = {
+                    category: categorySelect.value,
+                    newCategory: newCategoryInput.querySelector('input')?.value || '',
+                    quantity: popup.querySelector('#quantity').value,
+                    price: popup.querySelector('#price').value,
+                    supplier: popup.querySelector('#supplier').value,
+                    date: popup.querySelector('#purchase-date').value,
+                    notes: popup.querySelector('#notes').value
+                };
+                
+                // Store form state in session storage
+                sessionStorage.setItem('purchaseFormValues', JSON.stringify(formValues));
+                
+                // Open properties management popup
+                popup.remove(); // Close the current popup
+                showManagePropertiesPopup().then(() => {
+                    showPurchaseAnimalPopup();
+                    
+                    // Restore values manually
+                    try {
+                        const savedValues = JSON.parse(sessionStorage.getItem('purchaseFormValues'));
+                        if (savedValues) {
+                            const newPopup = document.querySelector('.popup');
+                            if (newPopup) {
+                                if (savedValues.category) {
+                                    const categorySelect = newPopup.querySelector('#category');
+                                    if (categorySelect) {
+                                        categorySelect.value = savedValues.category;
+                                        
+                                        // If it was a new category, show the new category input
+                                        if (savedValues.category === 'new') {
+                                            const newCategoryInput = newPopup.querySelector('.new-category-input');
+                                            if (newCategoryInput) {
+                                                const newCategoryField = newCategoryInput.querySelector('input');
+                                                newCategoryInput.style.display = 'block';
+                                                if (newCategoryField && savedValues.newCategory) {
+                                                    newCategoryField.value = savedValues.newCategory;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if (savedValues.quantity) {
+                                    const quantityField = newPopup.querySelector('#quantity');
+                                    if (quantityField) quantityField.value = savedValues.quantity;
+                                }
+                                if (savedValues.price) {
+                                    const priceField = newPopup.querySelector('#price');
+                                    if (priceField) priceField.value = savedValues.price;
+                                }
+                                if (savedValues.supplier) {
+                                    const supplierField = newPopup.querySelector('#supplier');
+                                    if (supplierField) supplierField.value = savedValues.supplier;
+                                }
+                                if (savedValues.date) {
+                                    const dateField = newPopup.querySelector('#purchase-date');
+                                    if (dateField) dateField.value = savedValues.date;
+                                }
+                                if (savedValues.notes) {
+                                    const notesField = newPopup.querySelector('#notes');
+                                    if (notesField) notesField.value = savedValues.notes;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error restoring form values:', e);
+                    }
+                });
+            }
+        });
         
         // Form submission handling
-        const form = popup.querySelector('form');
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            // Disable the submit button to prevent double-clicks
+            const submitBtn = form.querySelector('.save-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+            
+            try {
             let category;
             if (categorySelect.value === 'new') {
                 category = popup.querySelector('#new-category').value.trim();
                 if (!category) {
                     alert('Please enter a category name');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Purchase';
                     return;
                 }
                 
@@ -1350,30 +2449,67 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             
             const quantity = parseInt(popup.querySelector('#quantity').value, 10);
+                const location = locationSelect.value === 'manage' ? '' : locationSelect.value;
             const price = parseFloat(popup.querySelector('#price').value);
             const supplier = popup.querySelector('#supplier').value.trim();
             const date = popup.querySelector('#purchase-date').value;
             const notes = popup.querySelector('#notes').value.trim();
             
-            // Update inventory
-            animalInventory[category] = (animalInventory[category] || 0) + quantity;
-            await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
-            
-            // Add to purchases
-            const purchase = {
-                category,
-                quantity,
-                price,
-                amount: price * quantity,
-                supplier,
-                date,
-                notes,
-                currency: selectedCurrency,
-                timestamp: new Date().toISOString()
-            };
-            
-            animalPurchases.unshift(purchase);
-            await mobileStorage.setItem('animalPurchases', JSON.stringify(animalPurchases));
+                // Update inventory with proper location handling
+                if (!animalInventory[category]) {
+                    // Initialize with new format if category doesn't exist
+                    animalInventory[category] = {
+                        total: quantity,
+                        locations: {}
+                    };
+                    
+                    // Add location if provided
+                    if (location) {
+                        animalInventory[category].locations[location] = quantity;
+                    } else {
+                        animalInventory[category].locations['Unspecified'] = quantity;
+                    }
+                } else {
+                    // Convert old format to new format if needed
+                    if (typeof animalInventory[category] === 'number') {
+                        animalInventory[category] = {
+                            total: animalInventory[category] + quantity,
+                            locations: {
+                                'Unspecified': animalInventory[category]
+                            }
+                        };
+                        
+                        // Add location if provided
+                        if (location) {
+                            animalInventory[category].locations[location] = quantity;
+                        } else {
+                            animalInventory[category].locations['Unspecified'] += quantity;
+                        }
+                    } else {
+                        // Update new format
+                        animalInventory[category].total += quantity;
+                        
+                        // Update location
+                        if (location) {
+                            if (!animalInventory[category].locations[location]) {
+                                animalInventory[category].locations[location] = 0;
+                            }
+                            animalInventory[category].locations[location] += quantity;
+                        } else {
+                            // Default to Unspecified location
+                            if (!animalInventory[category].locations['Unspecified']) {
+                                animalInventory[category].locations['Unspecified'] = 0;
+                            }
+                            animalInventory[category].locations['Unspecified'] += quantity;
+                        }
+                    }
+                }
+                
+                // Save updated inventory
+                await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
+                
+                // Calculate total cost
+                const totalCost = price * quantity;
             
             // Add to recent activities
             const activity = {
@@ -1381,12 +2517,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 category,
                 quantity,
                 price,
+                    cost: totalCost,
                 supplier,
+                    location,
                 date,
-                notes,
-                currency: selectedCurrency,
-                timestamp: new Date().toISOString(),
-                description: `Purchased ${quantity} ${category} from ${supplier || 'unknown supplier'}`
+                    timestamp: new Date().toISOString()
             };
             
             recentActivities.unshift(activity);
@@ -1397,39 +2532,78 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Close popup
             popup.remove();
-        });
-        
-        // Cancel button handling
-        popup.querySelector('.cancel-btn').addEventListener('click', () => {
-            popup.remove();
+            } catch (error) {
+                console.error('Error processing purchase:', error);
+                alert('There was an error processing the purchase. Please try again.');
+                
+                // Re-enable the submit button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Purchase';
+            }
         });
     }
     
-    function showStockCountPopup() {
-        // Check if we have animals to count
+    async function showStockCountPopup() {
+        // We no longer redirect to create category popup
+        // Instead we check if there are animals in inventory
         if (Object.keys(animalInventory).length === 0) {
-            alert('No animals in inventory to count. Please add animals first.');
+            alert('No animals in inventory to count');
             return;
+        }
+        
+        // Reload farm properties to ensure we have the latest data
+        try {
+            const propertiesStr = await mobileStorage.getItem('farmProperties');
+            if (propertiesStr) {
+                farmProperties = JSON.parse(propertiesStr);
+            }
+        } catch (error) {
+            console.error('Error loading farm properties:', error);
+            if (!farmProperties || farmProperties.length === 0) {
+                farmProperties = [];
+            }
         }
         
         const popupContent = `
             <div class="popup-content">
                 <h3>Stock Count</h3>
-                <p class="instructions">Select a category and enter the actual count. Discrepancies will be recorded but inventory will not be changed.</p>
                 <form id="stock-count-form">
                     <div class="form-group">
                         <label for="category">Category:</label>
                         <select id="category" name="category" required>
                             <option value="" disabled selected>Select a category</option>
-                            ${Object.keys(animalInventory).map(category => 
-                                `<option value="${category}">${category} (Current: ${animalInventory[category]})</option>`
+                            ${Object.keys(animalInventory).map(category => {
+                                // Format the count based on the data structure
+                                let countText;
+                                if (typeof animalInventory[category] === 'number') {
+                                    countText = animalInventory[category];
+                                } else if (animalInventory[category] && typeof animalInventory[category] === 'object') {
+                                    countText = animalInventory[category].total || 0;
+                                } else {
+                                    countText = 0;
+                                }
+                                return `<option value="${category}">${category} (Total: ${countText})</option>`;
+                            }).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="location">Location:</label>
+                        <select id="location" name="location" required>
+                            <option value="" selected>Select location</option>
+                            ${farmProperties.map(property => 
+                                `<option value="${property}">${property}</option>`
                             ).join('')}
+                            <option value="manage">+ Manage Properties</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label for="actual-count">Actual Count:</label>
                         <input type="number" id="actual-count" name="actual-count" min="0" required inputmode="numeric" pattern="[0-9]*">
                         <span class="expected-count"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="counter-name">Name of Person Counting:</label>
+                        <input type="text" id="counter-name" name="counter-name" required placeholder="Enter your name">
                     </div>
                     <div class="form-group">
                         <label for="notes">Notes:</label>
@@ -1445,20 +2619,130 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const popup = createPopup(popupContent);
         
-        // Add category change handler to show current count
+        // Get form elements
         const categorySelect = popup.querySelector('#category');
+        const locationSelect = popup.querySelector('#location');
         const actualCountInput = popup.querySelector('#actual-count');
         const expectedCountSpan = popup.querySelector('.expected-count');
         
+        // Handle category change to update location options
         categorySelect.addEventListener('change', (e) => {
             const selectedCategory = e.target.value;
+            if (!selectedCategory) return;
+            
+            const categoryData = animalInventory[selectedCategory];
+            
+            // Update display based on selected category
+            updateExpectedCount(selectedCategory, locationSelect.value);
+            
+            // Update locations dropdown if using new inventory format
+            if (categoryData && typeof categoryData === 'object' && categoryData.locations) {
+                // Clear existing options except first and last
+                while (locationSelect.options.length > 2) {
+                    locationSelect.remove(1);
+                }
+                
+                // Add each property with count info
+                let index = 1;
+                farmProperties.forEach(property => {
+                    const locationCount = categoryData.locations[property] || 0;
+                    const option = new Option(
+                        `${property}${locationCount > 0 ? ` (${locationCount})` : ''}`, 
+                        property
+                    );
+                    locationSelect.add(option, index++);
+                });
+            }
+        }, { passive: true });
+        
+        // Handle location selection change
+        locationSelect.addEventListener('change', (e) => {
+            const locationValue = e.target.value;
+            const selectedCategory = categorySelect.value;
+            
+            if (locationValue === 'manage') {
+                // Save current form state
+                const formValues = {
+                    category: categorySelect.value,
+                    count: actualCountInput.value,
+                    counterName: popup.querySelector('#counter-name').value,
+                    notes: popup.querySelector('#notes').value
+                };
+                
+                // Store form state
+                sessionStorage.setItem('stockCountFormValues', JSON.stringify(formValues));
+                
+                // Open properties management popup
+                popup.remove();
+                showManagePropertiesPopup().then(() => {
+                    showStockCountPopup();
+                    
+                    // Restore values manually
+                    try {
+                        const savedValues = JSON.parse(sessionStorage.getItem('stockCountFormValues'));
+                        if (savedValues) {
+                            const newPopup = document.querySelector('.popup');
+                            if (newPopup) {
+                                if (savedValues.category) {
+                                    const categoryField = newPopup.querySelector('#category');
+                                    if (categoryField) {
+                                        categoryField.value = savedValues.category;
+                                        // Trigger change event to update location options
+                                        const event = new Event('change');
+                                        categoryField.dispatchEvent(event);
+                                    }
+                                }
+                                if (savedValues.count) {
+                                    const countField = newPopup.querySelector('#actual-count');
+                                    if (countField) countField.value = savedValues.count;
+                                }
+                                if (savedValues.counterName) {
+                                    const nameField = newPopup.querySelector('#counter-name');
+                                    if (nameField) nameField.value = savedValues.counterName;
+                                }
+                                if (savedValues.notes) {
+                                    const notesField = newPopup.querySelector('#notes');
+                                    if (notesField) notesField.value = savedValues.notes;
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error restoring stock count form values:', error);
+                    }
+                });
+                return;
+            }
+            
+            // Update expected count based on selected category and location
             if (selectedCategory) {
-                const expectedCount = animalInventory[selectedCategory] || 0;
+                updateExpectedCount(selectedCategory, locationValue);
+            }
+        }, { passive: true });
+        
+        // Helper function to update expected count display
+        function updateExpectedCount(category, location) {
+            if (!category) return;
+            
+            let expectedCount = 0;
+            const categoryData = animalInventory[category];
+            
+            if (typeof categoryData === 'number') {
+                // Old format - no location tracking
+                expectedCount = categoryData;
+            } else if (categoryData && typeof categoryData === 'object') {
+                if (location && location !== '' && categoryData.locations && categoryData.locations[location]) {
+                    // Specific location count
+                    expectedCount = categoryData.locations[location];
+                } else {
+                    // Total count
+                    expectedCount = categoryData.total || 0;
+                }
+            }
+            
                 expectedCountSpan.textContent = `Expected count: ${expectedCount}`;
                 actualCountInput.placeholder = `Current count is ${expectedCount}`;
                 actualCountInput.dataset.expectedCount = expectedCount;
             }
-        }, { passive: true });
         
         // Form submission
         const form = popup.querySelector('form');
@@ -1471,9 +2755,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             
+            const location = locationSelect.value === 'manage' ? '' : locationSelect.value;
+            
             const actualCount = parseInt(actualCountInput.value);
             if (isNaN(actualCount)) {
                 alert('Please enter a valid count');
+                return;
+            }
+            
+            const counterName = popup.querySelector('#counter-name').value.trim();
+            if (!counterName) {
+                alert('Please enter the name of the person counting');
                 return;
             }
             
@@ -1482,18 +2774,39 @@ document.addEventListener('DOMContentLoaded', async () => {
             const difference = actualCount - expectedCount;
             const countDate = new Date().toISOString();
             
-            // Handle the stock count without changing inventory
-            await handleStockCount({
-                    category,
-                actualCount,
-                expectedCount,
-                difference,
-                notes,
-                date: countDate
-            });
+            // Disable the submit button to prevent double submission
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
             
-            // Close popup
-            popup.remove();
+            try {
+                // Handle the stock count without changing inventory
+                await handleStockCount({
+                    category,
+                    location,
+                    actualCount,
+                    expectedCount,
+                    difference,
+                    notes,
+                    date: countDate,
+                    counterName
+                });
+                
+                // Close popup
+                popup.remove();
+                
+                // Disable the stock count button temporarily
+                const stockCountBtn = document.getElementById('stock-count-btn');
+                if (stockCountBtn) {
+                    stockCountBtn.disabled = true;
+                    setTimeout(() => {
+                        stockCountBtn.disabled = false;
+                    }, 1000);
+                }
+            } catch (error) {
+                console.error('Error handling stock count:', error);
+                alert('An error occurred while recording the stock count. Please try again.');
+                submitButton.disabled = false;
+            }
         });
         
         // Cancel button handling
@@ -1515,6 +2828,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const difference = data.difference;
         const notes = data.notes || '';
         const countDate = data.date;
+        const counterName = data.counterName;
         
         // Create stock count record with explicit expected and actual values
         const stockCount = {
@@ -1525,7 +2839,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             actual: actualCount,       // Use consistent property names
             quantity: actualCount,     // Keep quantity for backward compatibility
             difference: difference,
-            notes: notes
+            notes: notes,
+            counterName: counterName   // Add counter name to the record
         };
         
         // Save to stockCounts
@@ -1541,9 +2856,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             expected: expectedCount,   // Add these fields to the activity record
             actual: actualCount,       // so they are available in reports
             quantity: actualCount,     // Keep quantity for backward compatibility
-            description: `Stock count for ${category}: Expected ${expectedCount}, Actual ${actualCount} (${difference >= 0 ? '+' : ''}${difference})`,
+            description: `Stock count for ${category}: Expected ${expectedCount}, Actual ${actualCount} (${difference >= 0 ? '+' : ''}${difference}) by ${counterName}`,
             notes: notes,
-            timestamp: countDate
+            timestamp: countDate,
+            counterName: counterName   // Add counter name to the activity record
         };
         
         // Add to recent activities
@@ -1581,36 +2897,34 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Only show alert for discrepancies
             alert(`Stock count recorded. Discrepancy of ${difference >= 0 ? '+' : ''}${difference} ${category} has been recorded.`);
-        } else {
+        } else if (existingDiscrepancyIndex !== -1) {
             // If this count matches expected count, resolve any existing discrepancy
-            if (existingDiscrepancyIndex !== -1) {
-                stockDiscrepancies[existingDiscrepancyIndex] = {
-                    ...stockDiscrepancies[existingDiscrepancyIndex],
-                    resolved: true,
-                    resolvedDate: countDate,
-                    resolutionNotes: 'Resolved by matching count',
-                    resolutionCount: actualCount
-                };
-                
-                // Save discrepancies
-                await mobileStorage.setItem('stockDiscrepancies', JSON.stringify(stockDiscrepancies));
-                
-                // Add resolution activity
-                const resolutionActivity = {
-                    type: 'resolution',
-                    date: countDate,
-                    description: `Stock count discrepancy resolved for ${category}`,
-                    category: category,
-                    finalCount: actualCount,
-                    timestamp: countDate
-                };
-                
-                recentActivities.unshift(resolutionActivity);
-                await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
-                
-                // No alert needed here, let the UI update silently
-            }
-            // No "else" message for matching counts with no existing discrepancy
+            stockDiscrepancies[existingDiscrepancyIndex] = {
+                ...stockDiscrepancies[existingDiscrepancyIndex],
+                resolved: true,
+                resolvedDate: countDate,
+                resolutionNotes: 'Resolved by matching count',
+                resolutionCount: actualCount
+            };
+            
+            // Save discrepancies
+            await mobileStorage.setItem('stockDiscrepancies', JSON.stringify(stockDiscrepancies));
+            
+            // Add resolution activity
+            const resolutionActivity = {
+                type: 'resolution',
+                date: countDate,
+                description: `Stock count discrepancy resolved for ${category}`,
+                category: category,
+                finalCount: actualCount,
+                timestamp: countDate
+            };
+            
+            recentActivities.unshift(resolutionActivity);
+            await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+        } else {
+            // Show a success message for matching counts with no existing discrepancy
+            alert(`Stock count recorded successfully for ${category}.`);
         }
             
         // Update UI
@@ -1619,48 +2933,57 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Function to confirm and clear all animal data
     async function confirmClearAnimalData() {
-        const confirmed = confirm(
-            'Are you sure you want to clear all animal data? This will remove:\n\n' +
-            '- All animal categories\n' +
-            '- Current inventory\n' +
-            '- Purchase history\n' +
-            '- Sales history\n' +
-            '- Movement records\n' +
-            '- Birth and death records\n' +
-            '- Stock discrepancies\n\n' +
-            'This action cannot be undone!'
+        const confirmResult = confirm(
+            'This will remove all animal categories, current inventory counts, recent activities, and reset all properties. This action cannot be undone. Are you sure you want to proceed?'
         );
         
-        if (confirmed) {
-            try {
-                // Clear all animal-related data
-                animalInventory = {};
+        if (confirmResult) {
+            // Reset data to defaults
                 animalCategories = [];
-                animalSales = [];
-                animalPurchases = [];
-                stockDiscrepancies = [];
-                
-                // Filter out animal-related activities
-                recentActivities = recentActivities.filter(
-                    activity => !['add', 'sell', 'buy', 'move', 'death', 'birth', 'stock-count', 'resolution'].includes(activity.type)
-                );
-                
-                // Save state to storage
-                await mobileStorage.setItem('animalInventory', JSON.stringify({}));
-                await mobileStorage.setItem('animalCategories', JSON.stringify([]));
-                await mobileStorage.setItem('animalSales', JSON.stringify([]));
-                await mobileStorage.setItem('animalPurchases', JSON.stringify([]));
-                await mobileStorage.setItem('stockDiscrepancies', JSON.stringify([]));
-                await mobileStorage.setItem('stockCounts', JSON.stringify([]));
+            animalInventory = {};
+            recentActivities = [];
+            farmProperties = []; // Empty array instead of defaults
+
+            // Save cleared data to storage
+            try {
+                console.log("Clearing animal data and resetting properties...");
+                await mobileStorage.setItem('animalCategories', JSON.stringify(animalCategories));
+                await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
                 await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+                await mobileStorage.setItem('farmProperties', JSON.stringify(farmProperties));
                 
-                // Also update localStorage for dashboard
-                localStorage.setItem('animalCategories', JSON.stringify([]));
+                // Clear any properties from propertiesList that might have been added from inventory
+                propertiesList = [...farmProperties];
+                await saveProperties();
+                
+                console.log("Animal data cleared successfully. Reset properties:", farmProperties);
                 
                 // Update UI
                 updateDisplays();
                 
-                alert('All animal data has been cleared.');
+                // Ask if user also wants to clear feed activities
+                const clearFeedActivities = confirm(
+                    'Animal data has been cleared.\n\n' +
+                    'Would you also like to clear all feed-related activities from the recent activities list?\n\n' +
+                    'This will not affect your feed inventory or calculations, only the activity history.'
+                );
+                
+                if (clearFeedActivities) {
+                    // Filter out feed-related activities
+                    recentActivities = recentActivities.filter(
+                        activity => !['feed-purchase', 'feed-usage'].includes(activity.type)
+                    );
+                    
+                    // Save updated activities
+                    await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+                    
+                    // Update UI again
+                    updateDisplays();
+                    
+                    alert('All animal and feed activities have been cleared.');
+                } else {
+                    alert('All animal data has been cleared. Feed activities remain in history.');
+                }
             } catch (error) {
                 console.error('Error clearing animal data:', error);
                 alert('There was an error clearing data. Please try again.');
@@ -1729,13 +3052,38 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Update inventory - remove the animals
                 const category = lastAddition.category;
                 const quantity = lastAddition.quantity;
+                const location = lastAddition.location || 'Unspecified';
                 
-                // Make sure we don't go below zero
-                animalInventory[category] = Math.max(0, (animalInventory[category] || 0) - quantity);
-                
-                // If count is zero, remove the category from inventory
+                // Handle inventory with the new structure (with locations)
+                if (animalInventory[category]) {
+                    if (typeof animalInventory[category] === 'number') {
+                        // Old format
+                        animalInventory[category] = Math.max(0, animalInventory[category] - quantity);
+                        
+                        // If count is zero, remove the category
                 if (animalInventory[category] === 0) {
                     delete animalInventory[category];
+                        }
+                    } else if (typeof animalInventory[category] === 'object') {
+                        // New format with locations
+                        // First update the total
+                        animalInventory[category].total = Math.max(0, animalInventory[category].total - quantity);
+                        
+                        // Then update the specific location if it exists
+                        if (animalInventory[category].locations && animalInventory[category].locations[location]) {
+                            animalInventory[category].locations[location] = Math.max(0, animalInventory[category].locations[location] - quantity);
+                            
+                            // If location count is zero, remove the location
+                            if (animalInventory[category].locations[location] === 0) {
+                                delete animalInventory[category].locations[location];
+                            }
+                        }
+                        
+                        // If total is zero or no locations remain, remove the category
+                        if (animalInventory[category].total === 0 || Object.keys(animalInventory[category].locations).length === 0) {
+                            delete animalInventory[category];
+                        }
+                    }
                 }
                 
                 // Remove the original activity from the list
@@ -1802,5 +3150,782 @@ document.addEventListener('DOMContentLoaded', async () => {
         popup.querySelector('.cancel-btn').addEventListener('click', () => {
             popup.remove();
         });
+    }
+
+    // Add this near the top of the document.ready function
+    let farmProperties = []; // Will store the list of farm properties/locations
+
+    // Initialize farm properties
+    async function initializeProperties() {
+        try {
+            console.log("Initializing farm properties...");
+            
+            // Load properties from storage
+            const storedProperties = await mobileStorage.getItem('farmProperties');
+            if (storedProperties) {
+                farmProperties = JSON.parse(storedProperties);
+                console.log("Loaded farm properties from storage:", farmProperties);
+            } else {
+                // No default properties - start with empty array
+                farmProperties = [];
+                await mobileStorage.setItem('farmProperties', JSON.stringify(farmProperties));
+                console.log("Initialized with empty farm properties");
+            }
+            
+            // Reset and update the propertiesList
+            propertiesList = [...farmProperties];
+            
+            // Extract unique properties from inventory
+            const uniqueLocationsFromInventory = extractUniqueLocationsFromInventory();
+            
+            // Add any locations from inventory that aren't in the properties list
+            for (const location of uniqueLocationsFromInventory) {
+                if (!propertiesList.includes(location)) {
+                    propertiesList.push(location);
+                    console.log(`Added location "${location}" from inventory to properties list`);
+                }
+            }
+            
+            console.log("Updated properties list:", propertiesList);
+            return propertiesList;
+        } catch (error) {
+            console.error("Error initializing properties:", error);
+            return []; // Empty array fallback instead of defaults
+        }
+    }
+
+    // Helper function to extract unique locations from inventory
+    function extractUniqueLocationsFromInventory() {
+        const uniqueLocations = new Set();
+        
+        if (animalInventory) {
+            Object.values(animalInventory).forEach(categoryData => {
+                if (categoryData && typeof categoryData === 'object') {
+                    Object.keys(categoryData).forEach(location => {
+                        if (location !== 'total') {
+                            uniqueLocations.add(location);
+                        }
+                    });
+                }
+            });
+        }
+        
+        return Array.from(uniqueLocations);
+    }
+
+    // Call this in the initialization section
+    await initializeProperties();
+
+    // Add this after initializeAnimalCategories function
+    function showManagePropertiesPopup() {
+        return new Promise(async (resolve) => {
+            // Always load the latest properties from storage
+            try {
+                const propertiesStr = await mobileStorage.getItem('farmProperties');
+                if (propertiesStr) {
+                    farmProperties = JSON.parse(propertiesStr);
+                }
+            } catch (error) {
+                console.error('Error loading farm properties:', error);
+            }
+            
+            console.log("Current farmProperties:", farmProperties);
+            
+            const propertiesList = farmProperties.map(property => 
+                `<li>${property} <button type="button" class="delete-property" data-property="${property}">×</button></li>`
+            ).join('');
+            
+            const popupContent = `
+                <div class="popup-content">
+                    <h3>Manage Farm Properties</h3>
+                    <p>Add or remove properties/locations in your farm</p>
+                    
+                    <form id="add-property-form">
+                        <div class="form-group">
+                            <label for="property-name">New Property Name:</label>
+                            <input type="text" id="property-name" name="property-name" placeholder="Enter property name" required>
+                        </div>
+                        <button type="submit" class="save-btn">Add Property</button>
+                    </form>
+                    
+                    <div class="properties-list-container">
+                        <h4>Existing Properties</h4>
+                        <ul class="properties-list">
+                            ${propertiesList}
+                        </ul>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="done-btn">Done</button>
+                    </div>
+                </div>
+            `;
+            
+            const popup = createPopup(popupContent);
+            
+            // Handle new property form submission
+            const form = popup.querySelector('#add-property-form');
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const propertyName = popup.querySelector('#property-name').value.trim();
+                
+                if (!propertyName) {
+                    alert('Please enter a property name');
+                    return;
+                }
+                
+                if (farmProperties.includes(propertyName)) {
+                    alert('Property already exists');
+                    return;
+                }
+                
+                // Add new property
+                farmProperties.push(propertyName);
+                await saveProperties();
+                
+                // Update list
+                const propertiesList = popup.querySelector('.properties-list');
+                const newItem = document.createElement('li');
+                newItem.innerHTML = `${propertyName} <button type="button" class="delete-property" data-property="${propertyName}">×</button>`;
+                propertiesList.appendChild(newItem);
+                
+                // Add click event to the new delete button
+                const deleteButton = newItem.querySelector('.delete-property');
+                deleteButton.addEventListener('click', async () => {
+                    const property = deleteButton.getAttribute('data-property');
+                    
+                    if (confirm(`Are you sure you want to delete "${property}"?`)) {
+                        // Remove property from list
+                        farmProperties = farmProperties.filter(p => p !== property);
+                        await saveProperties();
+                        
+                        // Remove from display
+                        deleteButton.parentElement.remove();
+                    }
+                });
+                
+                // Clear input
+                popup.querySelector('#property-name').value = '';
+            });
+            
+            // Handle property deletion
+            popup.querySelectorAll('.delete-property').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const property = button.getAttribute('data-property');
+                    
+                    if (confirm(`Are you sure you want to delete "${property}"?`)) {
+                        // Check if the property is used in any animal inventory
+                        let inUse = false;
+                        let affectedCategories = [];
+                        
+                        // Scan inventory for usage of this location
+                        Object.entries(animalInventory).forEach(([category, data]) => {
+                            if (typeof data === 'object' && data.locations && data.locations[property]) {
+                                inUse = true;
+                                affectedCategories.push(category);
+                            }
+                        });
+                        
+                        if (inUse) {
+                            const moveConfirm = confirm(`This location "${property}" is currently in use by the following animal categories: ${affectedCategories.join(', ')}. 
+                            
+Animals at this location will be moved to "Unspecified". Do you want to continue?`);
+                            
+                            if (!moveConfirm) {
+                                return; // Cancel the deletion
+                            }
+                            
+                            // Move animals from the deleted location to Unspecified
+                            Object.entries(animalInventory).forEach(([category, data]) => {
+                                if (typeof data === 'object' && data.locations && data.locations[property]) {
+                                    // Get count from the location before removing it
+                                    const count = data.locations[property];
+                                    
+                                    // Add to Unspecified location
+                                    if (!data.locations['Unspecified']) {
+                                        data.locations['Unspecified'] = 0;
+                                    }
+                                    data.locations['Unspecified'] += count;
+                                    
+                                    // Remove the deleted location
+                                    delete data.locations[property];
+                                }
+                            });
+                            
+                            // Save updated inventory
+                            await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
+                        }
+                        
+                        // Remove property from list
+                        farmProperties = farmProperties.filter(p => p !== property);
+                        await saveProperties();
+                        
+                        // Remove from display
+                        button.parentElement.remove();
+                    }
+                });
+            });
+            
+            // Handle done button
+            popup.querySelector('.done-btn').addEventListener('click', () => {
+                popup.remove();
+                resolve();
+            });
+        });
+    }
+
+    // Helper function to save properties
+    async function saveProperties() {
+        console.log("Saving farmProperties:", farmProperties);
+        await mobileStorage.setItem('farmProperties', JSON.stringify(farmProperties));
+    }
+
+    // Add this function after showReverseLastAdditionPopup
+    function showUndoLastActionPopup() {
+        // Find the most recent activity that can be undone (excluding reversals)
+        const recentActions = recentActivities.filter(
+            activity => ['add', 'buy', 'sell', 'move', 'death', 'birth', 'stock-count'].includes(activity.type) 
+                     && activity.type !== 'reversal'
+        );
+        
+        if (recentActions.length === 0) {
+            alert('No recent actions to undo.');
+            return;
+        }
+        
+        // Get the most recent action
+        const lastAction = recentActions[0];
+        const formattedDate = new Date(lastAction.timestamp || lastAction.date).toLocaleDateString();
+        
+        // Format the description based on the action type
+        let description = '';
+        switch(lastAction.type) {
+            case 'add':
+                description = `Added ${lastAction.quantity} ${lastAction.category}`;
+                if (lastAction.location) description += ` at ${lastAction.location}`;
+                break;
+            case 'buy':
+                description = `Purchased ${lastAction.quantity} ${lastAction.category}`;
+                if (lastAction.location) description += ` at ${lastAction.location}`;
+                if (lastAction.supplier) description += ` from ${lastAction.supplier}`;
+                break;
+            case 'sell':
+                description = `Sold ${lastAction.quantity} ${lastAction.category}`;
+                if (lastAction.location) description += ` from ${lastAction.location}`;
+                break;
+            case 'move':
+                if (lastAction.fromCategory && lastAction.toCategory) {
+                    const fromLocationInfo = lastAction.fromLocation ? ` (${lastAction.fromLocation})` : '';
+                    const toLocationInfo = lastAction.toLocation ? ` (${lastAction.toLocation})` : '';
+                    description = `Moved ${lastAction.quantity} from ${lastAction.fromCategory}${fromLocationInfo} to ${lastAction.toCategory}${toLocationInfo}`;
+                } else if (lastAction.fromLocation && lastAction.toLocation) {
+                    description = `Moved ${lastAction.quantity} ${lastAction.category} from ${lastAction.fromLocation} to ${lastAction.toLocation}`;
+                } else {
+                    description = `Moved ${lastAction.quantity} ${lastAction.category || 'animals'}`;
+                }
+                break;
+            case 'death':
+                description = `Recorded death of ${lastAction.quantity} ${lastAction.category}`;
+                if (lastAction.location) description += ` at ${lastAction.location}`;
+                break;
+            case 'birth':
+                description = `Recorded birth of ${lastAction.quantity} ${lastAction.category}`;
+                if (lastAction.location) description += ` at ${lastAction.location}`;
+                break;
+            case 'stock-count':
+                description = `Stock count of ${lastAction.category}`;
+                if (lastAction.location) description += ` at ${lastAction.location}`;
+                break;
+        }
+        
+        description += ` on ${formattedDate}`;
+        
+        const popupContent = `
+            <div class="popup-content">
+                <h3>Undo Last Action</h3>
+                <p>This will undo the following action and adjust inventory accordingly:</p>
+                <div class="last-action-details">
+                    <p><strong>${description}</strong></p>
+                </div>
+                <form id="undo-form">
+                    <div class="form-group">
+                        <label for="reason">Reason for undoing:</label>
+                        <textarea id="reason" name="reason" rows="3" placeholder="Enter reason for undoing this action" required></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="cancel-btn">Cancel</button>
+                        <button type="submit" class="save-btn danger-btn">Undo Action</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        
+        const popup = createPopup(popupContent);
+        
+        // Form submission handling
+        const form = popup.querySelector('form');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const reason = popup.querySelector('#reason').value.trim();
+            if (!reason) {
+                alert('Please enter a reason for undoing the action');
+                return;
+            }
+            
+            try {
+                // Handle different types of actions
+                switch(lastAction.type) {
+                    case 'add':
+                    case 'buy':
+                    case 'birth':
+                        // Similar to reversing an addition - decrease inventory
+                        await undoAddition(lastAction, reason);
+                        break;
+                    case 'sell':
+                    case 'death':
+                        // Opposite of addition - increase inventory
+                        await undoRemoval(lastAction, reason);
+                        break;
+                    case 'move':
+                        // Move animals back to original location/category
+                        await undoMove(lastAction, reason);
+                        break;
+                    case 'stock-count':
+                        // Restore previous count
+                        await undoStockCount(lastAction, reason);
+                        break;
+                }
+                
+                // Close popup
+                popup.remove();
+                
+                // Notify user
+                alert('Action has been undone successfully.');
+            } catch (error) {
+                console.error('Error undoing action:', error);
+                alert('There was an error undoing the action. Please try again.');
+            }
+        });
+        
+        // Cancel button handling
+        popup.querySelector('.cancel-btn').addEventListener('click', () => {
+            popup.remove();
+        });
+    }
+    
+    // Helper functions for undoing different types of actions
+    async function undoAddition(action, reason) {
+        const category = action.category;
+        const quantity = action.quantity;
+        const location = action.location || 'Unspecified';
+        
+        // Handle inventory with the location structure
+        if (animalInventory[category]) {
+            if (typeof animalInventory[category] === 'number') {
+                // Old format
+                animalInventory[category] = Math.max(0, animalInventory[category] - quantity);
+                
+                // If count is zero, remove the category
+                if (animalInventory[category] === 0) {
+                    delete animalInventory[category];
+                }
+            } else if (typeof animalInventory[category] === 'object') {
+                // New format with locations
+                // First update the total
+                animalInventory[category].total = Math.max(0, animalInventory[category].total - quantity);
+                
+                // Then update the specific location if it exists
+                if (animalInventory[category].locations && animalInventory[category].locations[location]) {
+                    animalInventory[category].locations[location] = Math.max(0, animalInventory[category].locations[location] - quantity);
+                    
+                    // If location count is zero, remove the location
+                    if (animalInventory[category].locations[location] === 0) {
+                        delete animalInventory[category].locations[location];
+                    }
+                }
+                
+                // If total is zero or no locations remain, remove the category
+                if (animalInventory[category].total === 0 || Object.keys(animalInventory[category].locations).length === 0) {
+                    delete animalInventory[category];
+                }
+            }
+        }
+        
+        // Remove the original activity from the list
+        const activityIndex = recentActivities.findIndex(a => 
+            a.timestamp === action.timestamp && 
+            a.type === action.type &&
+            a.category === action.category
+        );
+        
+        if (activityIndex !== -1) {
+            recentActivities.splice(activityIndex, 1);
+        }
+        
+        // Create an undo activity
+        const undoActivity = {
+            type: 'reversal',
+            category: action.category,
+            quantity: action.quantity,
+            originalType: action.type,
+            reason: reason,
+            date: new Date().toISOString().split('T')[0],
+            timestamp: new Date().toISOString(),
+            description: `Undid ${action.type} of ${quantity} ${category} (${reason})`
+        };
+        
+        // Add to activity log
+        recentActivities.unshift(undoActivity);
+        
+        // If it was a purchase, remove from purchases
+        if (action.type === 'buy') {
+            const purchaseIndex = animalPurchases.findIndex(p => 
+                p.timestamp === action.timestamp && 
+                p.category === action.category
+            );
+            
+            if (purchaseIndex !== -1) {
+                animalPurchases.splice(purchaseIndex, 1);
+            }
+        }
+        
+        // Save updates to storage
+        await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
+        await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+        
+        if (action.type === 'buy') {
+            await mobileStorage.setItem('animalPurchases', JSON.stringify(animalPurchases));
+        }
+        
+        // Update UI
+        updateDisplays();
+    }
+    
+    async function undoRemoval(action, reason) {
+        const category = action.category;
+        const quantity = action.quantity;
+        const location = action.location || 'Unspecified';
+        
+        // Increase inventory - add animals back
+        if (!animalInventory[category]) {
+            // Create new entry
+            animalInventory[category] = {
+                total: quantity,
+                locations: {}
+            };
+            animalInventory[category].locations[location] = quantity;
+        } else {
+            // Add to existing entry
+            if (typeof animalInventory[category] === 'number') {
+                // Convert old format to new format
+                animalInventory[category] = {
+                    total: animalInventory[category] + quantity,
+                    locations: {
+                        'Unspecified': animalInventory[category]
+                    }
+                };
+                
+                // Add to specified location
+                if (location !== 'Unspecified') {
+                    animalInventory[category].locations[location] = quantity;
+                } else {
+                    animalInventory[category].locations['Unspecified'] += quantity;
+                }
+            } else {
+                // Update new format
+                animalInventory[category].total += quantity;
+                
+                // Add to specified location
+                if (!animalInventory[category].locations[location]) {
+                    animalInventory[category].locations[location] = 0;
+                }
+                animalInventory[category].locations[location] += quantity;
+            }
+        }
+        
+        // Remove the original activity from the list
+        const activityIndex = recentActivities.findIndex(a => 
+            a.timestamp === action.timestamp && 
+            a.type === action.type &&
+            a.category === action.category
+        );
+        
+        if (activityIndex !== -1) {
+            recentActivities.splice(activityIndex, 1);
+        }
+        
+        // Create an undo activity
+        const undoActivity = {
+            type: 'reversal',
+            category: action.category,
+            quantity: action.quantity,
+            originalType: action.type,
+            reason: reason,
+            date: new Date().toISOString().split('T')[0],
+            timestamp: new Date().toISOString(),
+            description: `Undid ${action.type} of ${quantity} ${category} (${reason})`
+        };
+        
+        // Add to activity log
+        recentActivities.unshift(undoActivity);
+        
+        // If it was a sale, remove from sales
+        if (action.type === 'sell') {
+            const saleIndex = animalSales.findIndex(s => 
+                s.timestamp === action.timestamp && 
+                s.category === action.category
+            );
+            
+            if (saleIndex !== -1) {
+                animalSales.splice(saleIndex, 1);
+            }
+        }
+        
+        // Save updates to storage
+        await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
+        await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+        
+        if (action.type === 'sell') {
+            await mobileStorage.setItem('animalSales', JSON.stringify(animalSales));
+        }
+        
+        // Update UI
+        updateDisplays();
+    }
+    
+    async function undoMove(action, reason) {
+        // Complex case - need to move animals back to original location
+        try {
+            if (action.fromCategory && action.toCategory) {
+                // Category move
+                const quantity = action.quantity;
+                const fromCategory = action.toCategory; // Reverse direction
+                const toCategory = action.fromCategory;
+                const fromLocation = action.toLocation || 'Unspecified';
+                const toLocation = action.fromLocation || 'Unspecified';
+                
+                // First, ensure both categories exist 
+                if (!animalInventory[fromCategory]) {
+                    throw new Error(`Cannot undo move: ${fromCategory} doesn't exist in inventory`);
+                }
+                
+                // Check if there are enough animals to move back
+                if (typeof animalInventory[fromCategory] === 'number') {
+                    if (animalInventory[fromCategory] < quantity) {
+                        throw new Error(`Cannot undo move: not enough ${fromCategory} in inventory`);
+                    }
+                } else if (animalInventory[fromCategory].total < quantity) {
+                    throw new Error(`Cannot undo move: not enough ${fromCategory} in inventory`);
+                }
+                
+                // Remove from current category and location
+                if (typeof animalInventory[fromCategory] === 'number') {
+                    animalInventory[fromCategory] -= quantity;
+                    if (animalInventory[fromCategory] <= 0) {
+                        delete animalInventory[fromCategory];
+                    }
+                } else {
+                    // Adjust total
+                    animalInventory[fromCategory].total -= quantity;
+                    
+                    // Adjust location count
+                    if (animalInventory[fromCategory].locations && animalInventory[fromCategory].locations[fromLocation]) {
+                        animalInventory[fromCategory].locations[fromLocation] -= quantity;
+                        if (animalInventory[fromCategory].locations[fromLocation] <= 0) {
+                            delete animalInventory[fromCategory].locations[fromLocation];
+                        }
+                    }
+                    
+                    // If category is now empty, remove it
+                    if (animalInventory[fromCategory].total <= 0 || 
+                        Object.keys(animalInventory[fromCategory].locations).length === 0) {
+                        delete animalInventory[fromCategory];
+                    }
+                }
+                
+                // Add to original category and location
+                if (!animalInventory[toCategory]) {
+                    animalInventory[toCategory] = {
+                        total: quantity,
+                        locations: {}
+                    };
+                    animalInventory[toCategory].locations[toLocation] = quantity;
+                } else {
+                    // Add to existing entry
+                    if (typeof animalInventory[toCategory] === 'number') {
+                        animalInventory[toCategory] += quantity;
+                    } else {
+                        animalInventory[toCategory].total += quantity;
+                        
+                        // Add to specified location
+                        if (!animalInventory[toCategory].locations[toLocation]) {
+                            animalInventory[toCategory].locations[toLocation] = 0;
+                        }
+                        animalInventory[toCategory].locations[toLocation] += quantity;
+                    }
+                }
+            } else if (action.fromLocation && action.toLocation) {
+                // Location-only move
+                const quantity = action.quantity;
+                const category = action.category;
+                const fromLocation = action.toLocation; // Reverse direction
+                const toLocation = action.fromLocation;
+                
+                if (!animalInventory[category] || typeof animalInventory[category] === 'number') {
+                    throw new Error(`Cannot undo move: ${category} doesn't exist in proper format`);
+                }
+                
+                // Check if there are enough animals at the current location
+                if (!animalInventory[category].locations[fromLocation] || 
+                    animalInventory[category].locations[fromLocation] < quantity) {
+                    throw new Error(`Cannot undo move: not enough ${category} at ${fromLocation}`);
+                }
+                
+                // Move animals back to original location
+                animalInventory[category].locations[fromLocation] -= quantity;
+                
+                // Remove location if empty
+                if (animalInventory[category].locations[fromLocation] <= 0) {
+                    delete animalInventory[category].locations[fromLocation];
+                }
+                
+                // Add to original location
+                if (!animalInventory[category].locations[toLocation]) {
+                    animalInventory[category].locations[toLocation] = 0;
+                }
+                animalInventory[category].locations[toLocation] += quantity;
+            }
+            
+            // Remove the original move activity
+            const activityIndex = recentActivities.findIndex(a => 
+                a.timestamp === action.timestamp && 
+                a.type === action.type &&
+                ((a.category === action.category) || 
+                 (a.fromCategory === action.fromCategory && a.toCategory === action.toCategory))
+            );
+            
+            if (activityIndex !== -1) {
+                recentActivities.splice(activityIndex, 1);
+            }
+            
+            // Create an undo activity
+            const undoActivity = {
+                type: 'reversal',
+                originalType: 'move',
+                reason: reason,
+                date: new Date().toISOString().split('T')[0],
+                timestamp: new Date().toISOString()
+            };
+            
+            // Set appropriate description based on move type
+            if (action.fromCategory && action.toCategory) {
+                undoActivity.fromCategory = action.toCategory;
+                undoActivity.toCategory = action.fromCategory;
+                undoActivity.fromLocation = action.toLocation;
+                undoActivity.toLocation = action.fromLocation;
+                undoActivity.quantity = action.quantity;
+                undoActivity.description = `Undid move of ${action.quantity} from ${action.fromCategory} to ${action.toCategory} (${reason})`;
+            } else {
+                undoActivity.category = action.category;
+                undoActivity.fromLocation = action.toLocation;
+                undoActivity.toLocation = action.fromLocation;
+                undoActivity.quantity = action.quantity;
+                undoActivity.description = `Undid move of ${action.quantity} ${action.category} from ${action.fromLocation} to ${action.toLocation} (${reason})`;
+            }
+            
+            // Add to activity log
+            recentActivities.unshift(undoActivity);
+            
+            // Save updates to storage
+            await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
+            await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+            
+            // Update UI
+            updateDisplays();
+        } catch (error) {
+            console.error('Error undoing move:', error);
+            alert(`Error: ${error.message}`);
+            throw error;
+        }
+    }
+    
+    async function undoStockCount(action, reason) {
+        // For stock counts, we need to look for discrepancy records that might have been created
+        // and reverse those changes
+        
+        // First, check if this count created any discrepancies
+        const relatedDiscrepancy = stockDiscrepancies.find(d => 
+            d.countTimestamp === action.timestamp &&
+            d.category === action.category &&
+            (d.location === action.location || (!d.location && !action.location))
+        );
+        
+        if (relatedDiscrepancy) {
+            // If there was a discrepancy, we need to revert the inventory back to what it was before
+            const category = action.category;
+            const location = action.location || 'Unspecified';
+            const expectedCount = relatedDiscrepancy.expectedCount;
+            
+            // Update inventory to expected count (what it was before the count)
+            if (!animalInventory[category]) {
+                // Create new entry if needed
+                animalInventory[category] = {
+                    total: expectedCount,
+                    locations: {}
+                };
+                animalInventory[category].locations[location] = expectedCount;
+            } else if (typeof animalInventory[category] === 'number') {
+                // Convert old format
+                animalInventory[category] = {
+                    total: expectedCount,
+                    locations: {
+                        'Unspecified': expectedCount
+                    }
+                };
+            } else {
+                // Update location count
+                animalInventory[category].total = animalInventory[category].total - 
+                    (animalInventory[category].locations[location] || 0) + expectedCount;
+                
+                animalInventory[category].locations[location] = expectedCount;
+            }
+            
+            // Remove the discrepancy record
+            stockDiscrepancies = stockDiscrepancies.filter(d => d !== relatedDiscrepancy);
+            await mobileStorage.setItem('stockDiscrepancies', JSON.stringify(stockDiscrepancies));
+        }
+        
+        // Remove the original count activity
+        const activityIndex = recentActivities.findIndex(a => 
+            a.timestamp === action.timestamp && 
+            a.type === action.type &&
+            a.category === action.category
+        );
+        
+        if (activityIndex !== -1) {
+            recentActivities.splice(activityIndex, 1);
+        }
+        
+        // Create an undo activity
+        const undoActivity = {
+            type: 'reversal',
+            category: action.category,
+            originalType: 'stock-count',
+            reason: reason,
+            date: new Date().toISOString().split('T')[0],
+            timestamp: new Date().toISOString(),
+            description: `Undid stock count of ${action.category} ${action.location ? `at ${action.location}` : ''} (${reason})`
+        };
+        
+        // Add to activity log
+        recentActivities.unshift(undoActivity);
+        
+        // Save updates to storage
+        await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
+        await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+        
+        // Update UI
+        updateDisplays();
     }
 }); 

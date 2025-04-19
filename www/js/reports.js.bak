@@ -1,0 +1,598 @@
+// Global variables for report settings
+let selectedReportType = '';
+let selectedMainType = '';
+let userCurrency = 'R';
+
+// Add to the top of the file
+// Add a synchronous version of getItem for use in functions that can't be async
+mobileStorage.getItemSync = function(key) {
+    // Try to get from localStorage first (for backward compatibility)
+    if (typeof localStorage !== 'undefined') {
+        const value = localStorage.getItem(key);
+        if (value) return value;
+    }
+    
+    // For mobileStorage, we need to use a sync version
+    // Since we're in a sync function, we'll return the last known value or default
+    // This is a compromise but should work for most cases
+    return this._cache?.[key] || null;
+};
+
+// Initialize cache to store values for sync access
+mobileStorage._cache = {};
+
+// Override the original getItem to update cache
+const originalGetItem = mobileStorage.getItem;
+mobileStorage.getItem = async function(key) {
+    // Always fetch fresh data directly from storage
+    const value = await originalGetItem.call(this, key);
+    // Update cache
+    if (!this._cache) this._cache = {};
+    this._cache[key] = value;
+    return value;
+};
+
+// Add a function to clear the cache - important for data freshness
+mobileStorage.clearCache = function() {
+    this._cache = {};
+};
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // Clear cache on page load to ensure fresh data
+    if (mobileStorage.clearCache) {
+        console.log('Clearing cache on page load for fresh data');
+        mobileStorage.clearCache();
+    }
+    
+    // Check if logged in
+    const isLoggedIn = await mobileStorage.getItem('isLoggedIn');
+    if (isLoggedIn !== 'true') {
+        window.location.href = 'index.html';
+        return;
+    }
+    
+    // Setup keyboard detection for mobile devices
+    setupKeyboardDetection();
+    
+    // Initialize state
+    // let selectedReportType = '';  // Moved to global scope
+    // let selectedMainType = '';    // Moved to global scope
+    userCurrency = await mobileStorage.getItem('currency') || 'R';
+    
+    // Set default dates (last 30 days)
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    document.getElementById('date-from').value = thirtyDaysAgo.toISOString().split('T')[0];
+    document.getElementById('date-to').value = today.toISOString().split('T')[0];
+    
+    // Set up debug panel
+    setupDebugPanel();
+    
+    // Set up orientation change handling
+    window.addEventListener('orientationchange', handleOrientationChange);
+    
+    // Add event listeners
+    setupEventListeners();
+    
+    // Initialize currency format - fix error with invalid currency code
+    // Store the currency symbol for display
+    const currencySymbol = typeof userCurrency === 'string' ? userCurrency.trim() : 'R';
+    
+    // For Intl.NumberFormat, we need an ISO currency code, not just a symbol
+    // Map common symbols to ISO codes or default to USD
+    let currencyCode = 'ZAR'; // Default to ZAR instead of USD
+    
+    // Define the formatter at the global scope so it's accessible everywhere
+    let currencyFormatter;
+    
+    try {
+        console.log('User currency value:', userCurrency);
+        
+        if (typeof userCurrency === 'string') {
+            const currencyMap = {
+                '$': 'USD',
+                '£': 'GBP',
+                '€': 'EUR',
+                '¥': 'JPY',
+                '₹': 'INR',
+                'R': 'ZAR',
+                'R$': 'BRL'
+            };
+            
+            const trimmedCurrency = userCurrency.trim();
+            console.log('Trimmed currency symbol:', trimmedCurrency);
+            
+            // Only use the mapped value if it exists in our map
+            if (currencyMap[trimmedCurrency]) {
+                currencyCode = currencyMap[trimmedCurrency];
+                console.log('Mapped to ISO code:', currencyCode);
+            } else {
+                // If not in our map but looks like a valid ISO code (3 letters), use it
+                if (/^[A-Z]{3}$/.test(trimmedCurrency)) {
+                    currencyCode = trimmedCurrency;
+                    console.log('Using currency as ISO code:', currencyCode);
+                } else {
+                    console.log('Using default ZAR code');
+                }
+            }
+        }
+        
+        // Create the formatter with a guaranteed valid ISO currency code
+        console.log('Final currency code for formatter:', currencyCode);
+        
+        currencyFormatter = new Intl.NumberFormat(undefined, {
+            style: 'currency',
+            currency: currencyCode,
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    } catch (e) {
+        console.error('Error creating currency formatter:', e);
+    }
+    
+    // Define the formatCurrency function to handle fallback scenarios
+    function formatCurrency(amount) {
+        if (amount === undefined || amount === null) return `R0.00 ZAR`;
+        
+        try {
+            // Format currency in the requested style: "R187500.00 ZAR"
+            const numAmount = Number(amount);
+            const formattedAmount = numAmount.toFixed(2);
+            return `R${formattedAmount} ZAR`;
+        } catch (e) {
+            console.error('Error formatting currency:', e);
+            // Fallback to simple formatting if formatting fails
+            return `R${Number(amount).toFixed(2)} ZAR`;
+        }
+    }
+    
+    // Expose formatCurrency to the window object for global access
+    window.formatCurrency = formatCurrency;
+    
+    function setupKeyboardDetection() {
+        // For iOS using visual viewport API
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => {
+                // The viewport size gets smaller when the keyboard appears
+                const currentHeight = window.visualViewport.height;
+                const windowHeight = window.innerHeight;
+                
+                if (currentHeight < windowHeight * 0.8) {
+                    // Keyboard is likely visible
+                    document.body.classList.add('keyboard-open');
+                } else {
+                    // Keyboard is likely hidden
+                    document.body.classList.remove('keyboard-open');
+                }
+            });
+        } else {
+            // Fallback for other devices - use focus/blur events
+            document.addEventListener('focusin', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                    document.body.classList.add('keyboard-open');
+                }
+            });
+            
+            document.addEventListener('focusout', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                    // Small delay to prevent flashing during focus changes between inputs
+                    setTimeout(() => {
+                        if (document.activeElement.tagName !== 'INPUT' && 
+                            document.activeElement.tagName !== 'TEXTAREA' && 
+                            document.activeElement.tagName !== 'SELECT') {
+                            document.body.classList.remove('keyboard-open');
+                        }
+                    }, 100);
+                }
+            });
+        }
+    }
+    
+    function handleOrientationChange() {
+        // Adjust UI for different orientations
+        if (window.orientation === 90 || window.orientation === -90) {
+            // Landscape mode
+            document.querySelector('.date-range')?.classList.add('landscape');
+            
+            // Adjust table display for landscape
+            const reportTables = document.querySelectorAll('.report-table');
+            reportTables.forEach(table => {
+                table.style.minWidth = "auto";
+            });
+        } else {
+            // Portrait mode
+            document.querySelector('.date-range')?.classList.remove('landscape');
+            
+            // Optimize table display for portrait view - no min-width that forces scrolling
+            const reportTables = document.querySelectorAll('.report-table');
+            reportTables.forEach(table => {
+                table.style.minWidth = "auto";
+            });
+        }
+    }
+    
+    function setupEventListeners() {
+        // Add event listeners for all report type selects
+        document.getElementById('animal-report-type')?.addEventListener('change', handleReportTypeChange);
+        document.getElementById('feed-report-type')?.addEventListener('change', handleReportTypeChange);
+        document.getElementById('health-report-type')?.addEventListener('change', handleReportTypeChange);
+        document.getElementById('category-filter')?.addEventListener('change', handleCategoryChange);
+        
+        // Fix for generate report button - add console log and make sure handler is attached
+        const generateReportBtn = document.getElementById('generate-report');
+        if (generateReportBtn) {
+            console.log('Adding event listener to Generate Report button');
+            generateReportBtn.addEventListener('click', handleGenerateReport);
+            // Add a direct event for testing
+            generateReportBtn.onclick = function() {
+                console.log('Generate Report clicked via onclick');
+                handleGenerateReport();
+            };
+        } else {
+            console.error('Generate Report button not found in the DOM');
+        }
+    }
+    
+    function handleReportTypeChange(event) {
+        // Clear other selects
+        const reportSelects = ['animal-report-type', 'feed-report-type', 'health-report-type'];
+        reportSelects.forEach(id => {
+            if (id !== event.target.id && document.getElementById(id)) {
+                document.getElementById(id).value = '';
+            }
+        });
+        
+        // Set global variables
+        selectedReportType = event.target.value;
+        selectedMainType = event.target.id.split('-')[0]; // 'animal', 'feed', or 'health'
+        
+        console.log('Report type changed:', {
+            type: selectedReportType,
+            mainType: selectedMainType
+        });
+        
+        // Clear any previous report results
+        clearPreviousReportResults();
+        
+        updateCategoryOptions();
+    }
+    
+    function clearPreviousReportResults() {
+        // Clear the report content area
+        document.querySelector('.report-content').innerHTML = 
+            '<div class="empty-state">Select report criteria and click Generate Report</div>';
+    }
+    
+    async function updateCategoryOptions() {
+        const categorySelect = document.getElementById('category-filter');
+        const categoryHelp = document.querySelector('.help-text');
+        
+        if (!categorySelect || !categoryHelp) return;
+        
+        // Clear existing options
+        categorySelect.innerHTML = '<option value="all">All Categories</option>';
+        
+        if (!selectedMainType) {
+            categorySelect.disabled = true;
+            categoryHelp.textContent = 'Select a report type to see relevant categories';
+            return;
+        }
+        
+        try {
+            let categories = [];
+            
+            // Get categories based on main type
+            switch (selectedMainType) {
+                case 'animal':
+                    categories = await getAnimalCategories();
+                    categoryHelp.textContent = 'Filter by animal category';
+                    break;
+                case 'feed':
+                    // Get feed categories from storage
+                    const feedCategoriesStr = await mobileStorage.getItem('feedCategories');
+                    categories = feedCategoriesStr ? JSON.parse(feedCategoriesStr) : [];
+                    categoryHelp.textContent = 'Filter by feed type';
+                    break;
+                case 'health':
+                    // Health categories are the same as animal categories
+                    categories = await getAnimalCategories();
+                    categoryHelp.textContent = 'Filter by animal category';
+                    break;
+            }
+            
+            console.log('Retrieved categories:', categories);
+            
+            // Add categories to select
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                categorySelect.appendChild(option);
+            });
+            
+            // Store the category type to ensure proper filtering
+            categorySelect.dataset.categoryType = selectedMainType;
+            
+            categorySelect.disabled = false;
+        } catch (error) {
+            console.error('Error updating categories:', error);
+            categorySelect.disabled = true;
+            categoryHelp.textContent = 'Error loading categories';
+        }
+    }
+    
+    function handleCategoryChange() {
+        // No automatic report generation
+    }
+    
+    // New simplified implementation for debugging
+    async function handleGenerateReport() {
+        // Clear cache before generating reports to ensure fresh data
+        mobileStorage.clearCache();
+        
+        const reportResults = document.querySelector('.report-content');
+        
+        try {
+            // Clear previous results
+            clearPreviousReportResults();
+            
+            // Show loading state
+            reportResults.innerHTML = '<div class="loading">Loading report data...</div>';
+            
+            // Collect filters
+            const filters = collectFilters();
+            
+            // Validate date range
+            const startDate = new Date(filters.dateRange.start);
+            const endDate = new Date(filters.dateRange.end);
+            
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                reportResults.innerHTML = '<div class="error-message">Please enter valid date range</div>';
+                return;
+            }
+            
+            if (startDate > endDate) {
+                reportResults.innerHTML = '<div class="error-message">Start date must be before end date</div>';
+                return;
+            }
+            
+            // Check if we have a report type selected
+            if (!filters.reportType) {
+                reportResults.innerHTML = '<div class="error-message">Please select a report type</div>';
+                return;
+            }
+            
+            // Collect data based on filters
+            const reportData = await collectReportData(filters);
+            
+            // If no data returned, show message
+            if (!reportData || (Array.isArray(reportData) && reportData.length === 0) || 
+                (reportData.feedTransactions && reportData.feedTransactions.length === 0 && 
+                 filters.reportType !== 'feed-inventory' && filters.reportType !== 'feed-calculation')) {
+                reportResults.innerHTML = `<div class="empty-state">No data found for the selected criteria</div>`;
+                return;
+            }
+            
+            // Generate report based on type
+            let reportHTML = '';
+            
+            try {
+                switch (filters.reportType) {
+                    case 'all-feed':
+                        reportHTML = createAllFeedReportTable(reportData);
+                        break;
+                        
+                    case 'feed-purchase':
+                        reportHTML = createFeedPurchaseTable(reportData);
+                        break;
+                        
+                    case 'feed-usage':
+                        reportHTML = createFeedUsageTable(reportData);
+                        break;
+                        
+                    case 'feed-calculation':
+                        try {
+                            const feedCalculations = reportData && reportData.length > 0 ? reportData : [];
+                            // Code to generate report HTML
+                            reportHTML = createFeedCalculationTable(feedCalculations, filters);
+                        } catch (error) {
+                            console.error('Error generating feed calculation report:', error);
+                            reportHTML = `<div class="error-message">Error generating feed calculations: ${error.message}</div>`;
+                        }
+                        break;
+                    
+                    case 'feed-inventory':
+                        reportHTML = createFeedInventoryTable(reportData);
+                        break;
+                        
+                    default:
+                        reportHTML = `<div class="error-message">Report type not supported yet: ${filters.reportType}</div>`;
+                }
+                
+                // Display the report
+                reportResults.innerHTML = reportHTML;
+                
+                // Log after successfully rendering
+                console.log(`Successfully rendered ${filters.reportType} report`);
+                
+            } catch (error) {
+                console.error('Error generating report HTML:', error);
+                reportResults.innerHTML = `<div class="error-message">Error generating report: ${error.message}</div>`;
+            }
+        } catch (error) {
+            console.error('Error handling report generation:', error);
+            reportResults.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
+        }
+    }
+    
+    // Helper function to create the feed calculation table - extracted from handleGenerateReport
+    function createFeedCalculationTable(feedCalculations, filters) {
+        let reportHTML = `
+            <div class="report-header">
+                <div class="report-type-header">
+                    <div class="report-type-title">Feed Calculations Report</div>
+                    <div class="report-actions">
+                        <button onclick="window.print()" class="print-button">Print Report</button>
+                        <button onclick="exportReportToCSV('feed-calculations')" class="export-button">Export to CSV</button>
+                    </div>
+                </div>
+                <div class="report-summary">
+                    <p>Report date range: ${formatDate(filters.dateRange.start)} to ${formatDate(filters.dateRange.end)}</p>
+                    <p>Total number of calculations: ${feedCalculations.length}</p>
+                    <p>Total feed cost: ${formatCurrency(feedCalculations.reduce((sum, calc) => sum + (calc.totalCost || 0), 0))}</p>
+                </div>
+            </div>
+            
+            <div class="report-section">
+                <h3>Feed Calculations</h3>
+        `;
+        
+        // Generate calculation cards
+        feedCalculations.forEach(calc => {
+            // Map properties safely with fallbacks to prevent undefined errors
+            const animalType = calc.animalCategory || calc.category || 'Unknown';
+            const count = calc.animalCount || calc.numAnimals || 0;
+            const feedType = calc.feedType || 'Unknown';
+            const dailyIntake = typeof calc.dailyIntake === 'number' ? 
+                (calc.intakeUnit === 'g' ? calc.dailyIntake / 1000 : calc.dailyIntake) : 0;
+            const intakeUnit = calc.intakeUnit || calc.unit || 'kg';
+            const totalFeed = calc.totalFeedNeeded || calc.totalFeed || 0;
+            const duration = calc.duration || 1;
+            const dailyCost = calc.totalDailyCost || calc.dailyCost || 0;
+            const costPerAnimal = calc.costPerAnimalPerDay || calc.costPerAnimal || 
+                (count > 0 ? dailyCost / count : 0);
+            const totalCost = calc.totalCost || 0;
+            
+            reportHTML += `
+                <div class="calculation-card feed-calculation-card">
+                    <div class="card-header">
+                        <h4>${animalType} (${count} animals)</h4>
+                        <div class="calculation-date">${formatDate(calc.date)}</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="feed-details">
+                            <p><strong>Feed:</strong> ${feedType}</p>
+                            <p><strong>Daily intake:</strong> ${dailyIntake.toFixed(2)}${intakeUnit} per animal</p>
+                            <p><strong>Total feed:</strong> ${totalFeed.toFixed(2)}${intakeUnit} (${duration} days)</p>
+                        </div>
+                        <div class="cost-details">
+                            <p><strong>Daily cost:</strong> ${formatCurrency(dailyCost)}</p>
+                            <p><strong>Per animal:</strong> ${formatCurrency(costPerAnimal)}/day</p>
+                            <p><strong>Total (${duration} days):</strong> ${formatCurrency(totalCost)}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        // Add summary table
+        reportHTML += `
+            <h3>Summary Table</h3>
+            <table class="report-table">
+            <thead>
+                <tr>
+                        <th>Animal Type</th>
+                        <th>Count</th>
+                    <th>Feed Type</th>
+                        <th>Daily Intake</th>
+                        <th>Total Feed</th>
+                        <th>Duration</th>
+                        <th>Daily Cost</th>
+                        <th>Cost per Animal</th>
+                        <th>Total Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        feedCalculations.forEach(calc => {
+            // Use the same property mapping for consistency
+            const animalType = calc.animalCategory || calc.category || 'Unknown';
+            const count = calc.animalCount || calc.numAnimals || 0;
+            const feedType = calc.feedType || 'Unknown';
+            const dailyIntake = typeof calc.dailyIntake === 'number' ? 
+                (calc.intakeUnit === 'g' ? calc.dailyIntake / 1000 : calc.dailyIntake) : 0;
+            const intakeUnit = calc.intakeUnit || calc.unit || 'kg';
+            const totalFeed = calc.totalFeedNeeded || calc.totalFeed || 0;
+            const duration = calc.duration || 1;
+            const dailyCost = calc.totalDailyCost || calc.dailyCost || 0;
+            const costPerAnimal = calc.costPerAnimalPerDay || calc.costPerAnimal || 
+                (count > 0 ? dailyCost / count : 0);
+            const totalCost = calc.totalCost || 0;
+            
+            reportHTML += `
+                <tr>
+                    <td>${animalType}</td>
+                    <td>${count}</td>
+                    <td>${feedType}</td>
+                    <td>${dailyIntake.toFixed(2)}${intakeUnit}</td>
+                    <td>${totalFeed.toFixed(2)}${intakeUnit}</td>
+                    <td>${duration} days</td>
+                    <td>${formatCurrency(dailyCost)}</td>
+                    <td>${formatCurrency(costPerAnimal)}/day</td>
+                    <td>${formatCurrency(totalCost)}</td>
+                </tr>
+            `;
+        });
+        
+        // Add totals row
+        const totalCost = feedCalculations.reduce((sum, calc) => sum + (calc.totalCost || 0), 0);
+        reportHTML += `
+                <tr class="total-row">
+                    <td colspan="8" class="text-right"><strong>Total Cost:</strong></td>
+                    <td>${formatCurrency(totalCost)}</td>
+                </tr>
+            </tbody>
+            </table>
+            
+            <div class="report-notes">
+                <h4>Notes:</h4>
+                <ul>
+                    <li>Feed calculations are based on standard nutritional requirements for each animal type.</li>
+                    <li>Costs are calculated using current feed prices stored in the system.</li>
+                    <li>Actual consumption may vary based on animal health, weather conditions, and other factors.</li>
+                </ul>
+            </div>
+        </div>
+        `;
+        
+        return reportHTML;
+    }
+    
+    /**
+     * Load feed calculation data
+     */
+    async function loadFeedCalculationData(startDate, endDate, category) {
+        console.log('Loading feed calculation data');
+        
+        // Clear cache to ensure fresh data
+        mobileStorage.clearCache();
+        
+        // Load feed calculations from storage
+        const feedCalculationsStr = await mobileStorage.getItem('feedCalculations');
+        const feedCalculations = feedCalculationsStr ? JSON.parse(feedCalculationsStr) : [];
+        
+        console.log(`Found ${feedCalculations.length} feed calculations in storage`);
+        
+        // Filter by date range if we have dates
+        const filteredCalculations = feedCalculations.filter(calc => {
+            if (!calc.date) return true; // Include items without dates
+            const calcDate = new Date(calc.date);
+            return calcDate >= startDate && calcDate <= endDate;
+        });
+        
+        // Filter by category if specified and not "all"
+        const categoryFiltered = category === 'all' ? 
+            filteredCalculations : 
+            filteredCalculations.filter(calc => {
+                return calc.animalType === category || calc.feedType === category;
+            });
+        
+        console.log(`Found ${categoryFiltered.length} feed calculations after filtering`);
+        return categoryFiltered;
+    }
+});
+    
+ 
+ 

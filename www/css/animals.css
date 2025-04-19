@@ -126,6 +126,7 @@
 }
 
 /* Management buttons */
+#undo-last-action-btn,
 #reverse-last-btn {
     background-color: #f05b4f;
     color: white;
@@ -175,6 +176,7 @@
     background-color: #2980b9;
 }
 
+#undo-last-action-btn:hover,
 #reverse-last-btn:hover {
     background-color: #e67e22;
 }
@@ -199,7 +201,7 @@
 
 .inventory-item {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     padding: 10px 0;
     border-bottom: 1px solid #eee;
 }
@@ -220,6 +222,34 @@
     padding: 2px 8px;
     border-radius: 12px;
     font-size: 0.9rem;
+}
+
+.inventory-item .main-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.location-breakdown {
+    margin-top: 5px;
+    margin-left: 10px;
+    font-size: 0.85rem;
+    color: #7f8c8d;
+}
+
+.location-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+}
+
+.location-name {
+    margin-right: 10px;
+}
+
+.location-count {
+    font-weight: 500;
 }
 
 .transaction-item {
@@ -790,4 +820,97 @@ input[type="number"] {
     margin-left: 8px;
     font-weight: 500;
     vertical-align: middle;
+}
+
+.discrepancy-item {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    padding: 10px;
+}
+
+.discrepancy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.discrepancy-category {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.discrepancy-date {
+    color: #666;
+    font-size: 0.9em;
+}
+
+.discrepancy-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.discrepancy-details > div {
+    margin: 2px 0;
+}
+
+.difference.positive-diff {
+    color: #28a745;
+}
+
+.difference.negative-diff {
+    color: #dc3545;
+}
+
+.resolution-attempt {
+    margin-top: 8px;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-left: 3px solid #28a745;
+    border-radius: 2px;
+}
+
+.resolution-count {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.resolution-attempt .counter-name {
+    color: #666;
+    font-style: italic;
+    margin: 4px 0;
+}
+
+.resolution-attempt .resolution-date {
+    font-size: 0.9em;
+    color: #666;
+}
+
+.notes {
+    margin-top: 8px;
+    font-style: italic;
+    color: #666;
+    padding-left: 8px;
+    border-left: 2px solid #ddd;
+}
+
+.count-item .count-notes {
+    font-size: 0.85rem;
+    font-style: italic;
+    color: #7f8c8d;
+    margin-top: 3px;
+}
+
+.count-item .counter-name {
+    font-size: 0.85rem;
+    color: #7f8c8d;
+    margin-top: 3px;
+    font-style: italic;
+}
+
+.count-item.resolution {
+    border-left-color: #2ecc71;
 } 

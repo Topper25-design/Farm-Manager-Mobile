@@ -686,4 +686,22 @@ input[type="number"] {
 
 #record-death-btn:hover {
     background-color: #7f8c8d; /* Darken the original death button color */
+}
+
+.count-item .count-notes {
+    font-size: 0.85rem;
+    font-style: italic;
+    color: #7f8c8d;
+    margin-top: 3px;
+}
+
+.count-item .counter-name {
+    font-size: 0.85rem;
+    color: #7f8c8d;
+    margin-top: 3px;
+    font-style: italic;
+}
+
+.count-item.resolution {
+    border-left-color: #2ecc71;
 } 

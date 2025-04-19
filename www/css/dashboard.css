@@ -13,8 +13,12 @@
     background-color: rgba(255, 255, 255, 0.7);
     border-radius: 10px;
     padding: 20px;
+    margin: 15px;
     margin-bottom: 20px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    box-sizing: border-box;
+    max-width: none;
 }
 
 .welcome-card h2 {
@@ -70,19 +74,50 @@
 
 .inventory-item {
     display: flex;
+    flex-direction: column;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.inventory-item:last-child {
+    border-bottom: none;
+}
+
+.main-info {
+    display: flex;
     justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid #eee;
+    align-items: center;
 }
 
 .inventory-category {
-    font-weight: bold;
-    color: #2c3e50;
+    font-weight: 500;
+    color: var(--text-primary);
 }
 
 .inventory-count {
-    font-weight: bold;
-    color: #2c3e50; /* Standard dark color for all counts */
+    font-weight: 600;
+    color: var(--accent-color);
+}
+
+.location-breakdown {
+    margin-top: 5px;
+    padding-left: 15px;
+    font-size: 0.85rem;
+}
+
+.location-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+    color: var(--text-secondary);
+}
+
+.location-name {
+    font-style: italic;
+}
+
+.location-count {
+    font-weight: 500;
 }
 
 .discrepancy-item {
@@ -109,6 +144,14 @@
 .discrepancy-date {
     font-size: 0.8rem;
     color: #7f8c8d;
+}
+
+.counter-name {
+    font-size: 0.8rem;
+    color: #7f8c8d;
+    display: block;
+    margin-top: 3px;
+    font-style: italic;
 }
 
 .discrepancy-counts {
@@ -249,30 +292,53 @@
     border-left-color: #e74c3c;
 }
 
-.feed-status-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 10px;
-    margin-top: 10px;
-    width: 100%;
-    box-sizing: border-box;
+/* Special styling for the feed status card */
+.stat-card.full-width-stat {
+    /* Remove margin overrides that cause misalignment */
+    width: calc(100% - 30px) !important; /* Match content-container width */
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    /* Use the same margins as content-container */
+    margin: 15px !important;
+    padding: 20px !important;
 }
 
-.feed-item {
-    display: flex;
-    flex-direction: column;
-    padding: 10px;
-    background-color: #f8f9fa;
-    border-radius: 8px;
-    height: 100%;
+/* Feed status container */
+#feed-status {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Feed status grid layout */
+.feed-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
     width: 100%;
     box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* Feed item styling */
+.feed-item {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
 }
 
 .feed-item-header {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 5px;
+    margin-bottom: 10px;
 }
 
 .feed-name {
@@ -284,161 +350,64 @@
     font-weight: bold;
 }
 
+.quantity-low {
+    color: #e74c3c;
+}
+
+.quantity-good {
+    color: #2ecc71;
+}
+
 .feed-details {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     color: #7f8c8d;
-    margin-top: 5px;
+    line-height: 1.5;
 }
 
 .low-feed {
-    border-left: 3px solid #e74c3c;
+    border-left: 4px solid #e74c3c;
 }
 
 .good-feed {
-    border-left: 3px solid #2ecc71;
+    border-left: 4px solid #2ecc71;
 }
 
-.health-status-content {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
+/* Feed Status Colors */
+.low-feed {
+    background-color: #fff8f8;
+    border-left: 4px solid #e74c3c;
 }
 
-.health-stat {
-    background-color: #f8f9fa;
-    border-radius: 8px;
-    padding: 12px;
+.good-feed {
+    background-color: #f8fff8;
+    border-left: 4px solid #2ecc71;
 }
 
-.health-stat-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-    padding-bottom: 5px;
-    border-bottom: 1px solid #eee;
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .feed-status-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 10px;
+    }
+    
+    .feed-item {
+        padding: 10px;
+    }
+    
+    .feed-name,
+    .feed-quantity {
+        font-size: 1rem;
+    }
+    
+    .feed-details {
+        font-size: 0.85rem;
+    }
 }
 
-.health-stat-title {
-    font-weight: bold;
-    color: #2c3e50;
-    font-size: 0.9rem;
-}
-
-.health-stat-count {
-    background-color: #f0f2f5;
-    padding: 2px 6px;
-    border-radius: 4px;
-    color: #3498db;
-    font-weight: bold;
-    font-size: 0.8rem;
-}
-
-.health-details {
-    list-style: none;
-    padding-left: 0;
-    margin: 0;
-}
-
-.health-details li {
-    margin: 5px 0;
-    padding: 6px 8px;
-    background-color: white;
-    border-radius: 4px;
-    border-left: 3px solid #3498db;
-    font-size: 0.85rem;
-}
-
-.health-details li.vaccination {
-    border-left-color: #e74c3c;
-}
-
-.health-details li.treatment {
-    border-left-color: #f39c12;
-}
-
-.health-details li.medication {
-    border-left-color: #9b59b6;
-}
-
-.show-more {
-    font-style: italic;
-    color: #7f8c8d;
-    text-align: center;
-    border-left-color: #bdc3c7 !important;
-}
-
-.no-data {
-    color: #7f8c8d;
-    font-style: italic;
-    text-align: center;
-    font-size: 0.9rem;
-    padding: 10px 0;
-}
-
-.average-price, .average-purchase-price {
-    font-size: 0.9rem;
-    color: #7f8c8d;
-    margin-top: 5px;
-}
-
-.transaction-label {
-    font-weight: bold;
-    margin-bottom: 8px;
-    color: #2c3e50;
-    font-size: 1rem;
-}
-
-.transaction-details {
-    font-size: 0.9rem;
-    color: #34495e;
-    line-height: 1.4;
-}
-
-.logout-button {
-    background-color: #e74c3c;
-    color: white;
-    border: none;
-    padding: 12px 15px;
-    border-radius: 6px;
-    width: 100%;
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 20px;
-    margin-top: 10px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    position: relative;
-    overflow: hidden;
-}
-
-.logout-button:hover {
-    background-color: #c0392b;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.logout-button:active {
-    transform: translateY(1px);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.logout-button:before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(to right, rgba(255,255,255,0.2), transparent);
-    transition: all 0.3s ease;
-}
-
-.logout-button:hover:before {
-    left: 100%;
+@media (min-width: 1200px) {
+    .feed-status-grid {
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    }
 }
 
 /* Portrait mode adjustments */
@@ -450,11 +419,14 @@
     
     .stat-card {
         padding: 15px;
-        width: 100% !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
+        width: calc(100% - 30px) !important; /* Match content-container width */
+        margin: 15px !important;
         max-width: 100% !important;
         box-sizing: border-box !important;
+    }
+    
+    .feed-status-grid {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -710,45 +682,6 @@
     padding: 5px 0;
 }
 
-/* Special fix for feed status stat card */
-.stat-card:has(#feed-status) {
-    width: 100% !important;
-    box-sizing: border-box !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    max-width: 100% !important;
-}
-
-#feed-status {
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-.full-width-stat {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-}
-
-.full-width-stat #feed-status {
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-.full-width-stat .feed-status-grid {
-    width: 100% !important;
-    max-width: 100% !important;
-    grid-template-columns: 1fr !important;
-}
-
-@media screen and (orientation: landscape) {
-    .full-width-stat .feed-status-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-    }
-}
-
 /* Health Summary Section */
 .health-summary {
     background-color: #f8f9fa;
@@ -921,9 +854,39 @@
     padding: 5px 0;
 }
 
-/* Responsive changes */
-@media screen and (orientation: landscape) {
-    .health-status-content {
-        grid-template-columns: repeat(2, 1fr);
+/* Responsive adjustments */
+@media screen and (max-width: 480px) {
+    .feed-status-grid {
+        grid-template-columns: 1fr !important;
     }
+}
+
+@media screen and (min-width: 481px) and (max-width: 768px) {
+    .feed-status-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+    }
+}
+
+@media screen and (min-width: 769px) {
+    .feed-status-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important;
+    }
+}
+
+@media screen and (orientation: landscape) {
+    .feed-status-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
+    }
+}
+
+/* Fix for feed status alignment - this must override any other styles */
+.dashboard-container .stat-card.content-container.full-width-stat {
+    width: 100% !important;
+    margin: 15px !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+    max-width: none !important;
+    left: 0 !important;
+    right: 0 !important;
+    position: relative !important;
 } 

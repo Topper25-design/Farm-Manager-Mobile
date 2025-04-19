@@ -305,8 +305,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totalAnimalsElem = document.getElementById('total-animals');
         const inventoryBreakdownElem = document.getElementById('inventory-breakdown');
         
-        // Calculate total animals
-        const totalAnimals = Object.values(animalInventory).reduce((sum, count) => sum + count, 0);
+        // Calculate total animals - if it's not an object, initialize as empty object
+        if (!animalInventory || typeof animalInventory !== 'object') {
+            animalInventory = {};
+        }
+        
+        // Calculate total animals by ensuring each count is properly parsed as a number
+        const totalAnimals = Object.values(animalInventory).reduce((sum, value) => {
+            // Handle both old (number) and new (object) formats
+            if (typeof value === 'number') {
+                return sum + value;
+            } else if (value && typeof value === 'object') {
+                return sum + (value.total || 0);
+            }
+            return sum + 0;
+        }, 0);
         
         // Update total count
         if (totalAnimalsElem) {
@@ -326,14 +339,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             const sortedCategories = Object.keys(animalInventory).sort();
             
             sortedCategories.forEach(category => {
-                const count = animalInventory[category];
+                const value = animalInventory[category];
                 const item = document.createElement('div');
                 item.className = 'inventory-item';
                 
-                // Removed stock status indicator
+                // Get the count based on the data structure
+                let count;
+                let locationInfo = '';
+                
+                if (typeof value === 'number') {
+                    count = value;
+                } else if (value && typeof value === 'object') {
+                    count = value.total || 0;
+                    
+                    // Add location breakdown if available
+                    if (value.locations && Object.keys(value.locations).length > 0) {
+                        locationInfo = '<div class="location-breakdown">';
+                        Object.entries(value.locations).forEach(([location, locationCount]) => {
+                            locationInfo += `<div class="location-item"><span class="location-name">${location}:</span> <span class="location-count">${locationCount}</span></div>`;
+                        });
+                        locationInfo += '</div>';
+                    }
+                } else {
+                    count = 0;
+                }
+                
                 item.innerHTML = `
-                    <span class="inventory-category">${category}</span>
-                    <span class="inventory-count">${count}</span>
+                    <div class="main-info">
+                        <span class="inventory-category">${category}</span>
+                        <span class="inventory-count">${count}</span>
+                    </div>
+                    ${locationInfo}
                 `;
                 inventoryBreakdownElem.appendChild(item);
             });
@@ -377,6 +413,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const expected = discrepancy.expected || 0;
             const actual = discrepancy.actual || 0;
             const difference = actual - expected;
+            const counterName = discrepancy.counterName || 'Unknown';
             
             // Determine if it's a positive or negative difference
             const diffClass = difference < 0 ? 'negative-diff' : 'positive-diff';
@@ -386,6 +423,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="discrepancy-details">
                     <span class="discrepancy-category">${category}</span>
                     <span class="discrepancy-date">${date}</span>
+                    <span class="counter-name">Counted by: ${counterName}</span>
                 </div>
                 <div class="discrepancy-counts">
                     <div class="expected-count">Expected: <span>${expected}</span></div>
@@ -410,232 +448,247 @@ document.addEventListener('DOMContentLoaded', async () => {
         const activitiesElem = document.getElementById('activities-list');
         if (!activitiesElem) return;
         
-        if (recentActivities.length === 0) {
-            activitiesElem.innerHTML = '<p class="no-data">No recent activities</p>';
-            return;
-        }
-        
-        activitiesElem.innerHTML = '';
-        
-        // Display most recent 5 activities
-        recentActivities.slice(0, 5).forEach(activity => {
-            const activityItem = document.createElement('div');
-            activityItem.className = 'activity-item';
-            
-            // Add activity-specific class based on type
-            if (activity.type) {
-                activityItem.classList.add(`activity-${activity.type}`);
+        // Reload recentActivities from storage to ensure we have the latest data
+        mobileStorage.getItem('recentActivities').then(activitiesStr => {
+            try {
+                recentActivities = JSON.parse(activitiesStr || '[]');
+            } catch (e) {
+                console.error('Error parsing recent activities:', e);
+                recentActivities = [];
             }
             
-            const date = new Date(activity.timestamp || activity.date).toLocaleString();
-            let actionText = '';
-            let detailsText = '';
-            let priceInfo = '';
-            let categoryText = '';
+            if (recentActivities.length === 0) {
+                activitiesElem.innerHTML = '<p class="no-data">No recent activities</p>';
+                return;
+            }
             
-            // Set standard category text based on activity type
-            if (activity.type === 'add') categoryText = 'Stock Added';
-            else if (activity.type === 'sell' || activity.type === 'sale') categoryText = 'Stock Sold';
-            else if (activity.type === 'buy' || activity.type === 'purchase') categoryText = 'Stock Purchased';
-            else if (activity.type === 'move' || activity.type === 'movement') categoryText = 'Stock Moved';
-            else if (activity.type === 'death') categoryText = 'Stock Deaths';
-            else if (activity.type === 'birth') categoryText = 'Stock Births';
-            else categoryText = activity.category || '';
+            activitiesElem.innerHTML = '';
             
-            // Format currency if present
-            const formatCurrency = (amount, currencyCode) => {
-                const currency = worldCurrencies.find(c => c.code === (currencyCode || selectedCurrency));
-                const symbol = currency ? currency.symbol : '';
-                return `${symbol}${parseFloat(amount).toFixed(2)}`;
-            };
-            
-            // Handle different types of activities
-            if (typeof activity === 'string') {
-                // For old string-based activities
-                actionText = activity;
-            } else if (activity.type) {
-                // For new object-based activities
-                switch (activity.type) {
-                    case 'add':
-                        actionText = `Added ${activity.quantity} ${activity.category}`;
-                        detailsText = `${new Date(activity.date).toLocaleDateString()}`;
-                        break;
-                        
-                    case 'remove':
-                        actionText = `Removed ${activity.quantity} ${activity.category}`;
-                        if (activity.reason) {
-                            detailsText = `Reason: ${activity.reason}`;
-                        }
-                        break;
-                        
-                    case 'sell':
-                    case 'sale':
-                        actionText = `Sold ${activity.quantity} ${activity.category}`;
-                        if (activity.buyer) {
-                            detailsText = `Buyer: ${activity.buyer}`;
-                        }
-                        if (activity.price) {
-                            const total = activity.price * activity.quantity;
-                            priceInfo = `
-                                <div class="activity-financial">
-                                    <span class="price">Price: ${formatCurrency(activity.price, activity.currency)} each</span>
-                                    <span class="total income">Total: ${formatCurrency(total, activity.currency)}</span>
-                                </div>
-                            `;
-                        }
-                        break;
-                        
-                    case 'buy':
-                    case 'purchase':
-                        actionText = `Purchased ${activity.quantity} ${activity.category}`;
-                        if (activity.supplier) {
-                            detailsText = `Supplier: ${activity.supplier}`;
-                        }
-                        if (activity.price) {
-                            const total = activity.price * activity.quantity;
-                            priceInfo = `
-                                <div class="activity-financial">
-                                    <span class="price">Price: ${formatCurrency(activity.price, activity.currency)} each</span>
-                                    <span class="total expense">Total: ${formatCurrency(total, activity.currency)}</span>
-                                </div>
-                            `;
-                        }
-                        break;
-                        
-                    case 'move':
-                    case 'movement':
-                        if (activity.fromCategory && activity.toCategory) {
-                            actionText = `Moved ${activity.quantity} from ${activity.fromCategory} to ${activity.toCategory}`;
-                        } else if (activity.fromLocation && activity.toLocation) {
-                            actionText = `Moved ${activity.quantity} ${activity.category} from ${activity.fromLocation} to ${activity.toLocation}`;
-                        } else {
-                            actionText = `Moved ${activity.quantity} ${activity.fromCategory || activity.category || 'animals'}`;
-                        }
-                        if (activity.notes) {
-                            detailsText = `Notes: ${activity.notes}`;
-                        }
-                        break;
-                        
-                    case 'death':
-                        actionText = `Recorded ${activity.quantity} ${activity.category} deaths`;
-                        if (activity.reason) {
-                            detailsText = `Reason: ${activity.reason}`;
-                        }
-                        break;
-                        
-                    case 'birth':
-                        actionText = `Recorded birth of ${activity.quantity} ${activity.category}`;
-                        if (activity.notes) {
-                            detailsText = `Notes: ${activity.notes}`;
-                        }
-                        break;
-                        
-                    case 'feed-purchase':
-                        actionText = `Purchased ${activity.quantity} ${activity.unit || 'units'} of ${activity.feedType}`;
-                        if (activity.supplier) {
-                            detailsText = `Supplier: ${activity.supplier}`;
-                        }
-                        if (activity.price) {
-                            const total = activity.price * activity.quantity;
-                            priceInfo = `
-                                <div class="activity-financial">
-                                    <span class="price">Price: ${formatCurrency(activity.price, activity.currency)} per ${activity.unit || 'unit'}</span>
-                                    <span class="total expense">Total: ${formatCurrency(total, activity.currency)}</span>
-                                </div>
-                            `;
-                        }
-                        break;
-                        
-                    case 'feed-usage':
-                        actionText = `Used ${activity.quantity} ${activity.unit || 'units'} of ${activity.feedType}`;
-                        if (activity.notes) {
-                            detailsText = `Notes: ${activity.notes}`;
-                        }
-                        if (activity.animals) {
-                            detailsText = detailsText ? `${detailsText}, For: ${activity.animals}` : `For: ${activity.animals}`;
-                        }
-                        break;
-                        
-                    case 'health':
-                        actionText = `Added health record for ${activity.category}`;
-                        if (activity.condition) {
-                            detailsText = `Condition: ${activity.condition}`;
-                        }
-                        break;
-                        
-                    case 'vaccination':
-                        actionText = `Vaccinated ${activity.category} with ${activity.vaccine}`;
-                        if (activity.notes) {
-                            detailsText = `Notes: ${activity.notes}`;
-                        }
-                        break;
-                        
-                    case 'treatment':
-                        actionText = `Started treatment for ${activity.category}`;
-                        if (activity.treatment) {
-                            detailsText = `Treatment: ${activity.treatment}`;
-                        }
-                        break;
-                        
-                    case 'medication':
-                        actionText = `Administered medication to ${activity.category}`;
-                        if (activity.medication) {
-                            detailsText = `Medication: ${activity.medication}`;
-                        }
-                        break;
-                        
-                    case 'stock-count':
-                        if (activity.difference) {
-                            const diffPrefix = activity.difference > 0 ? '+' : '';
-                            actionText = `Stock count for ${activity.category}`;
-                            detailsText = `Expected: ${activity.expectedCount}, Actual: ${activity.actualCount} (${diffPrefix}${activity.difference})`;
-                        } else if (activity.description) {
-                            actionText = activity.description;
-                        } else {
-                            actionText = `Stock count for ${activity.category}`;
-                        }
-                        break;
-                        
-                    case 'resolution':
-                        actionText = activity.description || `Resolved discrepancy for ${activity.category}`;
-                        if (activity.finalCount) {
-                            detailsText = `Final count: ${activity.finalCount}`;
-                        }
-                        break;
-                        
-                    case 'reversal':
-                        actionText = `Reversed ${activity.originalType} of ${activity.quantity} ${activity.category}`;
-                        if (activity.reason) {
-                            detailsText = `Reason: ${activity.reason}`;
-                        }
-                        break;
-                        
-                    default:
-                        actionText = activity.description || `Activity: ${activity.type}`;
+            // Display most recent 5 activities
+            recentActivities.slice(0, 5).forEach(activity => {
+                const activityItem = document.createElement('div');
+                activityItem.className = 'activity-item';
+                
+                // Add activity-specific class based on type
+                if (activity.type) {
+                    activityItem.classList.add(`activity-${activity.type}`);
                 }
-            } else if (activity.description) {
-                // Fallback to description field
-                actionText = activity.description;
-            } else {
-                // If all else fails
-                actionText = 'Unknown activity';
-            }
-            
-            // Build the HTML content
-            let content = `
-                <div class="activity-header">
-                    <span class="activity-category">${categoryText}</span>
-                    <span class="activity-date">${date}</span>
-                </div>
-                <div class="activity-details">
-                    <span class="activity-action">${actionText}</span>
-                    ${detailsText ? `<span class="activity-extra">${detailsText}</span>` : ''}
-                    ${priceInfo}
-                </div>
-            `;
-            
-            activityItem.innerHTML = content;
-            activitiesElem.appendChild(activityItem);
+                
+                const date = new Date(activity.timestamp || activity.date).toLocaleString();
+                let actionText = '';
+                let detailsText = '';
+                let priceInfo = '';
+                let categoryText = '';
+                
+                // Set standard category text based on activity type
+                if (activity.type === 'add') categoryText = 'Stock Added';
+                else if (activity.type === 'sell' || activity.type === 'sale') categoryText = 'Stock Sold';
+                else if (activity.type === 'buy' || activity.type === 'purchase') categoryText = 'Stock Purchased';
+                else if (activity.type === 'move' || activity.type === 'movement') categoryText = 'Stock Moved';
+                else if (activity.type === 'death') categoryText = 'Stock Deaths';
+                else if (activity.type === 'birth') categoryText = 'Stock Births';
+                else if (activity.type === 'feed-purchase') categoryText = 'Feed Purchased';
+                else if (activity.type === 'feed-usage') categoryText = 'Feed Used';
+                else categoryText = activity.category || '';
+                
+                // Format currency if present
+                const formatCurrency = (amount, currencyCode) => {
+                    const currency = worldCurrencies.find(c => c.code === (currencyCode || selectedCurrency));
+                    const symbol = currency ? currency.symbol : '';
+                    return `${symbol}${parseFloat(amount).toFixed(2)}`;
+                };
+                
+                // Handle different types of activities
+                if (typeof activity === 'string') {
+                    // For old string-based activities
+                    actionText = activity;
+                } else if (activity.type) {
+                    // For new object-based activities
+                    switch (activity.type) {
+                        case 'add':
+                            actionText = `Added ${activity.quantity} ${activity.category}`;
+                            detailsText = `${new Date(activity.date).toLocaleDateString()}`;
+                            break;
+                            
+                        case 'remove':
+                            actionText = `Removed ${activity.quantity} ${activity.category}`;
+                            if (activity.reason) {
+                                detailsText = `Reason: ${activity.reason}`;
+                            }
+                            break;
+                            
+                        case 'sell':
+                        case 'sale':
+                            actionText = `Sold ${activity.quantity} ${activity.category}`;
+                            if (activity.buyer) {
+                                detailsText = `Buyer: ${activity.buyer}`;
+                            }
+                            if (activity.price) {
+                                const total = activity.price * activity.quantity;
+                                priceInfo = `
+                                    <div class="activity-financial">
+                                        <span class="price">Price: ${formatCurrency(activity.price, activity.currency)} each</span>
+                                        <span class="total income">Total: ${formatCurrency(total, activity.currency)}</span>
+                                    </div>
+                                `;
+                            }
+                            break;
+                            
+                        case 'buy':
+                        case 'purchase':
+                            actionText = `Purchased ${activity.quantity} ${activity.category}`;
+                            if (activity.supplier) {
+                                detailsText = `Supplier: ${activity.supplier}`;
+                            }
+                            if (activity.price) {
+                                const total = activity.price * activity.quantity;
+                                priceInfo = `
+                                    <div class="activity-financial">
+                                        <span class="price">Price: ${formatCurrency(activity.price, activity.currency)} each</span>
+                                        <span class="total expense">Total: ${formatCurrency(total, activity.currency)}</span>
+                                    </div>
+                                `;
+                            }
+                            break;
+                            
+                        case 'move':
+                        case 'movement':
+                            if (activity.fromCategory && activity.toCategory) {
+                                actionText = `Moved ${activity.quantity} from ${activity.fromCategory} to ${activity.toCategory}`;
+                            } else if (activity.fromLocation && activity.toLocation) {
+                                actionText = `Moved ${activity.quantity} ${activity.category} from ${activity.fromLocation} to ${activity.toLocation}`;
+                            } else {
+                                actionText = `Moved ${activity.quantity} ${activity.fromCategory || activity.category || 'animals'}`;
+                            }
+                            if (activity.notes) {
+                                detailsText = `Notes: ${activity.notes}`;
+                            }
+                            break;
+                            
+                        case 'death':
+                            actionText = `Recorded ${activity.quantity} ${activity.category} deaths`;
+                            if (activity.reason) {
+                                detailsText = `Reason: ${activity.reason}`;
+                            }
+                            break;
+                            
+                        case 'birth':
+                            actionText = `Recorded birth of ${activity.quantity} ${activity.category}`;
+                            if (activity.notes) {
+                                detailsText = `Notes: ${activity.notes}`;
+                            }
+                            break;
+                            
+                        case 'feed-purchase':
+                            actionText = `Purchased ${activity.quantity} ${activity.unit || 'units'} of ${activity.feedType}`;
+                            if (activity.supplier) {
+                                detailsText = `Supplier: ${activity.supplier}`;
+                            }
+                            if (activity.price) {
+                                const total = activity.price * activity.quantity;
+                                priceInfo = `
+                                    <div class="activity-financial">
+                                        <span class="price">Price: ${formatCurrency(activity.price, activity.currency)} per ${activity.unit || 'unit'}</span>
+                                        <span class="total expense">Total: ${formatCurrency(total, activity.currency)}</span>
+                                    </div>
+                                `;
+                            }
+                            break;
+                            
+                        case 'feed-usage':
+                            actionText = `Used ${activity.quantity} ${activity.unit || 'units'} of ${activity.feedType}`;
+                            if (activity.notes) {
+                                detailsText = `Notes: ${activity.notes}`;
+                            }
+                            if (activity.animals) {
+                                detailsText = detailsText ? `${detailsText}, For: ${activity.animals}` : `For: ${activity.animals}`;
+                            }
+                            break;
+                            
+                        case 'health':
+                            actionText = `Added health record for ${activity.category}`;
+                            if (activity.condition) {
+                                detailsText = `Condition: ${activity.condition}`;
+                            }
+                            break;
+                            
+                        case 'vaccination':
+                            actionText = `Vaccinated ${activity.category} with ${activity.vaccine}`;
+                            if (activity.notes) {
+                                detailsText = `Notes: ${activity.notes}`;
+                            }
+                            break;
+                            
+                        case 'treatment':
+                            actionText = `Started treatment for ${activity.category}`;
+                            if (activity.treatment) {
+                                detailsText = `Treatment: ${activity.treatment}`;
+                            }
+                            break;
+                            
+                        case 'medication':
+                            actionText = `Administered medication to ${activity.category}`;
+                            if (activity.medication) {
+                                detailsText = `Medication: ${activity.medication}`;
+                            }
+                            break;
+                            
+                        case 'stock-count':
+                            if (activity.difference) {
+                                const diffPrefix = activity.difference > 0 ? '+' : '';
+                                actionText = `Stock count for ${activity.category}`;
+                                detailsText = `Expected: ${activity.expectedCount}, Actual: ${activity.actualCount} (${diffPrefix}${activity.difference})`;
+                            } else if (activity.description) {
+                                actionText = activity.description;
+                            } else {
+                                actionText = `Stock count for ${activity.category}`;
+                            }
+                            break;
+                            
+                        case 'resolution':
+                            actionText = activity.description || `Resolved discrepancy for ${activity.category}`;
+                            if (activity.finalCount) {
+                                detailsText = `Final count: ${activity.finalCount}`;
+                            }
+                            break;
+                            
+                        case 'reversal':
+                            actionText = `Reversed ${activity.originalType} of ${activity.quantity} ${activity.category}`;
+                            if (activity.reason) {
+                                detailsText = `Reason: ${activity.reason}`;
+                            }
+                            break;
+                            
+                        default:
+                            actionText = activity.description || `Activity: ${activity.type}`;
+                    }
+                } else if (activity.description) {
+                    // Fallback to description field
+                    actionText = activity.description;
+                } else {
+                    // If all else fails
+                    actionText = 'Unknown activity';
+                }
+                
+                // Build the HTML content
+                let content = `
+                    <div class="activity-header">
+                        <span class="activity-category">${categoryText}</span>
+                        <span class="activity-date">${date}</span>
+                    </div>
+                    <div class="activity-details">
+                        <span class="activity-action">${actionText}</span>
+                        ${detailsText ? `<span class="activity-extra">${detailsText}</span>` : ''}
+                        ${priceInfo}
+                    </div>
+                `;
+                
+                activityItem.innerHTML = content;
+                activitiesElem.appendChild(activityItem);
+            });
+        }).catch(err => {
+            console.error('Error loading recent activities:', err);
+            activitiesElem.innerHTML = '<p class="no-data">Error loading recent activities</p>';
         });
     }
     
@@ -643,69 +696,86 @@ document.addEventListener('DOMContentLoaded', async () => {
         const feedStatusElem = document.getElementById('feed-status');
         if (!feedStatusElem) return;
         
-        // Convert feedInventory from string map if needed
-        let feedInventoryData;
-        if (typeof feedInventory === 'string') {
+        // Reload feed inventory from storage
+        mobileStorage.getItem('feedInventory').then(feedInventoryStr => {
             try {
-                feedInventoryData = JSON.parse(feedInventory);
+                if (feedInventoryStr) {
+                    feedInventory = new Map(JSON.parse(feedInventoryStr));
+                } 
             } catch (e) {
                 console.error('Error parsing feed inventory:', e);
+            }
+            
+            // Convert feedInventory to a regular object for easier handling
+            let feedInventoryData;
+            if (typeof feedInventory === 'string') {
+                try {
+                    feedInventoryData = JSON.parse(feedInventory);
+                } catch (e) {
+                    console.error('Error parsing feed inventory:', e);
+                    feedInventoryData = {};
+                }
+            } else if (feedInventory instanceof Map) {
+                feedInventoryData = Object.fromEntries(feedInventory);
+            } else if (typeof feedInventory === 'object') {
+                feedInventoryData = feedInventory;
+            } else {
                 feedInventoryData = {};
             }
-        } else if (feedInventory instanceof Map) {
-            feedInventoryData = Object.fromEntries(feedInventory);
-        } else if (typeof feedInventory === 'object') {
-            feedInventoryData = feedInventory;
-        } else {
-            feedInventoryData = {};
-        }
-        
-        if (Object.keys(feedInventoryData).length === 0) {
-            feedStatusElem.innerHTML = '<p class="no-data">No feed in inventory</p>';
-            return;
-        }
-        
-        // Create grid view for feed items - with full width style
-        let content = '<div class="feed-status-grid" style="width:100%; box-sizing:border-box;">';
-        
-        Object.entries(feedInventoryData).forEach(([feedType, data]) => {
-            // Default values if needed
-            const quantity = data.quantity || 0;
-            const unit = data.unit || 'kg';
-            const threshold = data.threshold || 0;
             
-            // Determine feed status
-            const isLow = quantity <= threshold;
-            const statusClass = isLow ? 'low-feed' : 'good-feed';
-            const quantityColor = isLow ? 'color: #e74c3c;' : 'color: #2ecc71;';
+            if (Object.keys(feedInventoryData).length === 0) {
+                feedStatusElem.innerHTML = '<p class="no-data">No feed in inventory</p>';
+                return;
+            }
             
-            // Format last update text
-            const lastUpdated = data.lastUpdated 
-                ? `Last updated: ${new Date(data.lastUpdated).toLocaleDateString()}`
-                : 'Never updated';
+            // Create a grid container using CSS classes
+            let content = '<div class="feed-status-grid">';
+            
+            Object.entries(feedInventoryData).forEach(([feedType, data]) => {
+                // Default values if needed
+                const quantity = data.quantity || 0;
+                const unit = data.unit || 'kg';
+                const threshold = data.threshold || 0;
                 
-            // Format supplier text
-            const supplier = data.supplier 
-                ? `Supplier: ${data.supplier}`
-                : 'No supplier specified';
+                // Determine feed status
+                const isLow = quantity <= threshold;
+                const statusClass = isLow ? "low-feed" : "good-feed";
+                const quantityClass = isLow ? "quantity-low" : "quantity-good";
+                
+                // Format last update text
+                const lastUpdated = data.lastUpdated 
+                    ? `Last updated: ${new Date(data.lastUpdated).toLocaleDateString()}`
+                    : 'Never updated';
+                    
+                // Format supplier text
+                const supplier = data.supplier 
+                    ? `Supplier: ${data.supplier}`
+                    : 'No supplier specified';
+                
+                // Create each feed item with CSS classes
+                content += `
+                    <div class="feed-item ${statusClass}">
+                        <div class="feed-item-header">
+                            <span class="feed-name">${feedType}</span>
+                            <span class="feed-quantity ${quantityClass}">${quantity} ${unit}</span>
+                        </div>
+                        <div class="feed-details">
+                            Threshold: ${threshold} ${unit}<br>
+                            ${supplier}<br>
+                            ${lastUpdated}
+                            ${isLow ? '<div class="quantity-low" style="margin-top:5px;">Low stock: Please reorder soon</div>' : ''}
+                        </div>
+                    </div>
+                `;
+            });
             
-            content += `
-                <div class="feed-item ${statusClass}" style="width:100%; box-sizing:border-box;">
-                    <div class="feed-item-header">
-                        <span class="feed-name">${feedType}</span>
-                        <span class="feed-quantity" style="${quantityColor}">${quantity} ${unit}</span>
-                    </div>
-                    <div class="feed-details">
-                        Threshold: ${threshold} ${unit}<br>
-                        ${supplier}<br>
-                        ${lastUpdated}
-                    </div>
-                </div>
-            `;
+            content += '</div>';
+            feedStatusElem.innerHTML = content;
+            
+        }).catch(err => {
+            console.error('Error loading feed inventory:', err);
+            feedStatusElem.innerHTML = '<p class="no-data">Error loading feed inventory</p>';
         });
-        
-        content += '</div>';
-        feedStatusElem.innerHTML = content;
     }
     
     // Function to reload feed calculations from storage

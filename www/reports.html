@@ -1,11 +1,298 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Farm Manager Mobile - Reports</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: gap: https: file:; style-src 'self' 'unsafe-inline'; media-src *; img-src 'self' data: content:;">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="msapplication-tap-highlight" content="no">
+    <title>Reports</title>
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/reports.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚜</text></svg>">
+    <script src="js/capacitor-storage.js"></script>
+    <script src="js/mobile-storage.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/reports.js"></script>
+    <style>
+        /* Additional styles to ensure report content is visible */
+        #report-container {
+            min-height: 200px;
+            display: block !important;
+            margin-top: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .report-content {
+            min-height: 300px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 10px;
+            overflow: auto;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative;
+            z-index: 5;
+        }
+        
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background-color: white;
+        }
+        
+        .report-table th,
+        .report-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .report-table th {
+            background-color: #f2f2f2;
+        }
+        
+        /* Fix for empty state message container */
+        #empty-report-message {
+            display: none;
+            text-align: center;
+            padding: 30px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        }
+        
+        /* Make sure empty state in report content is visible */
+        .empty-state {
+            padding: 20px;
+            text-align: center;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 1px dashed #ccc;
+        }
+    </style>
+    <script>
+        // Inline animal report functions that might be missing
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if the functions already exist
+            if (typeof createAllAnimalReportTable !== 'function') {
+                console.log('Adding missing animal report functions');
+                
+                // Add the createAllAnimalReportTable function if it doesn't exist
+                window.createAllAnimalReportTable = function(data) {
+                    if (!data || !data.transactions || data.transactions.length === 0) {
+                        return `
+                            <div class="report-header">
+                                <div class="report-type-header">
+                                    <div class="report-type-title">All Animal Transactions Report</div>
+                                </div>
+                                <div class="report-summary">
+                                    <p>No animal data found for the selected period.</p>
+                                </div>
+                            </div>
+                            <div style="text-align: center; padding: 30px; background-color: #f8f9fa; border-radius: 8px; margin-top: 20px;">
+                                <h3 style="color: #6c757d;">No Animal Data Available</h3>
+                                <p>There are no animal records in the system for the selected date range.</p>
+                                <p>Try adding some animal transactions first, or select a different date range.</p>
+                            </div>
+                        `;
+                    }
+                    
+                    const { inventory, transactions } = data;
+                    
+                    // Create a very simple table for debugging
+                    let reportHTML = `
+                        <div class="report-header" style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <div class="report-type-header">
+                                <div class="report-type-title" style="font-size: 20px; font-weight: bold;">All Animal Transactions Report</div>
+                            </div>
+                            <div class="report-summary" style="margin-top: 10px;">
+                                <p>Total transactions: ${transactions.length}</p>
+                                <p>Total inventory items: ${inventory ? inventory.length : 0}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="report-section" style="margin-bottom: 30px;">
+                            <h3 style="border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 15px;">Animal Transactions</h3>
+                            <table class="report-table" style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                                <thead>
+                                    <tr>
+                                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; background-color: #f2f2f2;">Date</th>
+                                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; background-color: #f2f2f2;">Type</th>
+                                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; background-color: #f2f2f2;">Category</th>
+                                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; background-color: #f2f2f2;">Quantity</th>
+                                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; background-color: #f2f2f2;">Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    
+                    if (transactions.length === 0) {
+                        reportHTML += `
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 20px; color: #777;">No animal transactions found</td>
+                            </tr>
+                        `;
+                    } else {
+                        transactions.forEach(transaction => {
+                            // Format the date nicely
+                            const dateStr = transaction.timestamp || transaction.date || 'Unknown';
+                            const formattedDate = dateStr !== 'Unknown' ? new Date(dateStr).toLocaleDateString() : 'Unknown';
+                            
+                            // Get the transaction type in a user-friendly format
+                            const typeMap = {
+                                'add': 'Added',
+                                'buy': 'Purchased',
+                                'sell': 'Sold',
+                                'move': 'Moved',
+                                'death': 'Death',
+                                'birth': 'Birth',
+                                'stock-count': 'Stock Count',
+                                'resolution': 'Count Resolution',
+                                'reversal': 'Transaction Reversal'
+                            };
+                            
+                            const type = typeMap[transaction.type] || transaction.type || 'Unknown';
+                            
+                            // Get the category field - this is a key fix
+                            const category = transaction.category || transaction.animalType || 'Unknown';
+                            
+                            // Get quantity with fallback
+                            const quantity = transaction.quantity || transaction.count || 0;
+                            
+                            // Format notes
+                            const notes = transaction.notes || transaction.description || '-';
+                            
+                            reportHTML += `
+                                <tr style="border-bottom: 1px solid #eee;">
+                                    <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${formattedDate}</td>
+                                    <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${type}</td>
+                                    <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${category}</td>
+                                    <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${quantity}</td>
+                                    <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${notes}</td>
+                                </tr>
+                            `;
+                        });
+                    }
+                    
+                    reportHTML += `
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="report-section" style="margin-bottom: 30px;">
+                            <h3 style="border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 15px;">Current Inventory</h3>
+                            <table class="report-table" style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                                <thead>
+                                    <tr>
+                                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; background-color: #f2f2f2;">Category</th>
+                                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd; background-color: #f2f2f2;">Count</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    
+                    if (!inventory || inventory.length === 0) {
+                        reportHTML += `
+                            <tr>
+                                <td colspan="2" style="text-align: center; padding: 20px; color: #777;">No inventory data available</td>
+                            </tr>
+                        `;
+                    } else {
+                        inventory.forEach(item => {
+                            reportHTML += `
+                                <tr style="border-bottom: 1px solid #eee;">
+                                    <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${item.type || 'Unknown'}</td>
+                                    <td style="padding: 10px; text-align: left; border: 1px solid #ddd;">${item.count || 0}</td>
+                                </tr>
+                            `;
+                        });
+                    }
+                    
+                    reportHTML += `
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    
+                    return reportHTML;
+                };
+                
+                // Simplistic implementation for other animal reports
+                window.createAnimalInventoryTable = function(data) {
+                    return `
+                        <div class="report-header">
+                            <div class="report-type-header">
+                                <div class="report-type-title">Animal Inventory Report</div>
+                            </div>
+                            <div class="report-summary">
+                                <p>No animal inventory data found for the selected period.</p>
+                            </div>
+                        </div>
+                        <div style="text-align: center; padding: 30px; background-color: #f8f9fa; border-radius: 8px; margin-top: 20px;">
+                            <h3 style="color: #6c757d;">No Animal Inventory Data</h3>
+                            <p>There are no animal inventory records in the system.</p>
+                            <p>Try adding some animals to your inventory first.</p>
+                        </div>
+                    `;
+                };
+                
+                // Template for all other animal reports
+                const createEmptyAnimalReport = function(title, type) {
+                    return `
+                        <div class="report-header">
+                            <div class="report-type-header">
+                                <div class="report-type-title">${title}</div>
+                            </div>
+                            <div class="report-summary">
+                                <p>No data found for the selected criteria.</p>
+                            </div>
+                        </div>
+                        <div style="text-align: center; padding: 30px; background-color: #f8f9fa; border-radius: 8px; margin-top: 20px;">
+                            <h3 style="color: #6c757d;">No ${type} Records Found</h3>
+                            <p>There are no ${type.toLowerCase()} records in the system for the selected date range.</p>
+                            <p>Try adding some ${type.toLowerCase()} records first, or select a different date range.</p>
+                        </div>
+                    `;
+                };
+                
+                window.createAnimalMovementTable = function(data) {
+                    return createEmptyAnimalReport('Animal Movement Report', 'Movement');
+                };
+                
+                window.createAnimalPurchaseTable = function(data) {
+                    return createEmptyAnimalReport('Animal Purchase Report', 'Purchase');
+                };
+                
+                window.createAnimalSaleTable = function(data) {
+                    return createEmptyAnimalReport('Animal Sale Report', 'Sale');
+                };
+                
+                window.createAnimalBirthTable = function(data) {
+                    return createEmptyAnimalReport('Animal Birth Report', 'Birth');
+                };
+                
+                window.createAnimalDeathTable = function(data) {
+                    return createEmptyAnimalReport('Animal Death Report', 'Death');
+                };
+                
+                window.createAnimalCountTable = function(data) {
+                    return createEmptyAnimalReport('Animal Count Report', 'Count');
+                };
+                
+                window.createAnimalDiscrepancyTable = function(data) {
+                    return createEmptyAnimalReport('Animal Discrepancy Report', 'Discrepancy');
+                };
+            }
+        });
+    </script>
 </head>
 <body>
     <div id="app-content">
@@ -22,6 +309,10 @@
                     <h4>Debug Information <button id="copy-debug" class="btn btn-sm btn-secondary">Copy</button> <button id="clear-debug" class="btn btn-sm btn-danger">Clear</button></h4>
                     <div class="form-group">
                         <textarea id="debug-output" class="form-control" style="height: 200px; font-family: monospace; font-size: 12px;" readonly></textarea>
+                    </div>
+                    <div class="debug-actions">
+                        <button id="check-report-content" class="btn btn-sm btn-info">Check Report Content</button>
+                        <button id="force-display" class="btn btn-sm btn-warning">Force Display</button>
                     </div>
                 </div>
                 
@@ -48,6 +339,7 @@
                             <option value="all-feed">All Feed Records</option>
                             <option value="feed-purchase">Purchases</option>
                             <option value="feed-usage">Usage</option>
+                            <option value="feed-calculation">Feed Calculations</option>
                             <option value="feed-inventory">Inventory</option>
                         </select>
                     </div>
@@ -86,8 +378,33 @@
                     <button id="generate-report" class="action-button btn-primary">Generate Report</button>
                 </div>
                 
-                <div class="report-content content-container">
-                    <div class="empty-state">Select report criteria and click Generate Report</div>
+                <!-- Add loading spinner -->
+                <div id="report-loading" style="display: none; justify-content: center; align-items: center; padding: 30px;">
+                    <div class="spinner" style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 2s linear infinite;"></div>
+                    <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+                    <span style="margin-left: 10px; font-weight: bold;">Loading report data...</span>
+                </div>
+                
+                <!-- Empty state message container -->
+                <div id="empty-report-message" style="display: none; text-align: center; padding: 30px; background-color: #f8f9fa; border-radius: 8px; margin-top: 20px; border: 1px solid #dee2e6;">
+                    <h3 style="color: #6c757d;">No Data Available</h3>
+                    <p>No data was found for the selected criteria.</p>
+                    <p>Try selecting different filters, changing the date range, or adding data to the system first.</p>
+                </div>
+                
+                <!-- Report container with content element -->
+                <div id="report-container" style="display: block; margin-top: 20px;">
+                    <div class="report-content" style="min-height: 400px; background-color: white;">
+                        <div class="empty-state">Select report criteria and click Generate Report</div>
+                    </div>
+                </div>
+                
+                <!-- Direct output container for debugging -->
+                <div id="direct-output" style="margin-top: 30px; padding: 20px; border: 2px dashed red; background-color: #ffeeee;">
+                    <h3>Direct Output (Debug)</h3>
+                    <p>This area will show direct output from the report generation process.</p>
+                    <button id="test-direct-output" class="action-button">Test Direct Output</button>
+                    <div id="direct-output-content" style="margin-top: 15px; padding: 15px; background-color: white; border: 1px solid #ddd; min-height: 200px;"></div>
                 </div>
             </div>
             
@@ -101,8 +418,256 @@
             </div>
         </div>
     </div>
-    
-    <script src="js/capacitor-storage.js"></script>
-    <script src="js/reports.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add handlers for the debug buttons
+            const checkReportBtn = document.getElementById('check-report-content');
+            if (checkReportBtn) {
+                checkReportBtn.addEventListener('click', function() {
+                    const reportContent = document.querySelector('.report-content');
+                    if (reportContent) {
+                        console.log('Report content element:', reportContent);
+                        console.log('Computed style display:', window.getComputedStyle(reportContent).display);
+                        console.log('Computed style visibility:', window.getComputedStyle(reportContent).visibility);
+                        console.log('Content HTML:', reportContent.innerHTML);
+                        console.log('Content height:', reportContent.offsetHeight);
+                        console.log('Content width:', reportContent.offsetWidth);
+                        
+                        // Add to debug output
+                        const debugOutput = document.getElementById('debug-output');
+                        if (debugOutput) {
+                            debugOutput.value += `\nReport content check:\nHTML length: ${reportContent.innerHTML.length}\nHeight: ${reportContent.offsetHeight}px\nDisplay: ${window.getComputedStyle(reportContent).display}\n`;
+                        }
+                    }
+                });
+            }
+            
+            const forceDisplayBtn = document.getElementById('force-display');
+            if (forceDisplayBtn) {
+                forceDisplayBtn.addEventListener('click', function() {
+                    const reportContent = document.querySelector('.report-content');
+                    if (reportContent) {
+                        reportContent.style.display = 'block';
+                        reportContent.style.visibility = 'visible';
+                        reportContent.style.opacity = '1';
+                        reportContent.style.backgroundColor = '#ffffcc';
+                        reportContent.style.border = '2px solid red';
+                        console.log('Forced display of report content');
+                        
+                        // Add to debug output
+                        const debugOutput = document.getElementById('debug-output');
+                        if (debugOutput) {
+                            debugOutput.value += '\nForced display of report content.\n';
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+    <!-- Add this debug button just after the report container -->
+    <div id="debug-storage-panel" class="debug-panel" style="display: none; position: fixed; bottom: 10px; right: 10px; padding: 10px; background: #fff; border: 1px solid #ccc; z-index: 1000; max-width: 90%; max-height: 400px; overflow: auto;">
+        <h3>Storage Debugger</h3>
+        <div>
+            <button id="check-inventory" class="debug-btn">Check Animal Inventory</button>
+            <button id="check-activities" class="debug-btn">Check Recent Activities</button>
+            <button id="check-discrepancies" class="debug-btn">Check Stock Discrepancies</button>
+        </div>
+        <div id="storage-content" style="margin-top: 10px; font-size: 12px; white-space: pre-wrap; max-height: 300px; overflow: auto; border: 1px solid #eee; padding: 5px;"></div>
+    </div>
+
+    <button id="toggle-storage-debug" style="position: fixed; bottom: 10px; left: 10px; z-index: 1000; background: #ff7f00; color: white; border: none; padding: 5px 10px; border-radius: 5px;">Show Storage Debug</button>
+
+    <script>
+    // Add this JavaScript at the end of the file
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set up storage debug panel
+        const toggleStorageDebugBtn = document.getElementById('toggle-storage-debug');
+        const debugStoragePanel = document.getElementById('debug-storage-panel');
+        const storageContent = document.getElementById('storage-content');
+        
+        // Storage check buttons
+        const checkInventoryBtn = document.getElementById('check-inventory');
+        const checkActivitiesBtn = document.getElementById('check-activities');
+        const checkDiscrepanciesBtn = document.getElementById('check-discrepancies');
+        
+        // Toggle debug panel
+        toggleStorageDebugBtn.addEventListener('click', function() {
+            const isVisible = debugStoragePanel.style.display === 'block';
+            debugStoragePanel.style.display = isVisible ? 'none' : 'block';
+            toggleStorageDebugBtn.textContent = isVisible ? 'Show Storage Debug' : 'Hide Storage Debug';
+        });
+        
+        // Check animal inventory
+        checkInventoryBtn.addEventListener('click', async function() {
+            try {
+                const inventoryStr = await mobileStorage.getItem('animalInventory');
+                const inventory = inventoryStr ? JSON.parse(inventoryStr) : {};
+                storageContent.textContent = `Animal Inventory:\n${JSON.stringify(inventory, null, 2)}`;
+            } catch (error) {
+                storageContent.textContent = `Error reading animal inventory: ${error.message}`;
+            }
+        });
+        
+        // Check recent activities
+        checkActivitiesBtn.addEventListener('click', async function() {
+            try {
+                const activitiesStr = await mobileStorage.getItem('recentActivities');
+                const activities = activitiesStr ? JSON.parse(activitiesStr) : [];
+                
+                // Filter for animal-related activities
+                const animalActivities = activities.filter(activity => 
+                    ['add', 'sell', 'buy', 'move', 'death', 'birth', 'stock-count', 'resolution', 'reversal'].includes(activity.type)
+                );
+                
+                storageContent.textContent = `Recent Animal Activities (${animalActivities.length} of ${activities.length} total):\n${JSON.stringify(animalActivities, null, 2)}`;
+            } catch (error) {
+                storageContent.textContent = `Error reading recent activities: ${error.message}`;
+            }
+        });
+        
+        // Check stock discrepancies
+        checkDiscrepanciesBtn.addEventListener('click', async function() {
+            try {
+                const discrepanciesStr = await mobileStorage.getItem('stockDiscrepancies');
+                const discrepancies = discrepanciesStr ? JSON.parse(discrepanciesStr) : [];
+                storageContent.textContent = `Stock Discrepancies:\n${JSON.stringify(discrepancies, null, 2)}`;
+            } catch (error) {
+                storageContent.textContent = `Error reading stock discrepancies: ${error.message}`;
+            }
+        });
+    });
+    </script>
+
+    <script>
+        // Add a test function to verify report rendering
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add a test button to force rendering a report directly
+            const debugPanel = document.getElementById('debug-panel');
+            if (debugPanel) {
+                const testBtn = document.createElement('button');
+                testBtn.id = 'test-render-report';
+                testBtn.className = 'btn btn-sm btn-success';
+                testBtn.textContent = 'Test Direct Report Render';
+                
+                const debugActions = debugPanel.querySelector('.debug-actions');
+                if (debugActions) {
+                    debugActions.appendChild(testBtn);
+                } else {
+                    debugPanel.appendChild(testBtn);
+                }
+                
+                // Add click handler for the test button
+                testBtn.addEventListener('click', function() {
+                    testDirectReportRender();
+                });
+            }
+            
+            window.testDirectReportRender = function() {
+                console.log('Testing direct report rendering');
+                
+                // Create a simple test report
+                const testHTML = `
+                    <div class="report-header" style="background-color: #f1f1f1; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                        <div class="report-type-header">
+                            <div class="report-type-title" style="font-size: 18px; font-weight: bold;">Test Report</div>
+                        </div>
+                        <div class="report-summary" style="margin-top: 10px;">
+                            <p>This is a test report to check rendering</p>
+                        </div>
+                    </div>
+                    <div class="report-section" style="margin-bottom: 20px;">
+                        <h3 style="border-bottom: 1px solid #ddd; padding-bottom: 5px;">Test Section</h3>
+                        <table class="report-table" style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+                            <thead>
+                                <tr style="background-color: #f2f2f2;">
+                                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Column 1</th>
+                                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Column 2</th>
+                                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Column 3</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">Data 1</td>
+                                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">Data 2</td>
+                                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">Data 3</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">Data 4</td>
+                                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">Data 5</td>
+                                    <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">Data 6</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                // Get the report content element
+                const reportContent = document.querySelector('.report-content');
+                if (reportContent) {
+                    // Set the test HTML
+                    reportContent.innerHTML = testHTML;
+                    
+                    // Make sure it's visible
+                    reportContent.style.display = 'block';
+                    reportContent.style.visibility = 'visible';
+                    reportContent.style.minHeight = '400px';
+                    reportContent.style.border = '3px solid red';
+                    
+                    // Also make container visible
+                    const reportContainer = document.getElementById('report-container');
+                    if (reportContainer) {
+                        reportContainer.style.display = 'block';
+                        reportContainer.style.visibility = 'visible';
+                    }
+                    
+                    console.log('Set test HTML into report content');
+                    console.log('Report content display style:', window.getComputedStyle(reportContent).display);
+                    console.log('Report content height:', reportContent.offsetHeight);
+                } else {
+                    console.error('Report content element not found for test render');
+                    alert('Error: Report content element not found');
+                }
+            };
+        });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const testDirectOutputBtn = document.getElementById('test-direct-output');
+            const directOutputContent = document.getElementById('direct-output-content');
+            
+            if (testDirectOutputBtn && directOutputContent) {
+                testDirectOutputBtn.addEventListener('click', function() {
+                    // Create some test HTML with table
+                    const testHTML = `
+                        <h4>Test Direct Output</h4>
+                        <p>This is a test of direct HTML output.</p>
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                            <thead>
+                                <tr style="background-color: #f2f2f2;">
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Column 1</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px;">Column 2</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="border: 1px solid #ddd; padding: 8px;">Data 1</td>
+                                    <td style="border: 1px solid #ddd; padding: 8px;">Data 2</td>
+                                </tr>
+                                <tr>
+                                    <td style="border: 1px solid #ddd; padding: 8px;">Data 3</td>
+                                    <td style="border: 1px solid #ddd; padding: 8px;">Data 4</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    `;
+                    
+                    // Set the HTML
+                    directOutputContent.innerHTML = testHTML;
+                    console.log('Set test HTML in direct output container');
+                });
+            }
+        });
+    </script>
 </body>
 </html> 
