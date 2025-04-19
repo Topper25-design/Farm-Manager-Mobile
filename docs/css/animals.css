@@ -25,14 +25,15 @@
 }
 
 .add-button {
-    background-color: #2ecc71;
+    background-color: #3498db !important;
     color: white;
     border: none;
     padding: 12px 15px;
     border-radius: 6px;
     flex: 1;
     font-weight: 600;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+    border-bottom: 5px solid rgba(41, 128, 185, 0.95) !important;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     transition: all 0.2s ease;
@@ -41,14 +42,15 @@
 }
 
 .count-button {
-    background-color: #3498db;
+    background-color: #3498db !important;
     color: white;
     border: none;
     padding: 12px 15px;
     border-radius: 6px;
     flex: 1;
     font-weight: 600;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+    border-bottom: 5px solid rgba(41, 128, 185, 0.95) !important;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     transition: all 0.2s ease;
@@ -100,59 +102,87 @@
     overflow: hidden;
 }
 
-/* Button-specific colors */
-#move-animals-btn {
-    background-color: #a6b5b6; /* Lighter version of secondary (#95a5a6) */
-}
-
-#sell-animals-btn {
-    background-color: #a6b5b6; /* Lighter version of secondary (#95a5a6) */
-}
-
-#purchase-animals-btn {
-    background-color: #a6b5b6; /* Lighter version of secondary (#95a5a6) */
-}
-
-#record-death-btn {
-    background-color: #95a5a6; /* Original secondary */
-}
-
+/* Move, Sell, Purchase, Death, Birth Buttons - Base styling */
+#move-animals-btn,
+#sell-animals-btn,
+#purchase-animals-btn,
+#record-death-btn,
 #record-birth-btn {
-    background-color: #a6b5b6; /* Lighter version of secondary (#95a5a6) */
-}
-
-#reverse-last-btn {
-    background-color: #f05b4f; /* lighter red */
-}
-
-#clear-animal-data-btn {
-    background-color: #e74c3c; /* danger */
-}
-
-.animal-actions button:hover, .management-actions button:hover, .add-button:hover, .count-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.animal-actions button:active, .management-actions button:active, .add-button:active, .count-button:active {
-    transform: translateY(1px);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-/* Button shine effect */
-.animal-actions button:before, .management-actions button:before, .add-button:before, .count-button:before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(to right, rgba(255,255,255,0.2), transparent);
+    background-color: rgba(105, 115, 120, 0.85);
+    color: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border-bottom: 3px solid rgba(75, 85, 90, 0.9);
     transition: all 0.3s ease;
 }
 
-.animal-actions button:hover:before, .management-actions button:hover:before, .add-button:hover:before, .count-button:hover:before {
-    left: 100%;
+/* Add and Count buttons */
+#add-animal-btn,
+#stock-count-btn {
+    background-color: #3498db;
+    color: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border-bottom: 3px solid rgba(41, 128, 185, 0.9);
+    transition: all 0.3s ease;
+}
+
+/* Management buttons */
+#undo-last-action-btn,
+#reverse-last-btn {
+    background-color: #f05b4f;
+    color: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border-bottom: 3px solid rgba(208, 75, 63, 0.9);
+    transition: all 0.3s ease;
+}
+
+#clear-animal-data-btn {
+    background-color: #e74c3c;
+    color: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border-bottom: 3px solid rgba(199, 60, 44, 0.9);
+    transition: all 0.3s ease;
+}
+
+/* Common hover effects for all buttons */
+.animal-actions button:hover,
+.management-actions button:hover,
+#add-animal-btn:hover,
+#stock-count-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Common active effects for all buttons */
+.animal-actions button:active,
+.management-actions button:active,
+#add-animal-btn:active,
+#stock-count-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border-bottom-width: 1px;
+}
+
+/* Button hover color effects */
+#move-animals-btn:hover,
+#sell-animals-btn:hover, 
+#purchase-animals-btn:hover,
+#record-death-btn:hover,
+#record-birth-btn:hover {
+    background-color: rgba(85, 95, 100, 0.95);
+}
+
+#add-animal-btn:hover,
+#stock-count-btn:hover {
+    background-color: #2980b9;
+}
+
+#undo-last-action-btn:hover,
+#reverse-last-btn:hover {
+    background-color: #e67e22;
+}
+
+#clear-animal-data-btn:hover {
+    background-color: #c0392b;
 }
 
 .danger-btn {
@@ -171,7 +201,7 @@
 
 .inventory-item {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     padding: 10px 0;
     border-bottom: 1px solid #eee;
 }
@@ -192,6 +222,34 @@
     padding: 2px 8px;
     border-radius: 12px;
     font-size: 0.9rem;
+}
+
+.inventory-item .main-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.location-breakdown {
+    margin-top: 5px;
+    margin-left: 10px;
+    font-size: 0.85rem;
+    color: #7f8c8d;
+}
+
+.location-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+}
+
+.location-name {
+    margin-right: 10px;
+}
+
+.location-count {
+    font-weight: 500;
 }
 
 .transaction-item {
@@ -247,8 +305,8 @@
 }
 
 .transaction-description {
-    color: #34495e;
-    font-size: 0.9rem;
+    margin-top: 4px;
+    color: #7f8c8d;
 }
 
 .transaction-price,
@@ -291,6 +349,7 @@
     overflow-y: auto;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     position: relative;
+    margin: auto; /* Ensure centering in all scenarios */
 }
 
 .popup-content h3 {
@@ -594,6 +653,22 @@ input[type="number"] {
     .transaction-item {
         padding: 12px;
     }
+    
+    /* Ensure popups are centered in portrait mode */
+    .popup {
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .popup-content {
+        width: 95%;
+        max-width: 95%;
+        padding: 15px;
+        margin: auto;
+        position: relative;
+        top: 0;
+        transform: none;
+    }
 }
 
 /* Add new CSS for management actions */
@@ -658,34 +733,168 @@ input[type="number"] {
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
 }
 
-/* Management buttons with clear styling */
-#reverse-last-btn {
-    background-color: #f05b4f; /* lighter red */
-    color: white;
-    border: none;
+/* Recent Counts styling */
+.count-item {
+    border-bottom: 1px solid #ecf0f1;
+    padding: 10px 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background-color: #f9f9f9;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.count-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.count-item.resolution {
+    background-color: #e8f7f0;
+    border-left: 4px solid #27ae60;
+}
+
+.count-date {
+    color: #7f8c8d;
+    font-size: 0.9em;
+    margin-bottom: 4px;
+}
+
+.count-category {
     font-weight: bold;
-    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
-    margin-top: 10px; /* Add spacing at the top */
+    color: #2c3e50;
+    margin-bottom: 4px;
 }
 
-#clear-animal-data-btn {
-    background-color: #e74c3c; /* danger */
-    color: white;
-    border: none;
+.count-details {
+    margin-top: 4px;
+    color: #7f8c8d;
+}
+
+.count-notes {
+    margin-top: 8px;
+    font-style: italic;
+    color: #7f8c8d;
+    font-size: 0.9em;
+    border-top: 1px dotted #ecf0f1;
+    padding-top: 6px;
+}
+
+.count-details .diff {
     font-weight: bold;
-    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
-    margin-top: 10px; /* Add spacing at the top */
 }
 
-#move-animals-btn:hover, 
-#sell-animals-btn:hover, 
-#purchase-animals-btn:hover, 
-#record-birth-btn:hover {
-    background-color: #95a5a6; /* Darken to match the death button on hover */
+.count-details .diff.match {
+    color: #27ae60; /* Green for matching counts */
 }
 
-#record-death-btn:hover {
-    background-color: #7f8c8d; /* Darken the original death button color */
+.count-details .diff.surplus {
+    color: #2980b9; /* Blue for surplus */
+}
+
+.count-details .diff.shortage {
+    color: #e74c3c; /* Red for shortage */
+}
+
+.resolution-text {
+    color: #27ae60;
+    font-weight: 600;
+    display: block;
+}
+
+.final-count {
+    color: #2c3e50;
+    display: block;
+    margin-top: 2px;
+}
+
+.resolved-badge {
+    display: inline-block;
+    background-color: #27ae60;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    margin-left: 8px;
+    font-weight: 500;
+    vertical-align: middle;
+}
+
+.discrepancy-item {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    padding: 10px;
+}
+
+.discrepancy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.discrepancy-category {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.discrepancy-date {
+    color: #666;
+    font-size: 0.9em;
+}
+
+.discrepancy-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.discrepancy-details > div {
+    margin: 2px 0;
+}
+
+.difference.positive-diff {
+    color: #28a745;
+}
+
+.difference.negative-diff {
+    color: #dc3545;
+}
+
+.resolution-attempt {
+    margin-top: 8px;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-left: 3px solid #28a745;
+    border-radius: 2px;
+}
+
+.resolution-count {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.resolution-attempt .counter-name {
+    color: #666;
+    font-style: italic;
+    margin: 4px 0;
+}
+
+.resolution-attempt .resolution-date {
+    font-size: 0.9em;
+    color: #666;
+}
+
+.notes {
+    margin-top: 8px;
+    font-style: italic;
+    color: #666;
+    padding-left: 8px;
+    border-left: 2px solid #ddd;
 }
 
 .count-item .count-notes {
