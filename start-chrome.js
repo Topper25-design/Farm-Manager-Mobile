@@ -1,92 +1,45 @@
-const { spawn, exec } = require('child_process');
+const { exec } = require('child_process');
+const { join } = require('path');
 const http = require('http');
-const fs = require('fs');
-const path = require('path');
+const httpServer = require('http-server');
 
-// Port for the app
-const PORT = 3000;
+// Start HTTP server for www directory
+const server = httpServer.createServer({
+  root: join(__dirname, 'www'),
+  cache: -1,
+  cors: true
+});
 
-// Function to check if port is in use
-function isPortInUse(port) {
-  return new Promise((resolve) => {
-    const server = http.createServer();
-    server.once('error', () => {
-      resolve(true); // Port is in use
-    });
-    server.once('listening', () => {
-      server.close();
-      resolve(false); // Port is free
-    });
-    server.listen(port);
-  });
-}
+// Start server on port 3000
+server.listen(3000);
+console.log('Server running at http://localhost:3000/');
 
-// Function to open URL in Chrome
-function openChrome(url) {
-  let command;
-  switch (process.platform) {
-    case 'win32':
-      // Windows
-      command = `start chrome "${url}"`;
-      break;
-    case 'darwin':
-      // macOS
-      command = `open -a "Google Chrome" "${url}"`;
-      break;
-    default:
-      // Linux and others
-      command = `google-chrome "${url}"`;
-      break;
-  }
-  
-  console.log(`Opening Chrome at ${url}`);
-  exec(command, (error) => {
+// Function to open Chrome with the URL
+function openChrome() {
+  const url = 'http://localhost:3000/';
+
+  // Command to open Chrome with our URL
+  // This works for Windows - adjust path if Chrome is installed in a different location
+  const chromeCommand = `start chrome --new-window "${url}"`;
+
+  exec(chromeCommand, (error) => {
     if (error) {
-      console.error('Error opening Chrome:', error);
+      console.error('Failed to open Chrome:', error);
+      console.log('Please open this URL manually in your browser:', url);
+    } else {
+      console.log('Chrome opened with URL:', url);
     }
   });
 }
 
-async function startServer() {
-  console.log('Starting Farm Manager Mobile app...');
-  
-  // Check if port is already in use
-  const portInUse = await isPortInUse(PORT);
-  
-  if (portInUse) {
-    console.log(`Port ${PORT} is already in use, opening browser directly`);
-    openChrome(`http://localhost:${PORT}`);
-    return;
-  }
-  
-  // Start http-server
-  const serverProcess = spawn('npx', [
-    'http-server', 
-    'www', 
-    '-c-1',  // Disable caching
-    `-p${PORT}`,  
-    '--cors'
-  ], { 
-    stdio: 'inherit',
-    shell: true
-  });
-  
-  // Give the server a moment to start
-  setTimeout(() => {
-    openChrome(`http://localhost:${PORT}`);
-  }, 1000);
-  
-  // Handle server termination
-  serverProcess.on('close', (code) => {
-    console.log(`Server process exited with code ${code}`);
-  });
-  
-  // Handle script termination
-  process.on('SIGINT', () => {
-    console.log('Shutting down server...');
-    serverProcess.kill();
-    process.exit(0);
-  });
-}
+// Check if server is ready before opening Chrome
+setTimeout(openChrome, 1000); // Give server a moment to start
 
-startServer(); 
+// Handle server shutdown
+process.on('SIGINT', () => {
+  console.log('Shutting down server...');
+  server.close(() => {
+      console.log('Server closed.');
+      process.exit(0);
+  });
+}); 
