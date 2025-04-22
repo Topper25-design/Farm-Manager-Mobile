@@ -1605,9 +1605,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 
                                 if (savedValues.date) {
                                     const dateField = newPopup.querySelector('#move-date');
-                                    if (dateField) {
-                                        dateField.value = savedValues.date;
-                                    }
+                                    if (dateField) dateField.value = savedValues.date;
                                 }
                             }
                         }
@@ -3009,6 +3007,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <li>All stock counts</li>
                     <li>All stock discrepancies</li>
                     <li>All animal-related activities</li>
+                    <li>All farm properties/locations</li>
                 </ul>
                 <div class="popup-buttons">
                     <button class="cancel-btn">Cancel</button>
@@ -3032,6 +3031,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     'animalMovements',
                     'animalBirths',
                     'animalDeaths',
+                    'farmProperties', // Add farmProperties to the list
                     // Additional possible keys
                     'animalData',
                     'animalInventoryBackup',
@@ -3047,6 +3047,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     console.log(`Clearing ${key}, setting to ${defaultValue}`);
                     await mobileStorage.setItem(key, defaultValue);
                 }
+                
+                // Clear farmProperties in memory as well
+                farmProperties = [];
+                propertiesList = [];
                 
                 // Disable demo data mode for reports
                 console.log('Disabling demo data mode');
@@ -3067,7 +3071,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         activity.category?.includes('Cow') ||
                         activity.category?.includes('Calf') ||
                         activity.category?.includes('Cattle') ||
-                        activity.description?.includes('animal');
+                        activity.type?.includes('property') ||  // Also remove property-related activities
+                        activity.description?.includes('animal') ||
+                        activity.description?.includes('property'); // Also remove property mentions
                     
                     // Keep the activity if it's NOT animal related
                     return !isAnimalRelated;
@@ -3097,8 +3103,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 updateDisplays();
                 
                 // Show success message
-                showMessage('All animal data has been cleared successfully. The page will reload to ensure all data is refreshed.', false, 5000);
-                console.log('Animal data clear operation completed successfully');
+                showMessage('All animal data and farm properties have been cleared successfully. The page will reload to ensure all data is refreshed.', false, 5000);
+                console.log('Animal data and farm properties clear operation completed successfully');
                 
                 // Close the popup
                 popup.remove();
