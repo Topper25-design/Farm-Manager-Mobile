@@ -43,6 +43,7 @@ jobs:
             cp -r ./index.html ./css ./js ./images ./assets ./www/ 2>/dev/null || true
           else
             echo "www directory already has content"
+            echo "Content will be used as-is for GitHub Pages"
           fi
 
       - name: Debug - Verify www Contents After Copy
