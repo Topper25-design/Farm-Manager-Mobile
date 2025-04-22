@@ -1618,10 +1618,7 @@ document.addEventListener('DOMContentLoaded', async () => {
      * @returns {string} HTML for the report
      */
     function createFeedInventoryTable(data) {
-        const { feedInventory, feedTransactions } = data;
-        
-        // Check if we have any inventory data
-        if (!feedInventory || feedInventory.length === 0) {
+        if (!data || !data.feedInventory || data.feedInventory.length === 0) {
             return `
                 <div class="report-header">
                     <div class="report-type-header">
@@ -1632,21 +1629,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </div>
                     </div>
                     <div class="report-summary">
-                        <p>No feed inventory data found. To view this report, please add feed items to your inventory.</p>
+                        <p>No feed inventory data found for the selected period.</p>
                     </div>
+                </div>
+                <div class="empty-state">
+                    <h3>No Feed Inventory Data Available</h3>
+                    <p>There are no feed inventory records in the system for the selected date range.</p>
+                    <p>Try adding some feed inventory records first, or select a different date range.</p>
                 </div>
             `;
         }
         
         // Calculate total inventory value
-        const totalValue = feedInventory.reduce((sum, item) => {
+        const totalValue = data.feedInventory.reduce((sum, item) => {
             const quantity = parseFloat(item.quantity) || 0;
             const pricePerUnit = parseFloat(item.pricePerUnit) || parseFloat(item.price) || 0;
             return sum + (quantity * pricePerUnit);
         }, 0);
         
         // Sort inventory by feed type
-        const sortedInventory = [...feedInventory].sort((a, b) => {
+        const sortedInventory = [...data.feedInventory].sort((a, b) => {
             return (a.feedType || 'Unknown').localeCompare(b.feedType || 'Unknown');
         });
         
@@ -1661,9 +1663,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                 </div>
                 <div class="report-summary">
-                    <p>Total feed items: ${feedInventory.length}</p>
+                    <p>Total feed items: ${data.feedInventory.length}</p>
                     <p>Total inventory value: ${formatCurrency(totalValue)}</p>
-                    <p>Recent transactions: ${feedTransactions ? feedTransactions.length : 0}</p>
+                    <p>Recent transactions: ${data.feedTransactions ? data.feedTransactions.length : 0}</p>
                 </div>
             </div>
             
@@ -1719,9 +1721,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
         
         // Add transactions section if we have transactions
-        if (feedTransactions && feedTransactions.length > 0) {
+        if (data.feedTransactions && data.feedTransactions.length > 0) {
             // Sort transactions by date (newest first)
-            const sortedTransactions = [...feedTransactions].sort((a, b) => {
+            const sortedTransactions = [...data.feedTransactions].sort((a, b) => {
                 return new Date(b.date) - new Date(a.date);
             });
             
@@ -5088,7 +5090,25 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 function createFeedPurchaseTable(data) {
     if (!data || data.length === 0) {
-        return `<div class="report-empty">No feed purchase data found for the selected period</div>`;
+        return `
+            <div class="report-header">
+                <div class="report-type-header">
+                    <div class="report-type-title">Feed Purchase Report</div>
+                    <div class="report-actions">
+                        <button onclick="window.print()" class="print-button">Print Report</button>
+                        <button onclick="exportReportToCSV('feed-purchase')" class="export-button">Export to CSV</button>
+                    </div>
+                </div>
+                <div class="report-summary">
+                    <p>No feed purchase data found for the selected period.</p>
+                </div>
+            </div>
+            <div class="empty-state">
+                <h3>No Feed Purchase Data Available</h3>
+                <p>There are no feed purchase records in the system for the selected date range.</p>
+                <p>Try adding some feed purchases first, or select a different date range.</p>
+            </div>
+        `;
     }
 
     // Calculate totals for summary
@@ -5254,7 +5274,25 @@ function createFeedPurchaseTable(data) {
  */
 function createFeedUsageTable(data) {
     if (!data || data.length === 0) {
-        return `<div class="report-empty">No feed usage data found for the selected period</div>`;
+        return `
+            <div class="report-header">
+                <div class="report-type-header">
+                    <div class="report-type-title">Feed Usage Report</div>
+                    <div class="report-actions">
+                        <button onclick="window.print()" class="print-button">Print Report</button>
+                        <button onclick="exportReportToCSV('feed-usage')" class="export-button">Export to CSV</button>
+                    </div>
+                </div>
+                <div class="report-summary">
+                    <p>No feed usage data found for the selected period.</p>
+                </div>
+            </div>
+            <div class="empty-state">
+                <h3>No Feed Usage Data Available</h3>
+                <p>There are no feed usage records in the system for the selected date range.</p>
+                <p>Try adding some feed usage records first, or select a different date range.</p>
+            </div>
+        `;
     }
 
     // Calculate totals for summary
