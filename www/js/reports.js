@@ -200,6 +200,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         mobileStorage.clearCache();
     }
     
+    // Forcefully disable demo data to ensure no sample data is shown after clearing
+    await mobileStorage.setItem('showDemoData', 'false');
+    console.log('Demo data mode disabled');
+    
     // Check if logged in
     const isLoggedIn = await mobileStorage.getItem('isLoggedIn');
     if (isLoggedIn !== 'true') {
@@ -659,74 +663,121 @@ document.addEventListener('DOMContentLoaded', async () => {
      * @returns {boolean} True if data is empty, false otherwise
      */
     async function checkIfDataIsEmpty(reportData, reportType) {
-        console.log('Checking if data is empty for', reportType);
+        // If we've already set the isEmpty flag, respect it
+        if (reportData && reportData.isEmpty === true) {
+            console.log(`${reportType} report: isEmpty flag is true`);
+            return true;
+        }
         
+        // Check if the report data is completely empty
         if (!reportData) {
-            console.log('Report data is null or undefined');
+            console.log(`${reportType} report: No data provided`);
             return true;
         }
         
-        if (Array.isArray(reportData)) {
-            console.log(`Report data is an array with ${reportData.length} items`);
-            return reportData.length === 0;
+        // Debug log for report data
+        if (typeof reportData === 'object') {
+            console.log(`${reportType} report data contains:`, 
+                reportData.inventory ? `inventory (${Array.isArray(reportData.inventory) ? 
+                    reportData.inventory.length + ' items' : 
+                    'object with ' + Object.keys(reportData.inventory).length + ' keys'})` : 'no inventory',
+                reportData.transactions ? `transactions (${reportData.transactions.length} items)` : 'no transactions'
+            );
         }
         
-        // For animal reports which have a specific structure
-        if (reportData.hasOwnProperty('inventory') && reportData.hasOwnProperty('transactions')) {
-            const hasInventory = Array.isArray(reportData.inventory) && reportData.inventory.length > 0;
-            const hasTransactions = Array.isArray(reportData.transactions) && reportData.transactions.length > 0;
-            
-            console.log(`Animal report check: Has inventory (${hasInventory}), Has transactions (${hasTransactions})`);
-            
-            // For regular reports, we check if there are any transactions
-            // For inventory reports, we consider it empty only if both inventory and transactions are empty
-            if (reportType === 'animal-inventory') {
-                return !hasInventory && !hasTransactions;
-            } else {
-                return !hasTransactions;
-            }
-        }
-        
-        // For feed inventory reports that have a specific structure
-        if (reportData.hasOwnProperty('feedInventory') && reportData.hasOwnProperty('feedTransactions')) {
-            const hasInventory = Array.isArray(reportData.feedInventory) && reportData.feedInventory.length > 0;
-            const hasTransactions = Array.isArray(reportData.feedTransactions) && reportData.feedTransactions.length > 0;
-            
-            console.log(`Feed inventory report check: Has inventory (${hasInventory}), Has transactions (${hasTransactions})`);
-            
-            // We consider it empty only if both inventory and transactions are empty
-            return !hasInventory && !hasTransactions;
-        }
-        
-        // Handle health report data
-        if (reportData.hasOwnProperty('hasData') || reportData.hasOwnProperty('_hasData')) {
-            const hasData = reportData.hasData || reportData._hasData;
-            console.log(`Health report has explicit hasData flag: ${hasData}`);
-            return !hasData;
-        }
-        
-        // For any other object structure, check if it has any properties with data
-        const hasProperties = Object.keys(reportData).length > 0;
-        console.log(`Report data is an object with ${Object.keys(reportData).length} properties`);
-        
-        if (!hasProperties) {
-            return true;
-        }
-        
-        // Deep check on nested arrays/objects
-        for (const key in reportData) {
-            const value = reportData[key];
-            if (Array.isArray(value) && value.length > 0) {
-                console.log(`Found non-empty array in property ${key} with ${value.length} items`);
+        // Special case for all-animal report type
+        if (reportType === 'all-animal') {
+            // Check for transactions array
+            if (reportData.transactions && reportData.transactions.length > 0) {
+                console.log(`${reportType} report: Has transactions (${reportData.transactions.length})`);
                 return false;
             }
-            if (typeof value === 'object' && value !== null && Object.keys(value).length > 0) {
-                console.log(`Found non-empty object in property ${key}`);
+            
+            // Check for inventory array or object
+            if (reportData.inventory) {
+                if (Array.isArray(reportData.inventory) && reportData.inventory.length > 0) {
+                    console.log(`${reportType} report: Has inventory array (${reportData.inventory.length})`);
+                    return false;
+                }
+                
+                // Check if inventory is an object with entries
+                if (typeof reportData.inventory === 'object' && Object.keys(reportData.inventory).length > 0) {
+                    console.log(`${reportType} report: Has inventory object (${Object.keys(reportData.inventory).length} categories)`);
+                    return false;
+                }
+            }
+            
+            console.log(`${reportType} report: No valid data found`);
+        }
+        
+        // For animal reports
+        if (reportType.startsWith('animal-')) {
+            // Check for transactions array
+            if (reportData.transactions && reportData.transactions.length > 0) {
+                return false;
+            }
+            
+            // Check for inventory array or object
+            if (reportData.inventory) {
+                if (Array.isArray(reportData.inventory) && reportData.inventory.length > 0) {
+                    return false;
+                }
+                
+                // Check if inventory is an object with entries
+                if (typeof reportData.inventory === 'object' && Object.keys(reportData.inventory).length > 0) {
+                    return false;
+                }
+            }
+        }
+        
+        // For feed reports
+        if (reportType.startsWith('feed-')) {
+            // Check for transactions array
+            if (reportData.transactions && reportData.transactions.length > 0) {
+                return false;
+            }
+            
+            // Check for inventory array
+            if (reportData.inventory && reportData.inventory.length > 0) {
+                return false;
+            }
+            
+            // Check for calculations array
+            if (reportData.calculations && reportData.calculations.length > 0) {
                 return false;
             }
         }
         
-        console.log('All properties are empty');
+        // For health reports
+        if (reportType.startsWith('health-')) {
+            // Check for records array
+            if (reportData.records && reportData.records.length > 0) {
+                return false;
+            }
+            
+            // Check for treatments, vaccinations, medications
+            if (reportData.treatments && reportData.treatments.length > 0) return false;
+            if (reportData.vaccinations && reportData.vaccinations.length > 0) return false;
+            if (reportData.medications && reportData.medications.length > 0) return false;
+            
+            // Check within data objects
+            if (reportData.treatmentData && reportData.treatmentData.treatments && 
+                reportData.treatmentData.treatments.length > 0) {
+                return false;
+            }
+            
+            if (reportData.vaccinationData && reportData.vaccinationData.vaccinations && 
+                reportData.vaccinationData.vaccinations.length > 0) {
+                return false;
+            }
+            
+            if (reportData.medicationData && reportData.medicationData.medications && 
+                reportData.medicationData.medications.length > 0) {
+                return false;
+            }
+        }
+        
+        // If we get here, the data is empty
         return true;
     }
     
@@ -1106,7 +1157,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     function createAllAnimalReportTable(data) {
         console.log('Creating all animal report table with data:', data);
         
-        if (!data || !data.transactions || data.transactions.length === 0) {
+        // Check for any data to display
+        if (!data || ((!data.transactions || data.transactions.length === 0) && 
+                     (!data.inventory || (Array.isArray(data.inventory) && data.inventory.length === 0) || 
+                     (typeof data.inventory === 'object' && Object.keys(data.inventory).length === 0)))) {
             return `
                 <div class="report-header">
                     <h3>All Animal Transactions Report</h3>
@@ -1122,17 +1176,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
         }
         
-        const { inventory, transactions } = data;
+        const { inventory = [], transactions = [] } = data;
         
         // Calculate totals and summaries
-        const totalAnimals = inventory?.reduce((sum, item) => sum + (item.count || 0), 0) || 0;
+        const totalAnimals = Array.isArray(inventory) ? 
+            inventory.reduce((sum, item) => sum + (item.count || 0), 0) : 0;
         
         // Count transaction types
         const transactionCounts = {};
-        transactions.forEach(tx => {
-            const type = tx.type || 'unknown';
-            transactionCounts[type] = (transactionCounts[type] || 0) + 1;
-        });
+        if (transactions && transactions.length > 0) {
+            transactions.forEach(tx => {
+                const type = tx.type || 'unknown';
+                transactionCounts[type] = (transactionCounts[type] || 0) + 1;
+            });
+        }
         
         // Create a more detailed and formatted table with proper field references
         let reportHTML = `
@@ -1140,116 +1197,133 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <h3>All Animal Transactions Report</h3>
                 <div class="report-summary">
                     <p>Current total animals: ${totalAnimals}</p>
-                    <p>Total transactions: ${transactions.length}</p>
+                    <p>Total transactions: ${transactions ? transactions.length : 0}</p>
                     ${Object.entries(transactionCounts).map(([type, count]) => 
                         `<p>${type.charAt(0).toUpperCase() + type.slice(1)}: ${count} transaction${count !== 1 ? 's' : ''}</p>`
                     ).join('\n')}
                 </div>
             </div>
-            
-            <div class="report-section">
-                <h3>Animal Transactions</h3>
-                <table class="report-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Type</th>
-                            <th>Category</th>
-                            <th>Location</th>
-                            <th>Quantity</th>
-                            <th>Details</th>
-                            <th>Notes</th>
-                        </tr>
-                    </thead>
-                    <tbody>
         `;
         
-        // Add transaction rows
-        transactions.forEach(tx => {
-            // Format the date nicely
-            const dateStr = tx.timestamp || tx.date || 'Unknown';
-            const formattedDate = dateStr !== 'Unknown' ? new Date(dateStr).toLocaleDateString() : 'Unknown';
+        // Only show transactions section if there are transactions
+        if (transactions && transactions.length > 0) {
+            reportHTML += `
+                <div class="report-section">
+                    <h3>Animal Transactions</h3>
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Category</th>
+                                <th>Location</th>
+                                <th>Quantity</th>
+                                <th>Details</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
             
-            // Get the transaction type in a user-friendly format
-            const typeMap = {
-                'add': 'Added',
-                'buy': 'Purchased',
-                'sell': 'Sold',
-                'move': 'Moved',
-                'death': 'Death',
-                'birth': 'Birth',
-                'stock-count': 'Stock Count',
-                'resolution': 'Count Resolution',
-                'reversal': 'Transaction Reversal'
-            };
-            
-            const type = typeMap[tx.type] || tx.type || 'Unknown';
-            
-            // Get the category field (this was the key issue before)
-            const category = tx.category || tx.animalType || 'Unknown';
-            
-            // Handle location data - could be in different formats depending on when it was entered
-            let location = 'Not specified';
-            
-            // Check different possible location properties
-            if (tx.location) {
-                location = tx.location;
-            } else if (tx.fromLocation && tx.type === 'move') {
-                location = tx.fromLocation;
-            } else if (tx.toLocation && tx.type === 'move') {
-                location = tx.toLocation;
-            } else if (tx.locations && typeof tx.locations === 'object') {
-                // Handle case where locations is an object with multiple entries
-                const locationEntries = Object.entries(tx.locations);
-                if (locationEntries.length > 0) {
-                    location = locationEntries.map(([name, count]) => `${name}: ${count}`).join(', ');
+            // Add transaction rows
+            transactions.forEach(tx => {
+                // Format the date nicely
+                const dateStr = tx.timestamp || tx.date || 'Unknown';
+                const formattedDate = dateStr !== 'Unknown' ? new Date(dateStr).toLocaleDateString() : 'Unknown';
+                
+                // Get the transaction type in a user-friendly format
+                const typeMap = {
+                    'add': 'Added',
+                    'buy': 'Purchased',
+                    'sell': 'Sold',
+                    'move': 'Moved',
+                    'death': 'Death',
+                    'birth': 'Birth',
+                    'stock-count': 'Stock Count',
+                    'resolution': 'Count Resolution',
+                    'reversal': 'Transaction Reversal'
+                };
+                
+                const type = typeMap[tx.type] || tx.type || 'Unknown';
+                
+                // Get the category field (this was the key issue before)
+                const category = tx.category || tx.animalType || 'Unknown';
+                
+                // Handle location data - could be in different formats depending on when it was entered
+                let location = 'Not specified';
+                
+                // Check different possible location properties
+                if (tx.location) {
+                    location = tx.location;
+                } else if (tx.fromLocation && tx.type === 'move') {
+                    location = tx.fromLocation;
+                } else if (tx.toLocation && tx.type === 'move') {
+                    location = tx.toLocation;
+                } else if (tx.locations && typeof tx.locations === 'object') {
+                    // Handle case where locations is an object with multiple entries
+                    const locationEntries = Object.entries(tx.locations);
+                    if (locationEntries.length > 0) {
+                        location = locationEntries.map(([name, count]) => `${name}: ${count}`).join(', ');
+                    }
                 }
-            }
-            
-            // Get quantity with fallback
-            const quantity = tx.quantity || tx.count || tx.actual || 0;
-            
-            // Create details based on transaction type
-            let details = '';
-            if (tx.type === 'move' && tx.fromCategory && tx.toCategory) {
-                details = `From ${tx.fromCategory} to ${tx.toCategory}`;
-                // Add location details for moves
-                if (tx.fromLocation && tx.toLocation) {
-                    details += ` (${tx.fromLocation} → ${tx.toLocation})`;
+                
+                // Get quantity with fallback
+                const quantity = tx.quantity || tx.count || tx.actual || 0;
+                
+                // Create details based on transaction type
+                let details = '';
+                if (tx.type === 'move' && tx.fromCategory && tx.toCategory) {
+                    details = `From ${tx.fromCategory} to ${tx.toCategory}`;
+                    // Add location details for moves
+                    if (tx.fromLocation && tx.toLocation) {
+                        details += ` (${tx.fromLocation} → ${tx.toLocation})`;
+                    }
+                } else if (tx.type === 'buy' && tx.supplier) {
+                    details = `Supplier: ${tx.supplier}${tx.price ? `, Price: ${tx.price}` : ''}`;
+                } else if (tx.type === 'sell' && tx.buyer) {
+                    details = `Buyer: ${tx.buyer}${tx.price ? `, Price: ${tx.price}` : ''}`;
+                } else if (tx.type === 'birth') {
+                    details = `Born: ${quantity} ${category}`;
+                } else if (tx.type === 'death') {
+                    details = tx.reason || 'No cause specified';
+                } else if (tx.type === 'stock-count') {
+                    details = `Expected: ${tx.expected}, Actual: ${tx.actual}${tx.counterName ? `, Counted by: ${tx.counterName}` : ''}`;
                 }
-            } else if (tx.type === 'buy' && tx.supplier) {
-                details = `Supplier: ${tx.supplier}${tx.price ? `, Price: ${tx.price}` : ''}`;
-            } else if (tx.type === 'sell' && tx.buyer) {
-                details = `Buyer: ${tx.buyer}${tx.price ? `, Price: ${tx.price}` : ''}`;
-            } else if (tx.type === 'birth') {
-                details = `Born: ${quantity} ${category}`;
-            } else if (tx.type === 'death') {
-                details = tx.reason || 'No cause specified';
-            } else if (tx.type === 'stock-count') {
-                details = `Expected: ${tx.expected}, Actual: ${tx.actual}${tx.counterName ? `, Counted by: ${tx.counterName}` : ''}`;
-            }
-            
-            // Format notes
-            const notes = tx.notes || tx.description || '';
+                
+                // Format notes
+                const notes = tx.notes || tx.description || '';
+                
+                reportHTML += `
+                    <tr>
+                        <td>${formattedDate}</td>
+                        <td>${type}</td>
+                        <td>${category}</td>
+                        <td>${location}</td>
+                        <td>${quantity}</td>
+                        <td>${details}</td>
+                        <td>${notes}</td>
+                    </tr>
+                `;
+            });
             
             reportHTML += `
-                <tr>
-                    <td>${formattedDate}</td>
-                    <td>${type}</td>
-                    <td>${category}</td>
-                    <td>${location}</td>
-                    <td>${quantity}</td>
-                    <td>${details}</td>
-                    <td>${notes}</td>
-                </tr>
-            `;
-        });
-        
-        reportHTML += `
                     </tbody>
                 </table>
             </div>
-            
+        `;
+        } else {
+            reportHTML += `
+                <div class="report-section">
+                    <h3>Animal Transactions</h3>
+                    <div class="empty-state">
+                        <p>No transactions found for the selected period.</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Always show inventory section
+        reportHTML += `
             <div class="report-section">
                 <h3>Current Animal Inventory</h3>
                 <table class="report-table">
@@ -1264,37 +1338,80 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
         
         // Add inventory rows
-        if (!inventory || inventory.length === 0) {
+        if (!inventory || (Array.isArray(inventory) && inventory.length === 0) || 
+            (typeof inventory === 'object' && Object.keys(inventory).length === 0)) {
             reportHTML += `
                 <tr>
                     <td colspan="3" class="no-data">No inventory data available</td>
                 </tr>
             `;
         } else {
-            inventory.forEach(item => {
-                // Handle location data in different possible formats
-                let locationDisplay = 'Not specified';
-                
-                // Check for location directly on the item
-                if (item.location) {
-                    locationDisplay = item.location;
-                } 
-                // Check if the item has locations as an object (new format)
-                else if (item.locations && typeof item.locations === 'object') {
-                    const locationEntries = Object.entries(item.locations);
-                    if (locationEntries.length > 0) {
-                        locationDisplay = locationEntries.map(([name, count]) => `${name}: ${count}`).join(', ');
+            // Handle inventory in either array format or object format
+            if (Array.isArray(inventory)) {
+                inventory.forEach(item => {
+                    // Handle location data in different possible formats
+                    let locationDisplay = 'Not specified';
+                    
+                    // Check for location directly on the item
+                    if (item.location) {
+                        locationDisplay = item.location;
+                    } 
+                    // Or check for a locations object
+                    else if (item.locations && typeof item.locations === 'object') {
+                        const locationEntries = Object.entries(item.locations);
+                        if (locationEntries.length > 0) {
+                            locationDisplay = locationEntries.map(([loc, count]) => `${loc}: ${count}`).join(', ');
+                        }
                     }
+                    
+                    const category = item.category || item.animalType || 'Unknown';
+                    const count = item.count || 0;
+                    
+                    reportHTML += `
+                        <tr>
+                            <td>${category}</td>
+                            <td>${locationDisplay}</td>
+                            <td>${count}</td>
+                        </tr>
+                    `;
+                });
+            } else if (typeof inventory === 'object') {
+                // Handle inventory as an object where keys are categories
+                for (const [category, data] of Object.entries(inventory)) {
+                    let count = 0;
+                    let locationDisplay = 'Not specified';
+                    
+                    // Check if data is a number (simple count)
+                    if (typeof data === 'number') {
+                        count = data;
+                    } 
+                    // Check if it's an object with count property
+                    else if (data && typeof data === 'object') {
+                        // Get count from the data object
+                        count = data.count || 0;
+                        
+                        // Get location from the data object
+                        if (data.location) {
+                            locationDisplay = data.location;
+                        } 
+                        // Or check for locations object 
+                        else if (data.locations && typeof data.locations === 'object') {
+                            const locationEntries = Object.entries(data.locations);
+                            if (locationEntries.length > 0) {
+                                locationDisplay = locationEntries.map(([loc, count]) => `${loc}: ${count}`).join(', ');
+                            }
+                        }
+                    }
+                    
+                    reportHTML += `
+                        <tr>
+                            <td>${category}</td>
+                            <td>${locationDisplay}</td>
+                            <td>${count}</td>
+                        </tr>
+                    `;
                 }
-                
-                reportHTML += `
-                    <tr>
-                        <td>${item.type || 'Unknown'}</td>
-                        <td>${locationDisplay}</td>
-                        <td>${item.count || 0}</td>
-                    </tr>
-                `;
-            });
+            }
         }
         
         reportHTML += `
@@ -3331,10 +3448,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             let combinedTransactions = [...discrepancies, ...stockCounts];
             console.log(`Combined ${combinedTransactions.length} total discrepancy records`);
             
-            // If no transactions found, use the sample data from the debug log
-            if (combinedTransactions.length === 0) {
-                console.log('No discrepancy data found, using sample data from debug log');
+            // Check if we should show sample data
+            // Get the user preference for demo data from storage
+            const showDemoDataStr = await mobileStorage.getItem('showDemoData');
+            const showDemoData = showDemoDataStr ? JSON.parse(showDemoDataStr) : false;
+            
+            // If no transactions found and demo data is enabled, use sample data
+            if (combinedTransactions.length === 0 && showDemoData) {
+                console.log('No discrepancy data found, using sample data because demo mode is enabled');
                 combinedTransactions = generateSampleDiscrepancyData();
+            } else if (combinedTransactions.length === 0) {
+                console.log('No discrepancy data found, returning empty array');
+                // Just return empty data instead of sample data
+                return {
+                    inventory: [],
+                    transactions: [],
+                    dateRange: {
+                        start: startDate,
+                        end: endDate
+                    },
+                    isEmpty: true
+                };
             }
             
             // Create a map of resolution records by category and timestamp
@@ -4431,6 +4565,22 @@ function createAnimalCountTable(data) {
  */
 function createAnimalDiscrepancyTable(data) {
     console.log('Creating discrepancy table with data:', data);
+    
+    // Check if we have the isEmpty flag
+    if (data && data.isEmpty === true) {
+        return createStandardReportStructure(
+            'Animal Discrepancy Report',
+            'Record of Inventory Adjustments',
+            data.dateRange ? formatDateRange(data.dateRange.start, data.dateRange.end) : '',
+            `<div class="no-data-message">
+                <p>No discrepancies found for this period.</p>
+                <p>If you've just cleared all animal data, that's expected - new discrepancies will appear here when stock counts are performed.</p>
+            </div>`,
+            null, // No summary data
+            false, // Not demo data
+            'animal-discrepancy'
+        );
+    }
     
     // Extract transactions from data object
     const transactions = Array.isArray(data) ? data : (data && data.transactions ? data.transactions : []);

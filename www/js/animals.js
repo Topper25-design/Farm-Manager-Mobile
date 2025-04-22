@@ -702,6 +702,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     
+    // Store the user's input when they go to manage properties
+    let cachedAddAnimalData = {
+        category: '',
+        newCategory: '',
+        quantity: 1,
+        date: '',
+        notes: ''
+    };
+    
     async function showAddAnimalPopup() {
         // Ensure we have the latest farm properties before showing the popup
         await initializeProperties();
@@ -713,6 +722,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Create the locations dropdown with the latest properties
         const locationsHTML = farmProperties.map(property => `<option value="${property}">${property}</option>`).join('');
         
+        // Get today's date in ISO format
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Use cached values if available, otherwise use defaults
+        const selectedCategory = cachedAddAnimalData.category || '';
+        const newCategoryValue = cachedAddAnimalData.newCategory || '';
+        const quantityValue = cachedAddAnimalData.quantity || 1;
+        const dateValue = cachedAddAnimalData.date || today;
+        const notesValue = cachedAddAnimalData.notes || '';
+        
+        // Determine if we should show the new category input
+        const showNewCategoryStyle = selectedCategory === 'new' ? 'display: block;' : 'display: none;';
+        
         const popupContent = `
             <div class="popup-content">
                 <h3>Add Livestock</h3>
@@ -720,18 +742,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="form-group">
                         <label for="category">Animal Category:</label>
                         <select id="category" required>
-                            <option value="" disabled selected>Select category</option>
+                            <option value="" disabled ${selectedCategory ? '' : 'selected'}>Select category</option>
                             ${categoriesHTML}
-                            <option value="new">+ Add New Category</option>
+                            <option value="new" ${selectedCategory === 'new' ? 'selected' : ''}>+ Add New Category</option>
                         </select>
                     </div>
-                    <div class="form-group new-category-input" style="display: none;">
+                    <div class="form-group new-category-input" style="${showNewCategoryStyle}">
                         <label for="new-category">New Category:</label>
-                        <input type="text" id="new-category" placeholder="Enter new category name" inputmode="text" autocomplete="off">
+                        <input type="text" id="new-category" placeholder="Enter new category name" inputmode="text" autocomplete="off" value="${newCategoryValue}">
                     </div>
                     <div class="form-group">
                         <label for="quantity">Quantity:</label>
-                        <input type="number" id="quantity" value="1" min="1" required>
+                        <input type="number" id="quantity" value="${quantityValue}" min="1" required>
                     </div>
                     <div class="form-group">
                         <label for="location">Location:</label>
@@ -743,11 +765,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                     <div class="form-group">
                         <label for="date">Date:</label>
-                        <input type="date" id="date" value="${new Date().toISOString().split('T')[0]}" required>
+                        <input type="date" id="date" value="${dateValue}" required>
                     </div>
                     <div class="form-group">
                         <label for="notes">Notes:</label>
-                        <textarea id="notes" rows="2" placeholder="Optional notes"></textarea>
+                        <textarea id="notes" rows="2" placeholder="Optional notes">${notesValue}</textarea>
                     </div>
                     <div class="form-actions">
                         <button type="button" class="cancel-btn">Cancel</button>
@@ -763,8 +785,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         const form = popup.querySelector('#add-form');
         const categorySelect = popup.querySelector('#category');
         const newCategoryInput = popup.querySelector('.new-category-input');
+        const newCategoryField = popup.querySelector('#new-category');
+        const quantityField = popup.querySelector('#quantity');
         const locationSelect = popup.querySelector('#location');
+        const dateField = popup.querySelector('#date');
+        const notesField = popup.querySelector('#notes');
         const cancelBtn = popup.querySelector('.cancel-btn');
+        
+        // If we have a cached category value, select it
+        if (selectedCategory && selectedCategory !== 'new') {
+            // Find and select the option with the cached value
+            Array.from(categorySelect.options).forEach(option => {
+                if (option.value === selectedCategory) {
+                    option.selected = true;
+                }
+            });
+        }
         
         // Handle new category option
         categorySelect.addEventListener('change', () => {
@@ -792,6 +828,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Handle manage properties option
         locationSelect.addEventListener('change', () => {
             if (locationSelect.value === 'manage') {
+                // Save current form data
+                cachedAddAnimalData = {
+                    category: categorySelect.value,
+                    newCategory: newCategoryField.value,
+                    quantity: quantityField.value,
+                    date: dateField.value,
+                    notes: notesField.value
+                };
+                
+                console.log('Saved form data:', cachedAddAnimalData);
+                
                 // Open properties management popup
                 popup.remove(); // Close the current popup
                 showManagePropertiesPopup().then(() => {
@@ -802,6 +849,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Explicitly handle cancel button click
         cancelBtn.addEventListener('click', () => {
+            // Clear cached data when cancel is clicked
+            cachedAddAnimalData = {
+                category: '',
+                newCategory: '',
+                quantity: 1,
+                date: '',
+                notes: ''
+            };
+            
             popup.remove();
         });
         
@@ -822,27 +878,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const location = locationSelect.value === 'manage' ? '' : locationSelect.value;
                 
                 // Handle category (could be new or existing)
-            let category;
-            if (categorySelect.value === 'new') {
-                category = popup.querySelector('#new-category').value.trim();
-                if (!category) {
+                let category;
+                if (categorySelect.value === 'new') {
+                    category = popup.querySelector('#new-category').value.trim();
+                    if (!category) {
                         alert('Please enter a new category name');
                         submitBtn.disabled = false;
                         submitBtn.textContent = 'Add';
-                    return;
-                }
-                
-                // Add new category to saved categories
+                        return;
+                    }
+                    
+                    // Add new category to saved categories
                     if (!animalCategories.includes(category)) {
                         animalCategories.push(category);
                         await mobileStorage.setItem('animalCategories', JSON.stringify(animalCategories));
-                    // Also update localStorage for dashboard.js
+                        // Also update localStorage for dashboard.js
                         localStorage.setItem('animalCategories', JSON.stringify(animalCategories));
+                    }
+                } else {
+                    category = categorySelect.value;
                 }
-            } else {
-                category = categorySelect.value;
-            }
-            
+                
                 // Create transaction record
                 const transaction = {
                     type: 'add',
@@ -862,12 +918,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
                 
                 // Update inventory
-            if (!animalInventory[category]) {
+                if (!animalInventory[category]) {
                     // Initialize with new format
-                animalInventory[category] = {
+                    animalInventory[category] = {
                         total: quantity,
-                    locations: {}
-                };
+                        locations: {}
+                    };
                     
                     // Add location if provided
                     if (location) {
@@ -878,7 +934,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } else {
                     // Convert old format to new format if needed
                     if (typeof animalInventory[category] === 'number') {
-                animalInventory[category] = {
+                        animalInventory[category] = {
                             total: animalInventory[category] + quantity,
                             locations: {
                                 'Unspecified': animalInventory[category]
@@ -893,8 +949,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     } else {
                         // Update new format
-            animalInventory[category].total += quantity;
-            
+                        animalInventory[category].total += quantity;
+                        
                         // Update location
                         if (location) {
                             if (!animalInventory[category].locations[location]) {
@@ -912,13 +968,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 
                 // Save updated inventory
-            await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
-            
+                await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
+                
                 // Update displays
-            updateDisplays();
-            
+                updateDisplays();
+                
                 // Close the popup
-            popup.remove();
+                popup.remove();
             } catch (error) {
                 console.error('Error adding livestock:', error);
                 alert('There was an error adding livestock. Please try again.');
@@ -927,6 +983,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Add';
             }
+            
+            // Clear cached data after successful form submission
+            cachedAddAnimalData = {
+                category: '',
+                newCategory: '',
+                quantity: 1,
+                date: '',
+                notes: ''
+            };
         });
     }
     
@@ -2933,62 +2998,121 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Function to confirm and clear all animal data
     async function confirmClearAnimalData() {
-        const confirmResult = confirm(
-            'This will remove all animal categories, current inventory counts, recent activities, and reset all properties. This action cannot be undone. Are you sure you want to proceed?'
-        );
-        
-        if (confirmResult) {
-            // Reset data to defaults
-                animalCategories = [];
-            animalInventory = {};
-            recentActivities = [];
-            farmProperties = []; // Empty array instead of defaults
+        const popup = createPopup(`
+            <div class="popup-content">
+                <h2>Clear All Animal Data</h2>
+                <p>Are you sure you want to clear all animal data? This action cannot be undone.</p>
+                <p>This will clear:</p>
+                <ul>
+                    <li>All animal inventory</li>
+                    <li>All animal transactions</li>
+                    <li>All stock counts</li>
+                    <li>All stock discrepancies</li>
+                    <li>All animal-related activities</li>
+                </ul>
+                <div class="popup-buttons">
+                    <button class="cancel-btn">Cancel</button>
+                    <button class="confirm-btn" id="confirm-clear">Clear All Data</button>
+                </div>
+            </div>
+        `);
 
-            // Save cleared data to storage
+        document.getElementById('confirm-clear').addEventListener('click', async () => {
             try {
-                console.log("Clearing animal data and resetting properties...");
-                await mobileStorage.setItem('animalCategories', JSON.stringify(animalCategories));
-                await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
-                await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
-                await mobileStorage.setItem('farmProperties', JSON.stringify(farmProperties));
+                console.log('Starting to clear all animal data');
                 
-                // Clear any properties from propertiesList that might have been added from inventory
-                propertiesList = [...farmProperties];
-                await saveProperties();
+                // List of all animal-related storage keys to clear
+                const keysToSetEmpty = [
+                    'animalInventory',
+                    'animalCategories',
+                    'animalSales',
+                    'animalPurchases',
+                    'stockDiscrepancies',
+                    'stockCounts',
+                    'animalMovements',
+                    'animalBirths',
+                    'animalDeaths',
+                    // Additional possible keys
+                    'animalData',
+                    'animalInventoryBackup',
+                    'animalTransactions',
+                    'stockCountHistory',
+                    'lastAnimalCount',
+                    'animalCounts'
+                ];
                 
-                console.log("Animal data cleared successfully. Reset properties:", farmProperties);
+                // Clear each key - setting to empty default values
+                for (const key of keysToSetEmpty) {
+                    const defaultValue = key.endsWith('Inventory') || key === 'animalData' ? '{}' : '[]';
+                    console.log(`Clearing ${key}, setting to ${defaultValue}`);
+                    await mobileStorage.setItem(key, defaultValue);
+                }
                 
-                // Update UI
+                // Disable demo data mode for reports
+                console.log('Disabling demo data mode');
+                await mobileStorage.setItem('showDemoData', 'false');
+                
+                // Get all recentActivities and filter out animal-related ones
+                console.log('Clearing animal-related activities');
+                const recentActivities = JSON.parse(await mobileStorage.getItem('recentActivities') || '[]');
+                console.log(`Found ${recentActivities.length} total activities before filtering`);
+                
+                const filteredActivities = recentActivities.filter(activity => {
+                    // Check if the activity should be kept (non-animal related)
+                    const isAnimalRelated = 
+                        activity.type?.includes('animal') || 
+                        activity.type?.includes('stock') ||
+                        activity.type?.includes('count') ||
+                        activity.type?.includes('resolution') ||
+                        activity.category?.includes('Cow') ||
+                        activity.category?.includes('Calf') ||
+                        activity.category?.includes('Cattle') ||
+                        activity.description?.includes('animal');
+                    
+                    // Keep the activity if it's NOT animal related
+                    return !isAnimalRelated;
+                });
+                
+                console.log(`After filtering: ${filteredActivities.length} activities remain`);
+                await mobileStorage.setItem('recentActivities', JSON.stringify(filteredActivities));
+                
+                // Forcefully remove any caches
+                console.log('Clearing cache to ensure fresh data');
+                if (mobileStorage.clearCache) {
+                    mobileStorage.clearCache();
+                }
+                
+                // Force localStorage clear as well (for backward compatibility)
+                if (typeof localStorage !== 'undefined') {
+                    for (const key of keysToSetEmpty) {
+                        const defaultValue = key.endsWith('Inventory') || key === 'animalData' ? '{}' : '[]';
+                        console.log(`Clearing ${key} from localStorage`);
+                        localStorage.setItem(key, defaultValue);
+                    }
+                    localStorage.setItem('showDemoData', 'false');
+                }
+                
+                // Update displays
+                console.log('Updating displays after data clear');
                 updateDisplays();
                 
-                // Ask if user also wants to clear feed activities
-                const clearFeedActivities = confirm(
-                    'Animal data has been cleared.\n\n' +
-                    'Would you also like to clear all feed-related activities from the recent activities list?\n\n' +
-                    'This will not affect your feed inventory or calculations, only the activity history.'
-                );
+                // Show success message
+                showMessage('All animal data has been cleared successfully. The page will reload to ensure all data is refreshed.', false, 5000);
+                console.log('Animal data clear operation completed successfully');
                 
-                if (clearFeedActivities) {
-                    // Filter out feed-related activities
-                    recentActivities = recentActivities.filter(
-                        activity => !['feed-purchase', 'feed-usage'].includes(activity.type)
-                    );
-                    
-                    // Save updated activities
-                    await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
-                    
-                    // Update UI again
-                    updateDisplays();
-                    
-                    alert('All animal and feed activities have been cleared.');
-                } else {
-                    alert('All animal data has been cleared. Feed activities remain in history.');
-                }
+                // Close the popup
+                popup.remove();
+                
+                // Set a short timeout to let the message be seen before reloading
+                setTimeout(() => {
+                    // Force page reload to ensure all data is cleared from memory
+                    window.location.reload(true);
+                }, 2000);
             } catch (error) {
                 console.error('Error clearing animal data:', error);
-                alert('There was an error clearing data. Please try again.');
+                showMessage('Error clearing animal data. Please try again.', true);
             }
-        }
+        });
     }
     
     // Function to show popup for reversing the last animal addition
@@ -3927,5 +4051,43 @@ Animals at this location will be moved to "Unspecified". Do you want to continue
         
         // Update UI
         updateDisplays();
+    }
+
+    // Add this function at the top level, before confirmClearAnimalData
+    function showMessage(message, isError = false, duration = 3000) {
+        // Create message element if it doesn't exist
+        let messageElement = document.getElementById('global-message');
+        if (!messageElement) {
+            messageElement = document.createElement('div');
+            messageElement.id = 'global-message';
+            messageElement.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                padding: 15px 25px;
+                border-radius: 5px;
+                background-color: ${isError ? '#ff4444' : '#4CAF50'};
+                color: white;
+                z-index: 1000;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                transition: opacity 0.3s ease-in-out;
+            `;
+            document.body.appendChild(messageElement);
+        }
+
+        // Set message content and style
+        messageElement.textContent = message;
+        messageElement.style.opacity = '1';
+        messageElement.style.display = 'block';
+        messageElement.style.backgroundColor = isError ? '#ff4444' : '#4CAF50';
+
+        // Auto-hide after specified duration
+        setTimeout(() => {
+            messageElement.style.opacity = '0';
+            setTimeout(() => {
+                messageElement.style.display = 'none';
+            }, 300);
+        }, duration);
     }
 }); 
