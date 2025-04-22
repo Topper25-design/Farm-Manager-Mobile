@@ -1185,10 +1185,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Count transaction types
         const transactionCounts = {};
         if (transactions && transactions.length > 0) {
-            transactions.forEach(tx => {
-                const type = tx.type || 'unknown';
-                transactionCounts[type] = (transactionCounts[type] || 0) + 1;
-            });
+        transactions.forEach(tx => {
+            const type = tx.type || 'unknown';
+            transactionCounts[type] = (transactionCounts[type] || 0) + 1;
+        });
         }
         
         // Create a more detailed and formatted table with proper field references
@@ -1204,48 +1204,48 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
             </div>
         `;
-        
+            
         // Only show transactions section if there are transactions
         if (transactions && transactions.length > 0) {
             reportHTML += `
-                <div class="report-section">
-                    <h3>Animal Transactions</h3>
-                    <table class="report-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Type</th>
-                                <th>Category</th>
-                                <th>Location</th>
-                                <th>Quantity</th>
-                                <th>Details</th>
-                                <th>Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
+            <div class="report-section">
+                <h3>Animal Transactions</h3>
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Category</th>
+                            <th>Location</th>
+                            <th>Quantity</th>
+                            <th>Details</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        // Add transaction rows
+        transactions.forEach(tx => {
+            // Format the date nicely
+            const dateStr = tx.timestamp || tx.date || 'Unknown';
+            const formattedDate = dateStr !== 'Unknown' ? new Date(dateStr).toLocaleDateString() : 'Unknown';
             
-            // Add transaction rows
-            transactions.forEach(tx => {
-                // Format the date nicely
-                const dateStr = tx.timestamp || tx.date || 'Unknown';
-                const formattedDate = dateStr !== 'Unknown' ? new Date(dateStr).toLocaleDateString() : 'Unknown';
-                
-                // Get the transaction type in a user-friendly format
-                const typeMap = {
-                    'add': 'Added',
-                    'buy': 'Purchased',
-                    'sell': 'Sold',
-                    'move': 'Moved',
-                    'death': 'Death',
-                    'birth': 'Birth',
-                    'stock-count': 'Stock Count',
-                    'resolution': 'Count Resolution',
-                    'reversal': 'Transaction Reversal'
-                };
-                
-                const type = typeMap[tx.type] || tx.type || 'Unknown';
-                
+            // Get the transaction type in a user-friendly format
+            const typeMap = {
+                'add': 'Added',
+                'buy': 'Purchased',
+                'sell': 'Sold',
+                'move': 'Moved',
+                'death': 'Death',
+                'birth': 'Birth',
+                'stock-count': 'Stock Count',
+                'resolution': 'Count Resolution',
+                'reversal': 'Transaction Reversal'
+            };
+            
+            const type = typeMap[tx.type] || tx.type || 'Unknown';
+            
                 // Get the category field - prioritize fromCategory for move transactions
                 let category = 'Unknown';
                 if (tx.type === 'move' && tx.fromCategory) {
@@ -1253,65 +1253,65 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } else {
                     category = tx.category || tx.animalType || 'Unknown';
                 }
-                
-                // Handle location data - could be in different formats depending on when it was entered
-                let location = 'Not specified';
-                
-                // Check different possible location properties
-                if (tx.location) {
-                    location = tx.location;
-                } else if (tx.fromLocation && tx.type === 'move') {
-                    location = tx.fromLocation;
-                } else if (tx.toLocation && tx.type === 'move') {
-                    location = tx.toLocation;
-                } else if (tx.locations && typeof tx.locations === 'object') {
-                    // Handle case where locations is an object with multiple entries
-                    const locationEntries = Object.entries(tx.locations);
-                    if (locationEntries.length > 0) {
-                        location = locationEntries.map(([name, count]) => `${name}: ${count}`).join(', ');
-                    }
+            
+            // Handle location data - could be in different formats depending on when it was entered
+            let location = 'Not specified';
+            
+            // Check different possible location properties
+            if (tx.location) {
+                location = tx.location;
+            } else if (tx.fromLocation && tx.type === 'move') {
+                location = tx.fromLocation;
+            } else if (tx.toLocation && tx.type === 'move') {
+                location = tx.toLocation;
+            } else if (tx.locations && typeof tx.locations === 'object') {
+                // Handle case where locations is an object with multiple entries
+                const locationEntries = Object.entries(tx.locations);
+                if (locationEntries.length > 0) {
+                    location = locationEntries.map(([name, count]) => `${name}: ${count}`).join(', ');
                 }
-                
-                // Get quantity with fallback
-                const quantity = tx.quantity || tx.count || tx.actual || 0;
-                
-                // Create details based on transaction type
-                let details = '';
-                if (tx.type === 'move' && tx.fromCategory && tx.toCategory) {
-                    details = `From ${tx.fromCategory} to ${tx.toCategory}`;
-                    // Add location details for moves
-                    if (tx.fromLocation && tx.toLocation) {
-                        details += ` (${tx.fromLocation} → ${tx.toLocation})`;
-                    }
-                } else if (tx.type === 'buy' && tx.supplier) {
-                    details = `Supplier: ${tx.supplier}${tx.price ? `, Price: ${tx.price}` : ''}`;
-                } else if (tx.type === 'sell' && tx.buyer) {
-                    details = `Buyer: ${tx.buyer}${tx.price ? `, Price: ${tx.price}` : ''}`;
-                } else if (tx.type === 'birth') {
-                    details = `Born: ${quantity} ${category}`;
-                } else if (tx.type === 'death') {
-                    details = tx.reason || 'No cause specified';
-                } else if (tx.type === 'stock-count') {
-                    details = `Expected: ${tx.expected}, Actual: ${tx.actual}${tx.counterName ? `, Counted by: ${tx.counterName}` : ''}`;
+            }
+            
+            // Get quantity with fallback
+            const quantity = tx.quantity || tx.count || tx.actual || 0;
+            
+            // Create details based on transaction type
+            let details = '';
+            if (tx.type === 'move' && tx.fromCategory && tx.toCategory) {
+                details = `From ${tx.fromCategory} to ${tx.toCategory}`;
+                // Add location details for moves
+                if (tx.fromLocation && tx.toLocation) {
+                    details += ` (${tx.fromLocation} → ${tx.toLocation})`;
                 }
-                
-                // Format notes
-                const notes = tx.notes || tx.description || '';
-                
-                reportHTML += `
-                    <tr>
-                        <td>${formattedDate}</td>
-                        <td>${type}</td>
-                        <td>${category}</td>
-                        <td>${location}</td>
-                        <td>${quantity}</td>
-                        <td>${details}</td>
-                        <td>${notes}</td>
-                    </tr>
-                `;
-            });
+            } else if (tx.type === 'buy' && tx.supplier) {
+                details = `Supplier: ${tx.supplier}${tx.price ? `, Price: ${tx.price}` : ''}`;
+            } else if (tx.type === 'sell' && tx.buyer) {
+                details = `Buyer: ${tx.buyer}${tx.price ? `, Price: ${tx.price}` : ''}`;
+            } else if (tx.type === 'birth') {
+                details = `Born: ${quantity} ${category}`;
+            } else if (tx.type === 'death') {
+                details = tx.reason || 'No cause specified';
+            } else if (tx.type === 'stock-count') {
+                details = `Expected: ${tx.expected}, Actual: ${tx.actual}${tx.counterName ? `, Counted by: ${tx.counterName}` : ''}`;
+            }
+            
+            // Format notes
+            const notes = tx.notes || tx.description || '';
             
             reportHTML += `
+                <tr>
+                    <td>${formattedDate}</td>
+                    <td>${type}</td>
+                    <td>${category}</td>
+                    <td>${location}</td>
+                    <td>${quantity}</td>
+                    <td>${details}</td>
+                    <td>${notes}</td>
+                </tr>
+            `;
+        });
+        
+        reportHTML += `
                     </tbody>
                 </table>
             </div>
@@ -1353,34 +1353,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             // Handle inventory in either array format or object format
             if (Array.isArray(inventory)) {
-                inventory.forEach(item => {
-                    // Handle location data in different possible formats
-                    let locationDisplay = 'Not specified';
-                    
-                    // Check for location directly on the item
-                    if (item.location) {
-                        locationDisplay = item.location;
-                    } 
+            inventory.forEach(item => {
+                // Handle location data in different possible formats
+                let locationDisplay = 'Not specified';
+                
+                // Check for location directly on the item
+                if (item.location) {
+                    locationDisplay = item.location;
+                } 
                     // Or check for a locations object
-                    else if (item.locations && typeof item.locations === 'object') {
-                        const locationEntries = Object.entries(item.locations);
-                        if (locationEntries.length > 0) {
+                else if (item.locations && typeof item.locations === 'object') {
+                    const locationEntries = Object.entries(item.locations);
+                    if (locationEntries.length > 0) {
                             locationDisplay = locationEntries.map(([loc, count]) => `${loc}: ${count}`).join(', ');
-                        }
                     }
+                }
                     
                     // Use any available field for category, preferring category > type > animalType
                     const category = item.category || item.type || item.animalType || 'Unknown';
                     const count = item.count || 0;
-                    
-                    reportHTML += `
-                        <tr>
+                
+                reportHTML += `
+                    <tr>
                             <td>${category}</td>
-                            <td>${locationDisplay}</td>
+                        <td>${locationDisplay}</td>
                             <td>${count}</td>
-                        </tr>
-                    `;
-                });
+                    </tr>
+                `;
+            });
             } else if (typeof inventory === 'object') {
                 // Handle inventory as an object where keys are categories
                 for (const [category, data] of Object.entries(inventory)) {
@@ -2894,7 +2894,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             if (typeof data === 'number') {
                                 // Old format without locations - use a single entry
                                 inventory.push({
-                                    type: animalType,
+                            type: animalType,
                                     category: animalType, // Add category field for consistent access
                                     location: 'Not specified',
                                     count: parseInt(data) || 0
@@ -4027,7 +4027,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     movementType = 'Category';
                 } 
                     
-                if (transaction.fromLocation && transaction.toLocation) {
+                    if (transaction.fromLocation && transaction.toLocation) {
                     // This is a location move
                     movementType = movementType === 'Category' ? 'Category & Location' : 'Location';
                 } else if (transaction.type === 'move') {
@@ -4776,6 +4776,10 @@ function createStandardReportStructure(reportTitle, reportSubtitle, dateRange, t
                     <p class="report-date-range">Report period: ${formattedDateRange}</p>
                     ${reportSubtitle ? `<p class="report-subtitle">${reportSubtitle}</p>` : ''}
                     ${isDemoData ? '<p class="demo-data-notice">* Using demo data for illustration</p>' : ''}
+                </div>
+                <div class="report-actions">
+                    <button onclick="window.print()" class="print-button">Print Report</button>
+                    <button onclick="exportReportToCSV('${reportType}')" class="export-button">Export to CSV</button>
                 </div>
             </div>
             <div class="report-body">
