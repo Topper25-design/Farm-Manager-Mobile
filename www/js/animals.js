@@ -878,27 +878,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const location = locationSelect.value === 'manage' ? '' : locationSelect.value;
                 
                 // Handle category (could be new or existing)
-                let category;
-                if (categorySelect.value === 'new') {
-                    category = popup.querySelector('#new-category').value.trim();
-                    if (!category) {
+            let category;
+            if (categorySelect.value === 'new') {
+                category = popup.querySelector('#new-category').value.trim();
+                if (!category) {
                         alert('Please enter a new category name');
                         submitBtn.disabled = false;
                         submitBtn.textContent = 'Add';
-                        return;
-                    }
-                    
-                    // Add new category to saved categories
+                    return;
+                }
+                
+                // Add new category to saved categories
                     if (!animalCategories.includes(category)) {
                         animalCategories.push(category);
                         await mobileStorage.setItem('animalCategories', JSON.stringify(animalCategories));
-                        // Also update localStorage for dashboard.js
+                    // Also update localStorage for dashboard.js
                         localStorage.setItem('animalCategories', JSON.stringify(animalCategories));
-                    }
-                } else {
-                    category = categorySelect.value;
                 }
-                
+            } else {
+                category = categorySelect.value;
+            }
+            
                 // Create transaction record
                 const transaction = {
                     type: 'add',
@@ -918,12 +918,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
                 
                 // Update inventory
-                if (!animalInventory[category]) {
+            if (!animalInventory[category]) {
                     // Initialize with new format
-                    animalInventory[category] = {
+                animalInventory[category] = {
                         total: quantity,
-                        locations: {}
-                    };
+                    locations: {}
+                };
                     
                     // Add location if provided
                     if (location) {
@@ -934,7 +934,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } else {
                     // Convert old format to new format if needed
                     if (typeof animalInventory[category] === 'number') {
-                        animalInventory[category] = {
+                animalInventory[category] = {
                             total: animalInventory[category] + quantity,
                             locations: {
                                 'Unspecified': animalInventory[category]
@@ -949,8 +949,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     } else {
                         // Update new format
-                        animalInventory[category].total += quantity;
-                        
+            animalInventory[category].total += quantity;
+            
                         // Update location
                         if (location) {
                             if (!animalInventory[category].locations[location]) {
@@ -968,13 +968,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
                 
                 // Save updated inventory
-                await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
-                
+            await mobileStorage.setItem('animalInventory', JSON.stringify(animalInventory));
+            
                 // Update displays
-                updateDisplays();
-                
+            updateDisplays();
+            
                 // Close the popup
-                popup.remove();
+            popup.remove();
             } catch (error) {
                 console.error('Error adding livestock:', error);
                 alert('There was an error adding livestock. Please try again.');
@@ -1262,15 +1262,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 category,
                 quantity,
                 price,
-                    revenue: totalRevenue,
+                amount: totalRevenue, // Standardized amount field for dashboard
+                revenue: totalRevenue,
                 buyer,
-                    location,
+                location,
                 date,
                 timestamp: new Date().toISOString()
             };
             
+                // Add to recent activities
                 recentActivities.unshift(transaction);
-            await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+                await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+                
+                // Add to animal sales for dashboard display
+                const animalSales = JSON.parse(await mobileStorage.getItem('animalSales') || '[]');
+                animalSales.unshift(transaction);
+                await mobileStorage.setItem('animalSales', JSON.stringify(animalSales));
             
             // Update UI
             updateDisplays();
@@ -2574,24 +2581,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Calculate total cost
                 const totalCost = price * quantity;
             
-            // Add to recent activities
-            const activity = {
-                type: 'buy',
-                category,
-                quantity,
-                price,
+                // Add to recent activities
+                const activity = {
+                    type: 'buy',
+                    category,
+                    quantity,
+                    price,
+                    amount: totalCost, // Standardized amount field for dashboard
                     cost: totalCost,
-                supplier,
+                    supplier,
                     location,
-                date,
+                    date,
                     timestamp: new Date().toISOString()
-            };
+                };
             
-            recentActivities.unshift(activity);
-            await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+                // Add to recent activities
+                recentActivities.unshift(activity);
+                await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+                
+                // Add to animal purchases for dashboard display
+                const animalPurchases = JSON.parse(await mobileStorage.getItem('animalPurchases') || '[]');
+                animalPurchases.unshift(activity);
+                await mobileStorage.setItem('animalPurchases', JSON.stringify(animalPurchases));
             
-            // Update UI
-            updateDisplays();
+                // Update UI
+                updateDisplays();
             
             // Close popup
             popup.remove();
