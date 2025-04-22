@@ -1246,8 +1246,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 const type = typeMap[tx.type] || tx.type || 'Unknown';
                 
-                // Get the category field (this was the key issue before)
-                const category = tx.category || tx.animalType || 'Unknown';
+                // Get the category field - prioritize fromCategory for move transactions
+                let category = 'Unknown';
+                if (tx.type === 'move' && tx.fromCategory) {
+                    category = tx.fromCategory; // Use source category for moves
+                } else {
+                    category = tx.category || tx.animalType || 'Unknown';
+                }
                 
                 // Handle location data - could be in different formats depending on when it was entered
                 let location = 'Not specified';
@@ -3971,7 +3976,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <tr>
                         <th>Date</th>
                         <th>Movement Type</th>
-                        <th>Animal Type</th>
+                        <th>Source Animal Type</th>
                         <th>Count</th>
                         <th>From Category</th>
                         <th>To Category</th>
@@ -4003,7 +4008,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 // Determine the movement type (category move, location move, or both)
                 let movementType = 'Unknown';
-                let animalType = transaction.category || transaction.animalType || 'Unknown';
+                let animalType = 'Unknown';
+                
+                // Set animal type properly using fromCategory when available
+                if (transaction.fromCategory) {
+                    animalType = transaction.fromCategory; // Always use source category for the main animal type
+                } else {
+                    animalType = transaction.category || transaction.animalType || 'Unknown';
+                }
+                
                 let fromCategory = transaction.fromCategory || '-';
                 let toCategory = transaction.toCategory || '-';
                 let fromLocation = transaction.fromLocation || transaction.location || '-';
@@ -4012,10 +4025,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (transaction.fromCategory && transaction.toCategory) {
                     // This is a category move
                     movementType = 'Category';
-                    animalType = transaction.fromCategory; // Use the source category
                 } 
                     
-                    if (transaction.fromLocation && transaction.toLocation) {
+                if (transaction.fromLocation && transaction.toLocation) {
                     // This is a location move
                     movementType = movementType === 'Category' ? 'Category & Location' : 'Location';
                 } else if (transaction.type === 'move') {
