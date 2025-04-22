@@ -1364,7 +1364,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     }
                     
-                    const category = item.category || item.animalType || 'Unknown';
+                    // Use any available field for category, preferring category > type > animalType
+                    const category = item.category || item.type || item.animalType || 'Unknown';
                     const count = item.count || 0;
                     
                     reportHTML += `
@@ -1441,7 +1442,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Group by animal type
         const typeGroups = inventory.reduce((groups, item) => {
-            const type = item.type || 'Unknown';
+            // Get the category from any of the possible fields, with fallbacks
+            const type = item.category || item.type || item.animalType || 'Unknown';
             if (!groups[type]) {
                 groups[type] = {
                     count: 0,
@@ -2887,7 +2889,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                             if (typeof data === 'number') {
                                 // Old format without locations - use a single entry
                                 inventory.push({
-                            type: animalType,
+                                    type: animalType,
+                                    category: animalType, // Add category field for consistent access
                                     location: 'Not specified',
                                     count: parseInt(data) || 0
                                 });
@@ -2898,6 +2901,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     Object.entries(data.locations).forEach(([location, locationCount]) => {
                                         inventory.push({
                                             type: animalType,
+                                            category: animalType, // Add category field for consistent access
                                             location: location,
                                             count: parseInt(locationCount) || 0
                                         });
@@ -2906,6 +2910,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     // No locations defined, use the total with default location
                                     inventory.push({
                                         type: animalType,
+                                        category: animalType, // Add category field for consistent access
                                         location: 'Not specified',
                                         count: parseInt(data.total) || 0
                                     });

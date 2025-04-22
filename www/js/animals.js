@@ -279,6 +279,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('undo-last-action-btn')?.addEventListener('click', showUndoLastActionPopup, { passive: true });
         document.getElementById('reverse-last-btn')?.addEventListener('click', showReverseLastAdditionPopup, { passive: true });
         document.getElementById('clear-animal-data-btn')?.addEventListener('click', confirmClearAnimalData, { passive: true });
+
+        // Add button to fix Unknown categories
+        document.getElementById('fix-unknown-btn')?.addEventListener('click', showFixUnknownCategoriesPopup);
     }
     
     function updateDisplays() {
@@ -4109,5 +4112,342 @@ Animals at this location will be moved to "Unspecified". Do you want to continue
                 messageElement.style.display = 'none';
             }, 300);
         }, duration);
+    }
+
+    // Add function to fix Unknown categories
+    function showFixUnknownCategoriesPopup() {
+        // First check if we have any unknown categories
+        let hasUnknown = false;
+        
+        // Check for Unknown category in old format
+        if (animalInventory.Unknown && (
+            typeof animalInventory.Unknown === 'number' || 
+            (typeof animalInventory.Unknown === 'object' && animalInventory.Unknown.total > 0)
+        )) {
+            hasUnknown = true;
+        }
+        
+        // Also check for locations with Unknown animals
+        if (!hasUnknown) {
+            Object.entries(animalInventory).forEach(([category, data]) => {
+                if (category === 'Unknown' || (
+                    typeof data === 'object' && 
+                    data.locations && 
+                    Object.keys(data.locations).some(loc => loc === 'Unknown')
+                )) {
+                    hasUnknown = true;
+                }
+            });
+        }
+        
+        if (!hasUnknown) {
+            alert('No Unknown categories found in your inventory.');
+            return;
+        }
+        
+        // Get available locations from inventory
+        const availableLocations = extractUniqueLocationsFromInventory();
+        
+        // Create a popup to assign proper categories
+        const popup = createPopup(`
+            <div class="popup-content">
+                <h3>Fix Unknown Categories</h3>
+                <p>Assign proper categories to animals currently listed as "Unknown".</p>
+                
+                <div id="unknown-items-list">
+                    <div class="loading">Loading Unknown categories...</div>
+                </div>
+                
+                <form id="fix-unknown-form">
+                    <div class="form-actions">
+                        <button type="button" class="cancel-btn">Cancel</button>
+                        <button type="submit" class="save-btn">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        `);
+        
+        // Generate list of unknown items
+        const unknownItemsList = popup.querySelector('#unknown-items-list');
+        let unknownItemsHTML = '<table class="unknown-items-table"><thead><tr><th>Location</th><th>Count</th><th>New Category</th></tr></thead><tbody>';
+        let itemCounter = 0;
+        
+        // Process all inventory for unknown items
+        Object.entries(animalInventory).forEach(([category, data]) => {
+            if (category === 'Unknown') {
+                // Handle Old format (just a number)
+                if (typeof data === 'number') {
+                    unknownItemsHTML += `
+                        <tr data-item-id="${itemCounter}">
+                            <td>Unspecified</td>
+                            <td>${data}</td>
+                            <td>
+                                <select name="new-category-${itemCounter}" class="new-category" required>
+                                    <option value="" disabled selected>Select category</option>
+                                    ${getAnimalCategories().filter(cat => cat !== 'Unknown').map(cat => 
+                                        `<option value="${cat}">${cat}</option>`
+                                    ).join('')}
+                                    <option value="new">+ Add New Category</option>
+                                </select>
+                                <input type="text" name="new-category-name-${itemCounter}" class="new-category-name" style="display:none;" placeholder="Enter new category name">
+                                <input type="hidden" name="location-${itemCounter}" value="Unspecified">
+                                <input type="hidden" name="count-${itemCounter}" value="${data}">
+                                <input type="hidden" name="is-unknown-category-${itemCounter}" value="true">
+                            </td>
+                        </tr>
+                    `;
+                    itemCounter++;
+                }
+                // Handle new format with locations
+                else if (typeof data === 'object' && data.locations) {
+                    Object.entries(data.locations).forEach(([location, count]) => {
+                        unknownItemsHTML += `
+                            <tr data-item-id="${itemCounter}">
+                                <td>${location}</td>
+                                <td>${count}</td>
+                                <td>
+                                    <select name="new-category-${itemCounter}" class="new-category" required>
+                                        <option value="" disabled selected>Select category</option>
+                                        ${getAnimalCategories().filter(cat => cat !== 'Unknown').map(cat => 
+                                            `<option value="${cat}">${cat}</option>`
+                                        ).join('')}
+                                        <option value="new">+ Add New Category</option>
+                                    </select>
+                                    <input type="text" name="new-category-name-${itemCounter}" class="new-category-name" style="display:none;" placeholder="Enter new category name">
+                                    <input type="hidden" name="location-${itemCounter}" value="${location}">
+                                    <input type="hidden" name="count-${itemCounter}" value="${count}">
+                                    <input type="hidden" name="is-unknown-category-${itemCounter}" value="true">
+                                </td>
+                            </tr>
+                        `;
+                        itemCounter++;
+                    });
+                }
+            }
+            
+            // Also check for Unknown locations within known categories
+            if (typeof data === 'object' && data.locations && data.locations['Unknown']) {
+                unknownItemsHTML += `
+                    <tr data-item-id="${itemCounter}">
+                        <td>Unknown (in ${category})</td>
+                        <td>${data.locations['Unknown']}</td>
+                        <td>
+                            <select name="new-location-${itemCounter}" class="new-location" required>
+                                <option value="" disabled selected>Select location</option>
+                                ${availableLocations.filter(loc => loc !== 'Unknown').map(loc => 
+                                    `<option value="${loc}">${loc}</option>`
+                                ).join('')}
+                                <option value="new">+ Add New Location</option>
+                            </select>
+                            <input type="text" name="new-location-name-${itemCounter}" class="new-location-name" style="display:none;" placeholder="Enter new location name">
+                            <input type="hidden" name="category-${itemCounter}" value="${category}">
+                            <input type="hidden" name="count-${itemCounter}" value="${data.locations['Unknown']}">
+                            <input type="hidden" name="is-unknown-location-${itemCounter}" value="true">
+                        </td>
+                    </tr>
+                `;
+                itemCounter++;
+            }
+        });
+        
+        unknownItemsHTML += '</tbody></table>';
+        unknownItemsList.innerHTML = unknownItemsHTML;
+        
+        // Handle select changes for new category / new location inputs
+        popup.querySelectorAll('.new-category').forEach(select => {
+            select.addEventListener('change', function() {
+                const itemId = this.closest('tr').dataset.itemId;
+                const newCategoryNameInput = popup.querySelector(`input[name="new-category-name-${itemId}"]`);
+                
+                if (this.value === 'new') {
+                    newCategoryNameInput.style.display = 'block';
+                    newCategoryNameInput.required = true;
+                    newCategoryNameInput.focus();
+                } else {
+                    newCategoryNameInput.style.display = 'none';
+                    newCategoryNameInput.required = false;
+                }
+            });
+        });
+        
+        popup.querySelectorAll('.new-location').forEach(select => {
+            select.addEventListener('change', function() {
+                const itemId = this.closest('tr').dataset.itemId;
+                const newLocationNameInput = popup.querySelector(`input[name="new-location-name-${itemId}"]`);
+                
+                if (this.value === 'new') {
+                    newLocationNameInput.style.display = 'block';
+                    newLocationNameInput.required = true;
+                    newLocationNameInput.focus();
+                } else {
+                    newLocationNameInput.style.display = 'none';
+                    newLocationNameInput.required = false;
+                }
+            });
+        });
+        
+        // Handle form submission
+        const form = popup.querySelector('form');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Create a copy of the current inventory to modify
+            const updatedInventory = JSON.parse(JSON.stringify(animalInventory));
+            
+            // Process each item
+            for (let i = 0; i < itemCounter; i++) {
+                // Process unknown categories
+                if (popup.querySelector(`input[name="is-unknown-category-${i}"]`)) {
+                    const categorySelect = popup.querySelector(`select[name="new-category-${i}"]`);
+                    const newCategoryNameInput = popup.querySelector(`input[name="new-category-name-${i}"]`);
+                    const location = popup.querySelector(`input[name="location-${i}"]`).value;
+                    const count = parseInt(popup.querySelector(`input[name="count-${i}"]`).value);
+                    
+                    let newCategory;
+                    if (categorySelect.value === 'new') {
+                        newCategory = newCategoryNameInput.value.trim();
+                        if (!newCategory) {
+                            alert('Please enter a category name');
+                            return;
+                        }
+                        
+                        // Add to categories if not already there
+                        if (!animalCategories.includes(newCategory)) {
+                            animalCategories.push(newCategory);
+                        }
+                    } else {
+                        newCategory = categorySelect.value;
+                    }
+                    
+                    // Remove from Unknown
+                    if (typeof updatedInventory.Unknown === 'number') {
+                        // Old format
+                        updatedInventory.Unknown -= count;
+                        if (updatedInventory.Unknown <= 0) {
+                            delete updatedInventory.Unknown;
+                        }
+                    } else if (updatedInventory.Unknown && updatedInventory.Unknown.locations) {
+                        // New format
+                        updatedInventory.Unknown.total -= count;
+                        updatedInventory.Unknown.locations[location] -= count;
+                        
+                        if (updatedInventory.Unknown.locations[location] <= 0) {
+                            delete updatedInventory.Unknown.locations[location];
+                        }
+                        
+                        if (Object.keys(updatedInventory.Unknown.locations).length === 0 || updatedInventory.Unknown.total <= 0) {
+                            delete updatedInventory.Unknown;
+                        }
+                    }
+                    
+                    // Add to new category
+                    if (!updatedInventory[newCategory]) {
+                        // Initialize with new format
+                        updatedInventory[newCategory] = {
+                            total: count,
+                            locations: {
+                                [location]: count
+                            }
+                        };
+                    } else {
+                        // Add to existing category
+                        if (typeof updatedInventory[newCategory] === 'number') {
+                            // Convert old format to new
+                            updatedInventory[newCategory] = {
+                                total: updatedInventory[newCategory] + count,
+                                locations: {
+                                    'Unspecified': updatedInventory[newCategory]
+                                }
+                            };
+                            
+                            // Add location if different from Unspecified
+                            if (location !== 'Unspecified') {
+                                updatedInventory[newCategory].locations[location] = count;
+                            } else {
+                                updatedInventory[newCategory].locations.Unspecified += count;
+                            }
+                        } else {
+                            // Update existing object format
+                            updatedInventory[newCategory].total += count;
+                            
+                            if (!updatedInventory[newCategory].locations[location]) {
+                                updatedInventory[newCategory].locations[location] = 0;
+                            }
+                            updatedInventory[newCategory].locations[location] += count;
+                        }
+                    }
+                }
+                
+                // Process unknown locations
+                if (popup.querySelector(`input[name="is-unknown-location-${i}"]`)) {
+                    const locationSelect = popup.querySelector(`select[name="new-location-${i}"]`);
+                    const newLocationNameInput = popup.querySelector(`input[name="new-location-name-${i}"]`);
+                    const category = popup.querySelector(`input[name="category-${i}"]`).value;
+                    const count = parseInt(popup.querySelector(`input[name="count-${i}"]`).value);
+                    
+                    let newLocation;
+                    if (locationSelect.value === 'new') {
+                        newLocation = newLocationNameInput.value.trim();
+                        if (!newLocation) {
+                            alert('Please enter a location name');
+                            return;
+                        }
+                        
+                        // Add to farm properties if not already there
+                        if (!farmProperties.includes(newLocation)) {
+                            farmProperties.push(newLocation);
+                            await saveProperties();
+                        }
+                    } else {
+                        newLocation = locationSelect.value;
+                    }
+                    
+                    // Move from Unknown location to new location
+                    const categoryData = updatedInventory[category];
+                    if (categoryData && categoryData.locations && categoryData.locations.Unknown) {
+                        // Subtract from Unknown location
+                        categoryData.locations.Unknown -= count;
+                        if (categoryData.locations.Unknown <= 0) {
+                            delete categoryData.locations.Unknown;
+                        }
+                        
+                        // Add to new location
+                        if (!categoryData.locations[newLocation]) {
+                            categoryData.locations[newLocation] = 0;
+                        }
+                        categoryData.locations[newLocation] += count;
+                    }
+                }
+            }
+            
+            // Update both animal categories and inventory
+            await mobileStorage.setItem('animalCategories', JSON.stringify(animalCategories));
+            await mobileStorage.setItem('animalInventory', JSON.stringify(updatedInventory));
+            
+            // Update local state
+            animalInventory = updatedInventory;
+            
+            // Add an activity to record this change
+            const activity = {
+                type: 'data-correction',
+                description: 'Fixed Unknown categories in inventory',
+                date: new Date().toISOString().split('T')[0],
+                timestamp: new Date().toISOString()
+            };
+            recentActivities.unshift(activity);
+            await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+            
+            // Update display
+            updateDisplays();
+            
+            // Show success message and close popup
+            alert('Unknown categories have been successfully fixed.');
+            popup.remove();
+        });
+        
+        // Cancel button
+        popup.querySelector('.cancel-btn').addEventListener('click', () => {
+            popup.remove();
+        });
     }
 }); 
