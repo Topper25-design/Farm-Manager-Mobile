@@ -29,6 +29,27 @@ jobs:
       - name: Ensure www Directory Exists
         run: mkdir -p ./www
       
+      - name: Debug - List Directory Contents
+        run: |
+          echo "Listing workspace contents:"
+          ls -la
+          echo "Listing www directory contents:"
+          ls -la ./www
+      
+      - name: Copy necessary files if www is empty
+        run: |
+          if [ -z "$(ls -A ./www)" ]; then
+            echo "www directory is empty, copying files from project root"
+            cp -r ./index.html ./css ./js ./images ./assets ./www/ 2>/dev/null || true
+          else
+            echo "www directory already has content"
+          fi
+
+      - name: Debug - Verify www Contents After Copy
+        run: |
+          echo "Listing www directory contents after potential copy:"
+          ls -la ./www
+      
       - name: Setup Pages
         uses: actions/configure-pages@v4
         
