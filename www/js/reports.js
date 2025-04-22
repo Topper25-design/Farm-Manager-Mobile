@@ -827,7 +827,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     reportHTML = createFeedInventoryTable(reportData);
                     break;
                 
-                // Animal reports
+                // Animal reports - these return complete report HTML with buttons already included
                 case 'all-animal':
                     console.log('Creating all animal report table with data:', reportData);
                     reportHTML = createAllAnimalReportTable(reportData);
@@ -888,7 +888,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 reportSubtitle,
                 dateRangeText,
                 reportHTML,
-                null // No summary data for now
+                null, // No summary data for now
+                false, // Not demo data
+                reportType // Pass the report type for the export button
             );
             
             return finalReportHTML;
@@ -1167,6 +1169,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="report-summary">
                         <p>No animal data found for the selected period.</p>
                     </div>
+                    <div class="report-actions">
+                        <button onclick="window.print()" class="print-button">Print Report</button>
+                        <button onclick="exportReportToCSV('all-animal')" class="export-button">Export to CSV</button>
+                    </div>
                 </div>
                 <div class="empty-state">
                     <h3>No Animal Data Available</h3>
@@ -1201,6 +1207,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     ${Object.entries(transactionCounts).map(([type, count]) => 
                         `<p>${type.charAt(0).toUpperCase() + type.slice(1)}: ${count} transaction${count !== 1 ? 's' : ''}</p>`
                     ).join('\n')}
+                </div>
+                <div class="report-actions">
+                    <button onclick="window.print()" class="print-button">Print Report</button>
+                    <button onclick="exportReportToCSV('all-animal')" class="export-button">Export to CSV</button>
                 </div>
             </div>
         `;
@@ -1581,6 +1591,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="report-header">
                     <div class="report-type-header">
                         <div class="report-type-title">Feed Inventory Report</div>
+                        <div class="report-actions">
+                            <button onclick="window.print()" class="print-button">Print Report</button>
+                            <button onclick="exportReportToCSV('feed-inventory')" class="export-button">Export to CSV</button>
+                        </div>
                     </div>
                     <div class="report-summary">
                         <p>No feed inventory data found. To view this report, please add feed items to your inventory.</p>
