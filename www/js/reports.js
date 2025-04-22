@@ -675,7 +675,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             return true;
         }
         
-        // Debug log for report data
+        // For array data (common in feed reports), check array length
+        if (Array.isArray(reportData)) {
+            const isEmpty = reportData.length === 0;
+            console.log(`${reportType} report: Array data with ${reportData.length} items. Empty: ${isEmpty}`);
+            return isEmpty;
+        }
+        
+        // Debug log for object report data
         if (typeof reportData === 'object') {
             console.log(`${reportType} report data contains:`, 
                 reportData.inventory ? `inventory (${Array.isArray(reportData.inventory) ? 
@@ -710,6 +717,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log(`${reportType} report: No valid data found`);
         }
         
+        // For all-feed and feed-* reports
+        if (reportType === 'all-feed' || reportType.startsWith('feed-')) {
+            // If it's not an array (already checked above), check for transactions
+            if (reportData.transactions && reportData.transactions.length > 0) {
+                return false;
+            }
+            
+            // Check for inventory array
+            if (reportData.inventory && reportData.inventory.length > 0) {
+                return false;
+            }
+            
+            // Check for feedInventory (used in feed-inventory report)
+            if (reportData.feedInventory && reportData.feedInventory.length > 0) {
+                return false;
+            }
+            
+            // Check for calculations array
+            if (reportData.calculations && reportData.calculations.length > 0) {
+                return false;
+            }
+        }
+        
         // For animal reports
         if (reportType.startsWith('animal-')) {
             // Check for transactions array
@@ -727,24 +757,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (typeof reportData.inventory === 'object' && Object.keys(reportData.inventory).length > 0) {
                     return false;
                 }
-            }
-        }
-        
-        // For feed reports
-        if (reportType.startsWith('feed-')) {
-            // Check for transactions array
-            if (reportData.transactions && reportData.transactions.length > 0) {
-                return false;
-            }
-            
-            // Check for inventory array
-            if (reportData.inventory && reportData.inventory.length > 0) {
-                return false;
-            }
-            
-            // Check for calculations array
-            if (reportData.calculations && reportData.calculations.length > 0) {
-                return false;
             }
         }
         
@@ -1058,6 +1070,29 @@ document.addEventListener('DOMContentLoaded', async () => {
      * @returns {string} HTML for the report
      */
     function createAllFeedReportTable(data) {
+        // Check if data is empty or null
+        if (!data || data.length === 0) {
+            return `
+                <div class="report-header">
+                    <div class="report-type-header">
+                        <div class="report-type-title">All Feed Transactions Report</div>
+                        <div class="report-actions">
+                            <button onclick="window.print()" class="print-button">Print Report</button>
+                            <button onclick="exportReportToCSV('all-feed')" class="export-button">Export to CSV</button>
+                        </div>
+                    </div>
+                    <div class="report-summary">
+                        <p>No feed data found for the selected period.</p>
+                    </div>
+                </div>
+                <div class="empty-state">
+                    <h3>No Feed Data Available</h3>
+                    <p>There are no feed records in the system for the selected date range.</p>
+                    <p>Try adding some feed transactions first, or select a different date range.</p>
+                </div>
+            `;
+        }
+        
         // Calculate summary statistics
         const purchaseCount = data.filter(t => t.type === 'purchase').length;
         const usageCount = data.filter(t => t.type === 'usage').length;
