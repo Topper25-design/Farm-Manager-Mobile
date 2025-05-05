@@ -761,7 +761,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         // For health reports
-        if (reportType.startsWith('health-')) {
+        if (reportType === 'all-health' || reportType.startsWith('health-')) {
             // Check for records array
             if (reportData.records && reportData.records.length > 0) {
                 return false;
@@ -773,20 +773,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (reportData.medications && reportData.medications.length > 0) return false;
             
             // Check within data objects
-            if (reportData.treatmentData && reportData.treatmentData.treatments && 
-                reportData.treatmentData.treatments.length > 0) {
+            if (reportData.treatmentData && reportData.treatmentData.records && 
+                reportData.treatmentData.records.length > 0) {
                 return false;
             }
             
-            if (reportData.vaccinationData && reportData.vaccinationData.vaccinations && 
-                reportData.vaccinationData.vaccinations.length > 0) {
+            if (reportData.vaccinationData && reportData.vaccinationData.records && 
+                reportData.vaccinationData.records.length > 0) {
                 return false;
             }
             
-            if (reportData.medicationData && reportData.medicationData.medications && 
-                reportData.medicationData.medications.length > 0) {
+            if (reportData.medicationData && reportData.medicationData.records && 
+                reportData.medicationData.records.length > 0) {
                 return false;
             }
+            
+            // Log what we found for debugging
+            console.log('Health report data check:', {
+                hasRecords: reportData.records && reportData.records.length > 0,
+                hasTreatments: reportData.treatments && reportData.treatments.length > 0,
+                hasVaccinations: reportData.vaccinations && reportData.vaccinations.length > 0,
+                hasMedications: reportData.medications && reportData.medications.length > 0,
+                hasTreatmentData: reportData.treatmentData && reportData.treatmentData.records && reportData.treatmentData.records.length > 0,
+                hasVaccinationData: reportData.vaccinationData && reportData.vaccinationData.records && reportData.vaccinationData.records.length > 0,
+                hasMedicationData: reportData.medicationData && reportData.medicationData.records && reportData.medicationData.records.length > 0
+            });
         }
         
         // If we get here, the data is empty
