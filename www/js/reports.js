@@ -835,19 +835,59 @@ document.addEventListener('DOMContentLoaded', async () => {
             switch (reportType) {
                 // Feed reports
                 case 'feed-calculation':
-                    reportHTML = createFeedCalculationTable(reportData, filters);
+                    const feedCalcResult = createFeedCalculationTable(reportData, filters);
+                    reportHTML = createStandardReportStructure(
+                        reportTitle,
+                        reportSubtitle,
+                        dateRangeText,
+                        feedCalcResult.html,
+                        feedCalcResult.summaryData,
+                        false,
+                        reportType
+                    );
+                    return reportHTML;
                     break;
                 case 'all-feed':
                     reportHTML = createAllFeedReportTable(reportData);
                     break;
                 case 'feed-purchase':
-                    reportHTML = createFeedPurchaseTable(reportData);
+                    const feedPurchaseResult = createFeedPurchaseTable(reportData);
+                    reportHTML = createStandardReportStructure(
+                        reportTitle,
+                        reportSubtitle,
+                        dateRangeText,
+                        feedPurchaseResult.html,
+                        feedPurchaseResult.summaryData,
+                        false,
+                        reportType
+                    );
+                    return reportHTML;
                     break;
                 case 'feed-usage':
-                    reportHTML = createFeedUsageTable(reportData);
+                    const feedUsageResult = createFeedUsageTable(reportData);
+                    reportHTML = createStandardReportStructure(
+                        reportTitle,
+                        reportSubtitle,
+                        dateRangeText,
+                        feedUsageResult.html,
+                        feedUsageResult.summaryData,
+                        false,
+                        reportType
+                    );
+                    return reportHTML;
                     break;
                 case 'feed-inventory':
-                    reportHTML = createFeedInventoryTable(reportData);
+                    const feedInventoryResult = createFeedInventoryTable(reportData);
+                    reportHTML = createStandardReportStructure(
+                        reportTitle,
+                        reportSubtitle,
+                        dateRangeText,
+                        feedInventoryResult.html,
+                        feedInventoryResult.summaryData,
+                        false,
+                        reportType
+                    );
+                    return reportHTML;
                     break;
                 
                 // Animal reports - these return complete report HTML with buttons already included
@@ -925,22 +965,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Helper function to create the feed calculation table - extracted from handleGenerateReport
     function createFeedCalculationTable(feedCalculations, filters) {
-        let reportHTML = `
-            <div class="report-header">
-                <div class="report-type-header">
-                    <div class="report-type-title">Feed Calculations Report</div>
-                    <div class="report-actions">
-                        <button onclick="window.print()" class="print-button">Print Report</button>
-                        <button onclick="exportReportToCSV('feed-calculations')" class="export-button">Export to CSV</button>
+        if (!feedCalculations || feedCalculations.length === 0) {
+            return {
+                html: `
+                    <div class="empty-state">
+                        <h3>No Feed Calculations Available</h3>
+                        <p>There are no feed calculations in the system for the selected date range.</p>
+                        <p>Try adding some feed calculations first, or select a different date range.</p>
                     </div>
-                </div>
-                <div class="report-summary">
-                    <p>Report date range: ${formatDateRange(filters.dateRange.start, filters.dateRange.end)}</p>
-                    <p>Total number of calculations: ${feedCalculations.length}</p>
-                    <p>Total feed cost: ${formatCurrency(feedCalculations.reduce((sum, calc) => sum + (calc.totalCost || 0), 0))}</p>
-                </div>
-            </div>
-            
+                `,
+                summaryData: null
+            };
+        }
+
+        const totalCost = feedCalculations.reduce((sum, calc) => sum + (calc.totalCost || 0), 0);
+
+        // Create summary data
+        const summaryData = {
+            'Report date range': formatDateRange(filters.dateRange.start, filters.dateRange.end),
+            'Total number of calculations': feedCalculations.length,
+            'Total feed cost': formatCurrency(totalCost)
+        };
+        
+        let reportHTML = `
             <div class="report-section">
                 <h3>Feed Calculations</h3>
         `;
@@ -1052,7 +1099,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         
         // Add totals row
-        const totalCost = feedCalculations.reduce((sum, calc) => sum + (calc.totalCost || 0), 0);
         reportHTML += `
                 <tr class="total-row">
                     <td colspan="8" class="text-right"><strong>Total Cost:</strong></td>
@@ -1072,7 +1118,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
         `;
         
-        return reportHTML;
+        return {
+            html: reportHTML,
+            summaryData: summaryData
+        };
     }
     
     /**
@@ -1635,25 +1684,16 @@ document.addEventListener('DOMContentLoaded', async () => {
      */
     function createFeedInventoryTable(data) {
         if (!data || !data.feedInventory || data.feedInventory.length === 0) {
-            return `
-                <div class="report-header">
-                    <div class="report-type-header">
-                        <div class="report-type-title">Feed Inventory Report</div>
-                        <div class="report-actions">
-                            <button onclick="window.print()" class="print-button">Print Report</button>
-                            <button onclick="exportReportToCSV('feed-inventory')" class="export-button">Export to CSV</button>
-                        </div>
+            return {
+                html: `
+                    <div class="empty-state">
+                        <h3>No Feed Inventory Data Available</h3>
+                        <p>There are no feed inventory records in the system for the selected date range.</p>
+                        <p>Try adding some feed inventory records first, or select a different date range.</p>
                     </div>
-                    <div class="report-summary">
-                        <p>No feed inventory data found for the selected period.</p>
-                    </div>
-                </div>
-                <div class="empty-state">
-                    <h3>No Feed Inventory Data Available</h3>
-                    <p>There are no feed inventory records in the system for the selected date range.</p>
-                    <p>Try adding some feed inventory records first, or select a different date range.</p>
-                </div>
-            `;
+                `,
+                summaryData: null
+            };
         }
         
         // Calculate total inventory value
@@ -1667,24 +1707,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sortedInventory = [...data.feedInventory].sort((a, b) => {
             return (a.feedType || 'Unknown').localeCompare(b.feedType || 'Unknown');
         });
+
+        // Create summary data
+        const summaryData = {
+            'Total feed items': data.feedInventory.length,
+            'Total inventory value': formatCurrency(totalValue),
+            'Recent transactions': data.feedTransactions ? data.feedTransactions.length : 0
+        };
         
         // Create report HTML
         let reportHTML = `
-            <div class="report-header">
-                <div class="report-type-header">
-                    <div class="report-type-title">Feed Inventory Report</div>
-                    <div class="report-actions">
-                        <button onclick="window.print()" class="print-button">Print Report</button>
-                        <button onclick="exportReportToCSV('feed-inventory')" class="export-button">Export to CSV</button>
-                    </div>
-                </div>
-                <div class="report-summary">
-                    <p>Total feed items: ${data.feedInventory.length}</p>
-                    <p>Total inventory value: ${formatCurrency(totalValue)}</p>
-                    <p>Recent transactions: ${data.feedTransactions ? data.feedTransactions.length : 0}</p>
-                </div>
-            </div>
-            
             <div class="report-section">
                 <h3>Current Feed Inventory</h3>
                 <table class="report-table" id="feed-inventory-table">
@@ -1802,7 +1834,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
         }
         
-        return reportHTML;
+        return {
+            html: reportHTML,
+            summaryData: summaryData
+        };
     }
     
     /**
@@ -5095,25 +5130,16 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 function createFeedPurchaseTable(data) {
     if (!data || data.length === 0) {
-        return `
-            <div class="report-header">
-                <div class="report-type-header">
-                    <div class="report-type-title">Feed Purchase Report</div>
-                    <div class="report-actions">
-                        <button onclick="window.print()" class="print-button">Print Report</button>
-                        <button onclick="exportReportToCSV('feed-purchase')" class="export-button">Export to CSV</button>
-                    </div>
+        return {
+            html: `
+                <div class="empty-state">
+                    <h3>No Feed Purchase Data Available</h3>
+                    <p>There are no feed purchase records in the system for the selected date range.</p>
+                    <p>Try adding some feed purchases first, or select a different date range.</p>
                 </div>
-                <div class="report-summary">
-                    <p>No feed purchase data found for the selected period.</p>
-                </div>
-            </div>
-            <div class="empty-state">
-                <h3>No Feed Purchase Data Available</h3>
-                <p>There are no feed purchase records in the system for the selected date range.</p>
-                <p>Try adding some feed purchases first, or select a different date range.</p>
-            </div>
-        `;
+            `,
+            summaryData: null
+        };
     }
 
     // Calculate totals for summary
@@ -5166,24 +5192,16 @@ function createFeedPurchaseTable(data) {
     // Calculate average price per unit
     avgPrice = totalQuantity > 0 ? totalCost / totalQuantity : 0;
     
+    // Create summary data
+    const summaryData = {
+        'Total purchases': data.length,
+        'Total quantity': `${totalQuantity.toFixed(2)} units`,
+        'Total cost': formatCurrency(totalCost),
+        'Average price per unit': formatCurrency(avgPrice)
+    };
+    
     // Create report HTML
     let reportHTML = `
-        <div class="report-header">
-            <div class="report-type-header">
-                <div class="report-type-title">Feed Purchase Report</div>
-                <div class="report-actions">
-                    <button onclick="window.print()" class="print-button">Print Report</button>
-                    <button onclick="exportReportToCSV('feed-purchase')" class="export-button">Export to CSV</button>
-                </div>
-            </div>
-            <div class="report-summary">
-                <p>Total purchases: ${data.length}</p>
-                <p>Total quantity: ${totalQuantity.toFixed(2)} units</p>
-                <p>Total cost: ${formatCurrency(totalCost)}</p>
-                <p>Average price per unit: ${formatCurrency(avgPrice)}</p>
-            </div>
-        </div>
-        
         <div class="report-section">
             <h3>Purchase Transactions</h3>
             <table class="report-table" id="feed-purchase-table">
@@ -5269,7 +5287,10 @@ function createFeedPurchaseTable(data) {
     </div>
     `;
     
-    return reportHTML;
+    return {
+        html: reportHTML,
+        summaryData: summaryData
+    };
 }
 
 /**
@@ -5279,25 +5300,16 @@ function createFeedPurchaseTable(data) {
  */
 function createFeedUsageTable(data) {
     if (!data || data.length === 0) {
-        return `
-            <div class="report-header">
-                <div class="report-type-header">
-                    <div class="report-type-title">Feed Usage Report</div>
-                    <div class="report-actions">
-                        <button onclick="window.print()" class="print-button">Print Report</button>
-                        <button onclick="exportReportToCSV('feed-usage')" class="export-button">Export to CSV</button>
-                    </div>
+        return {
+            html: `
+                <div class="empty-state">
+                    <h3>No Feed Usage Data Available</h3>
+                    <p>There are no feed usage records in the system for the selected date range.</p>
+                    <p>Try adding some feed usage records first, or select a different date range.</p>
                 </div>
-                <div class="report-summary">
-                    <p>No feed usage data found for the selected period.</p>
-                </div>
-            </div>
-            <div class="empty-state">
-                <h3>No Feed Usage Data Available</h3>
-                <p>There are no feed usage records in the system for the selected date range.</p>
-                <p>Try adding some feed usage records first, or select a different date range.</p>
-            </div>
-        `;
+            `,
+            summaryData: null
+        };
     }
 
     // Calculate totals for summary
@@ -5345,24 +5357,16 @@ function createFeedUsageTable(data) {
         feedTypeStats[feedType].totalQuantity += quantity;
         feedTypeStats[feedType].totalCost += cost;
     });
+
+    // Create summary data
+    const summaryData = {
+        'Total usage records': data.length,
+        'Total quantity used': `${totalQuantity.toFixed(2)} units`,
+        'Total cost': formatCurrency(totalCost)
+    };
     
     // Create report HTML
     let reportHTML = `
-        <div class="report-header">
-            <div class="report-type-header">
-                <div class="report-type-title">Feed Usage Report</div>
-                <div class="report-actions">
-                    <button onclick="window.print()" class="print-button">Print Report</button>
-                    <button onclick="exportReportToCSV('feed-usage')" class="export-button">Export to CSV</button>
-                </div>
-            </div>
-            <div class="report-summary">
-                <p>Total usage records: ${data.length}</p>
-                <p>Total quantity used: ${totalQuantity.toFixed(2)} units</p>
-                <p>Total cost: ${formatCurrency(totalCost)}</p>
-            </div>
-        </div>
-        
         <div class="report-section">
             <h3>Usage Transactions</h3>
             <table class="report-table" id="feed-usage-table">
@@ -5482,7 +5486,10 @@ function createFeedUsageTable(data) {
     </div>
     `;
     
-    return reportHTML;
+    return {
+        html: reportHTML,
+        summaryData: summaryData
+    };
 }
 
 /**
@@ -5613,3 +5620,33 @@ function updateAnimalDataLoaders() {
         }
     });
 }
+
+// Make createStandardReportStructure available globally
+window.createStandardReportStructure = createStandardReportStructure;
+
+function formatDate(date) {
+    if (!date) return 'N/A';
+    
+    try {
+        const dateObj = new Date(date);
+        
+        // Check if date is valid
+        if (isNaN(dateObj.getTime())) {
+            return 'Invalid date';
+        }
+        
+        // Format date as YYYY-MM-DD
+        return dateObj.toISOString().split('T')[0];
+    } catch (e) {
+        console.error('Error formatting date:', e);
+        return 'Error';
+    }
+}
+
+function formatDateRange(startDate, endDate) {
+    return `${formatDate(startDate)} to ${formatDate(endDate)}`;
+}
+
+// Make helper functions available globally
+window.formatDate = formatDate;
+window.formatDateRange = formatDateRange;
