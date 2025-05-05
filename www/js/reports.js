@@ -1106,7 +1106,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const totalPurchaseCost = data
             .filter(t => t.type === 'purchase')
             .reduce((sum, t) => {
-                // Try multiple properties where cost might be stored
                 const cost = t.totalPrice || t.cost || t.totalCost || 0;
                 return sum + parseFloat(cost);
             }, 0);
@@ -1115,12 +1114,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="report-header">
                 <div class="report-type-header">
                     <div class="report-type-title">All Feed Transactions Report</div>
-                    <div class="report-actions">
-                        <button onclick="window.print()" class="print-button">Print Report</button>
-                        <button onclick="exportReportToCSV('all-feed')" class="export-button">Export to CSV</button>
-                    </div>
                 </div>
-            <div class="report-summary">
+                <div class="report-summary">
                     <p>Total transactions: ${data.length}</p>
                     <p>Purchases: ${purchaseCount} transactions (${formatCurrency(totalPurchaseCost)})</p>
                     <p>Usage: ${usageCount} transactions</p>
@@ -1211,10 +1206,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="report-summary">
                         <p>No animal data found for the selected period.</p>
                     </div>
-                    <div class="report-actions">
-                        <button onclick="window.print()" class="print-button">Print Report</button>
-                        <button onclick="exportReportToCSV('all-animal')" class="export-button">Export to CSV</button>
-                    </div>
                 </div>
                 <div class="empty-state">
                     <h3>No Animal Data Available</h3>
@@ -1249,10 +1240,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     ${Object.entries(transactionCounts).map(([type, count]) => 
                         `<p>${type.charAt(0).toUpperCase() + type.slice(1)}: ${count} transaction${count !== 1 ? 's' : ''}</p>`
                     ).join('\n')}
-                </div>
-                <div class="report-actions">
-                    <button onclick="window.print()" class="print-button">Print Report</button>
-                    <button onclick="exportReportToCSV('all-animal')" class="export-button">Export to CSV</button>
                 </div>
             </div>
         `;
