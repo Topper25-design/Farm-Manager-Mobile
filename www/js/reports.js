@@ -1200,8 +1200,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!data || ((!data.transactions || data.transactions.length === 0) && 
                      (!data.inventory || (Array.isArray(data.inventory) && data.inventory.length === 0) || 
                      (typeof data.inventory === 'object' && Object.keys(data.inventory).length === 0)))) {
-            return `
-                <div class="report-header">
+            return createStandardReportStructure(
+                'All Animal Transactions Report',
+                'No Data Available',
+                '',
+                `<div class="report-header">
                     <h3>All Animal Transactions Report</h3>
                     <div class="report-summary">
                         <p>No animal data found for the selected period.</p>
@@ -1211,8 +1214,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <h3>No Animal Data Available</h3>
                     <p>There are no animal records in the system for the selected date range.</p>
                     <p>Try adding some animal transactions first, or select a different date range.</p>
-                </div>
-            `;
+                </div>`,
+                null,
+                false,
+                'all-animal'
+            );
         }
         
         const { inventory = [], transactions = [] } = data;
@@ -1224,11 +1230,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Count transaction types
         const transactionCounts = {};
         if (transactions && transactions.length > 0) {
-        transactions.forEach(tx => {
-            const type = tx.type || 'unknown';
-            transactionCounts[type] = (transactionCounts[type] || 0) + 1;
-        });
+            transactions.forEach(tx => {
+                const type = tx.type || 'unknown';
+                transactionCounts[type] = (transactionCounts[type] || 0) + 1;
+            });
         }
+        
+        // Create summary data for standardized report
+        const summaryData = {
+            'Total Animals': totalAnimals,
+            'Total Transactions': transactions ? transactions.length : 0,
+            ...transactionCounts
+        };
         
         // Create a more detailed and formatted table with proper field references
         let reportHTML = `
@@ -1465,7 +1478,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
         `;
         
-        return reportHTML;
+        // Return using standardized report structure
+        return createStandardReportStructure(
+            'All Animal Transactions Report',
+            'Record of All Animal Transactions',
+            data.dateRange ? formatDateRange(data.dateRange.start, data.dateRange.end) : '',
+            reportHTML,
+            summaryData,
+            false,
+            'all-animal'
+        );
     }
     
     /**
@@ -4000,19 +4022,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             'Animals affected': transactions.reduce((sum, t) => sum + (parseInt(t.quantity) || parseInt(t.count) || 0), 0)
         };
         
-        // Add report actions (print and export buttons)
-        const reportActionsHTML = `
-            <div class="report-actions">
-                <button onclick="window.print()" class="print-button">Print Report</button>
-                <button onclick="exportReportToCSV('animal-movement')" class="export-button">Export to CSV</button>
-            </div>
-        `;
-        
         // Create table HTML
         let tableHTML = `
             <div class="report-type-header">
                 <div class="report-type-title">Animal Movement Report</div>
-                ${reportActionsHTML}
             </div>
             <table class="report-table animal-report-table" id="animal-movement-table">
                 <thead>
