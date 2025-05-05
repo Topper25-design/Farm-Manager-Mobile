@@ -1087,10 +1087,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="report-header">
                     <div class="report-type-header">
                         <div class="report-type-title">All Feed Transactions Report</div>
-                        <div class="report-actions">
-                            <button onclick="window.print()" class="print-button">Print Report</button>
-                            <button onclick="exportReportToCSV('all-feed')" class="export-button">Export to CSV</button>
-                        </div>
                     </div>
                     <div class="report-summary">
                         <p>No feed data found for the selected period.</p>
