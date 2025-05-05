@@ -3876,8 +3876,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Add report actions
         const reportActions = `
             <div class="report-actions">
-                <button onclick="window.print()" class="print-button">Print Report</button>
-                <button onclick="exportReportToCSV('health-${reportSubtype}')" class="export-button">Export to CSV</button>
             </div>
         `;
         
