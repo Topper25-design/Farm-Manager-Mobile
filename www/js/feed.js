@@ -1,4 +1,142 @@
     // Setup keyboard detection for mobile devices
+// Global state variables
+let feedInventory;
+let feedCategories = [];
+let feedTransactions;
+let feedCalculations = [];
+let feedAlertThresholds;
+let feedUsageByAnimal;
+let recentActivities;
+let selectedCurrency;
+
+// Helper function to get feed categories
+async function getFeedCategories() {
+    try {
+        // Get categories from feed inventory first
+        const feedInventoryStr = await mobileStorage.getItem('feedInventory');
+        console.log('[DEBUG] Raw feed inventory from storage:', feedInventoryStr);
+        
+        if (feedInventoryStr) {
+            try {
+                const inventoryEntries = JSON.parse(feedInventoryStr);
+                console.log('[DEBUG] Parsed feed inventory:', inventoryEntries);
+                if (Array.isArray(inventoryEntries)) {
+                    // Extract category names from inventory
+                    const categories = inventoryEntries.map(entry => entry[0]);
+                    console.log('[DEBUG] Extracted feed categories:', categories);
+                    return categories;
+                }
+            } catch (parseError) {
+                console.error('[DEBUG] Error parsing feed inventory:', parseError);
+            }
+        }
+        
+        // If no categories found in inventory, return empty array
+        console.log('[DEBUG] No feed categories found in inventory');
+        return [];
+    } catch (error) {
+        console.error('[DEBUG] Error getting feed categories:', error);
+        return [];
+    }
+}
+
+// Helper function to get animal categories (all categories recorded on the system, same as Animals page)
+async function getAnimalCategories() {
+    try {
+        const categoriesSet = new Set();
+        
+        // 1. Use the canonical list from the Animals page (animalCategories)
+        const categoriesStr = await mobileStorage.getItem('animalCategories');
+        if (categoriesStr) {
+            try {
+                const parsed = JSON.parse(categoriesStr);
+                if (Array.isArray(parsed)) {
+                    parsed.forEach(c => { if (c && typeof c === 'string') categoriesSet.add(c.trim()); });
+                }
+            } catch (e) {
+                console.error('[DEBUG] Error parsing animalCategories:', e);
+            }
+        }
+        
+        // 2. Add any categories from animal inventory (in case some exist there but not in animalCategories)
+        const animalInventoryStr = await mobileStorage.getItem('animalInventory');
+        if (animalInventoryStr) {
+            try {
+                const inventory = JSON.parse(animalInventoryStr);
+                if (typeof inventory === 'object' && inventory !== null) {
+                    Object.keys(inventory).forEach(c => { if (c && typeof c === 'string') categoriesSet.add(c.trim()); });
+                }
+            } catch (e) {
+                console.error('[DEBUG] Error parsing animal inventory:', e);
+            }
+        }
+        
+        // 3. Add any from feed usage by animal (categories that have had feed used for them)
+        const feedUsageStr = await mobileStorage.getItem('feedUsageByAnimal');
+        if (feedUsageStr) {
+            try {
+                const usageEntries = JSON.parse(feedUsageStr);
+                if (Array.isArray(usageEntries)) {
+                    usageEntries.forEach(entry => { if (entry && entry[0]) categoriesSet.add(String(entry[0]).trim()); });
+                } else if (typeof usageEntries === 'object') {
+                    Object.keys(usageEntries).forEach(c => { if (c) categoriesSet.add(String(c).trim()); });
+                }
+            } catch (parseError) {
+                console.error('[DEBUG] Error parsing feed usage:', parseError);
+            }
+        }
+        
+        const categories = Array.from(categoriesSet).filter(Boolean).sort();
+        console.log('[DEBUG] Animal categories for Used for dropdown:', categories);
+        return categories;
+    } catch (error) {
+        console.error('[DEBUG] Error getting animal categories:', error);
+        return [];
+    }
+}
+
+// Helper function to generate options for animal categories
+async function getAnimalCategoriesOptions() {
+    try {
+        // Get actual categories from storage
+        const categories = await getAnimalCategories();
+        return categories.map(category => 
+            `<option value="${category}">${category}</option>`
+        ).join('');
+    } catch (error) {
+        console.error('Error generating animal category options:', error);
+        return ''; // Return empty string if there's an error
+    }
+}
+
+// Helper function to generate options for feed categories
+async function getFeedCategoriesOptions() {
+    const categories = await getFeedCategories();
+    return categories.map(category => 
+        `<option value="${category}">${category}</option>`
+    ).join('');
+}
+
+// Add form validation function
+function validateForm(form) {
+    // Check all visible required fields are filled
+    const visibleRequiredFields = Array.from(form.querySelectorAll('input[required]:not([disabled]), select[required]:not([disabled]), textarea[required]:not([disabled])'));
+    
+    for (const field of visibleRequiredFields) {
+        // Skip hidden fields
+        if (field.closest('.form-group').style.display === 'none') {
+            continue;
+        }
+        
+        if (!field.value) {
+            field.focus();
+            return false;
+        }
+    }
+    
+    return true;
+}
+
 function setupKeyboardDetection() {
     // For iOS using visual viewport API
     if (window.visualViewport) {
@@ -89,14 +227,139 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupKeyboardDetection();
     
     // Initialize state
-    let feedInventory = new Map(JSON.parse(await mobileStorage.getItem('feedInventory') || '[]'));
-    let feedCategories = JSON.parse(await mobileStorage.getItem('feedCategories') || '[]');
-    let feedTransactions = JSON.parse(await mobileStorage.getItem('feedTransactions') || '[]');
-    let feedCalculations = JSON.parse(await mobileStorage.getItem('feedCalculations') || '[]');
-    let feedAlertThresholds = new Map(JSON.parse(await mobileStorage.getItem('feedAlertThresholds') || '[]'));
-    let feedUsageByAnimal = new Map(JSON.parse(await mobileStorage.getItem('feedUsageByAnimal') || '[]'));
-    let recentActivities = JSON.parse(await mobileStorage.getItem('recentActivities') || '[]');
-    let selectedCurrency = await mobileStorage.getItem('selectedCurrency') || 'ZAR';
+    try {
+        console.log('Starting feed management initialization...');
+        
+        const feedInventoryStr = await mobileStorage.getItem('feedInventory');
+        console.log('Feed inventory from storage:', feedInventoryStr);
+        
+        if (feedInventoryStr) {
+            try {
+                const parsed = JSON.parse(feedInventoryStr);
+                console.log('Parsed feed inventory:', parsed);
+                if (Array.isArray(parsed)) {
+                    feedInventory = new Map(parsed);
+                    // Extract feed categories from inventory
+                    feedCategories = parsed.map(entry => entry[0]);
+                } else if (typeof parsed === 'object') {
+                    feedInventory = new Map(Object.entries(parsed));
+                    // Extract feed categories from inventory
+                    feedCategories = Object.keys(parsed);
+                } else {
+                    feedInventory = new Map();
+                    feedCategories = [];
+                }
+                console.log('Initialized feed inventory:', Array.from(feedInventory.entries()));
+                console.log('Initialized feed categories:', feedCategories);
+            } catch (parseError) {
+                console.warn('Error parsing feed inventory:', parseError);
+                feedInventory = new Map();
+                feedCategories = [];
+            }
+        } else {
+            feedInventory = new Map();
+            feedCategories = [];
+        }
+
+        // Load feed transactions
+        const feedTransactionsStr = await mobileStorage.getItem('feedTransactions');
+        feedTransactions = feedTransactionsStr ? JSON.parse(feedTransactionsStr) : [];
+        
+        // Load feed calculations with validation
+        const feedCalculationsStr = await mobileStorage.getItem('feedCalculations');
+        console.log('[DEBUG] Loading feed calculations from storage:', feedCalculationsStr);
+        
+        if (feedCalculationsStr) {
+            try {
+                const parsed = JSON.parse(feedCalculationsStr);
+                console.log('[DEBUG] Parsed feed calculations:', parsed);
+                if (Array.isArray(parsed)) {
+                    feedCalculations = parsed;
+                } else {
+                    console.warn('Feed calculations data is not an array, resetting to empty array');
+                    feedCalculations = [];
+                }
+            } catch (parseError) {
+                console.error('Error parsing feed calculations:', parseError);
+                feedCalculations = [];
+            }
+        } else {
+            console.log('No feed calculations found in storage, using empty array');
+            feedCalculations = [];
+        }
+        console.log('[DEBUG] Initialized feed calculations:', feedCalculations);
+        
+        const feedAlertThresholdsStr = await mobileStorage.getItem('feedAlertThresholds');
+        console.log('Feed alert thresholds from storage:', feedAlertThresholdsStr);
+        
+        if (feedAlertThresholdsStr) {
+            try {
+                const parsed = JSON.parse(feedAlertThresholdsStr);
+                console.log('Parsed feed alert thresholds:', parsed);
+                if (Array.isArray(parsed)) {
+                    feedAlertThresholds = new Map(parsed);
+                } else if (typeof parsed === 'object') {
+                    feedAlertThresholds = new Map(Object.entries(parsed));
+                } else {
+                    feedAlertThresholds = new Map();
+                }
+                console.log('Initialized feed alert thresholds:', Array.from(feedAlertThresholds.entries()));
+            } catch (parseError) {
+                console.warn('Error parsing feed alert thresholds:', parseError);
+                feedAlertThresholds = new Map();
+            }
+        } else {
+            feedAlertThresholds = new Map();
+        }
+        
+        const feedUsageByAnimalStr = await mobileStorage.getItem('feedUsageByAnimal');
+        console.log('Feed usage by animal from storage:', feedUsageByAnimalStr);
+        
+        if (feedUsageByAnimalStr) {
+            try {
+                const parsed = JSON.parse(feedUsageByAnimalStr);
+                console.log('Parsed feed usage by animal:', parsed);
+                if (Array.isArray(parsed)) {
+                    feedUsageByAnimal = new Map(parsed);
+                } else if (typeof parsed === 'object') {
+                    feedUsageByAnimal = new Map(Object.entries(parsed));
+                } else {
+                    feedUsageByAnimal = new Map();
+                }
+                console.log('Initialized feed usage by animal:', Array.from(feedUsageByAnimal.entries()));
+            } catch (parseError) {
+                console.warn('Error parsing feed usage by animal:', parseError);
+                feedUsageByAnimal = new Map();
+            }
+        } else {
+            feedUsageByAnimal = new Map();
+        }
+
+        recentActivities = JSON.parse(await mobileStorage.getItem('recentActivities') || '[]');
+        selectedCurrency = await mobileStorage.getItem('selectedCurrency') || 'ZAR';
+        
+        console.log('Feed management initialization complete:', {
+            feedInventorySize: feedInventory.size,
+            feedCategoriesCount: feedCategories.length,
+            feedTransactionsCount: feedTransactions.length,
+            feedCalculationsCount: feedCalculations.length,
+            feedAlertThresholdsSize: feedAlertThresholds.size,
+            feedUsageByAnimalSize: feedUsageByAnimal.size,
+            recentActivitiesCount: recentActivities.length,
+            selectedCurrency
+        });
+    } catch (error) {
+        console.error('Error initializing feed state:', error);
+        // Set default values if initialization fails
+        feedInventory = new Map();
+        feedCategories = [];
+        feedTransactions = [];
+        feedCalculations = [];
+        feedAlertThresholds = new Map();
+        feedUsageByAnimal = new Map();
+        recentActivities = [];
+        selectedCurrency = 'ZAR';
+    }
     
     // Define currencies
     const worldCurrencies = [
@@ -109,6 +372,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         { code: 'ZAR', name: 'South African Rand', display: 'Rand', symbol: 'R' }
     ];
     
+    // Make necessary functions globally accessible
+    window.getFeedCategories = getFeedCategories;
+    window.getFeedCategoriesOptions = getFeedCategoriesOptions;
+    window.getAnimalCategories = getAnimalCategories;
+    window.getAnimalCategoriesOptions = getAnimalCategoriesOptions;
+    window.showFeedCalculatorPopup = showFeedCalculatorPopup;
+    window.showFeedPurchasedPopup = showFeedPurchasedPopup;
+    window.showFeedUsedPopup = showFeedUsedPopup;
+    window.confirmClearFeedData = confirmClearFeedData;
+    
     // Setup event listeners
     setupEventListeners();
     
@@ -117,6 +390,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Add orientation change listener
     window.addEventListener('orientationchange', handleOrientationChange);
+    
+    console.log('Feed management initialized');
     
     function handleOrientationChange() {
         // Find any open popups and adjust them
@@ -504,14 +779,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     async function saveState() {
         try {
+            console.log('Saving feed state...');
+            
             // Save all state to storage
             await mobileStorage.setItem('feedInventory', JSON.stringify(Array.from(feedInventory.entries())));
-            await mobileStorage.setItem('feedCategories', JSON.stringify(feedCategories));
             await mobileStorage.setItem('feedTransactions', JSON.stringify(feedTransactions));
             await mobileStorage.setItem('feedCalculations', JSON.stringify(feedCalculations));
             await mobileStorage.setItem('feedAlertThresholds', JSON.stringify(Array.from(feedAlertThresholds.entries())));
             await mobileStorage.setItem('feedUsageByAnimal', JSON.stringify(Array.from(feedUsageByAnimal.entries())));
             await mobileStorage.setItem('recentActivities', JSON.stringify(recentActivities));
+            
+            console.log('Feed state saved successfully');
         } catch (error) {
             console.error('Error saving feed state:', error);
             alert('There was an error saving data. Please try again.');
@@ -686,307 +964,341 @@ document.addEventListener('DOMContentLoaded', async () => {
             existingPopup.remove();
         }
 
-        const popupContent = `
-            <div class="popup-content">
-                <h3>Feed Calculator</h3>
-                <form id="feed-calculator-form">
-                    <div class="form-group">
-                        <label for="animal-category">Animal Category:</label>
-                        <select id="animal-category" name="animal-category" required>
-                            <option value="">Select a category</option>
-                            ${getAnimalCategoriesOptions()}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="animal-count">Number of Animals:</label>
-                        <input type="number" id="animal-count" name="animal-count" min="1" placeholder="Enter number of animals" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="feed-type">Feed Type:</label>
-                        <select id="feed-type" name="feed-type" required>
-                            <option value="">Select feed type</option>
-                            ${getFeedCategoriesOptions()}
-                        </select>
-                    </div>
-                    <div class="form-group weight-per-unit-group" style="display: none;">
-                        <label for="weight-per-unit">Weight per <span class="unit-label">bag</span>:</label>
-                        <div class="input-unit-group">
-                            <input type="number" id="weight-per-unit" name="weight-per-unit" min="0.1" step="0.1" placeholder="Enter weight" inputmode="decimal" pattern="[0-9]*(\.[0-9]+)?" autocomplete="off">
-                            <select id="weight-unit" name="weight-unit" class="unit-select">
-                                <option value="kg">kilograms (kg)</option>
-                                <option value="g">grams (g)</option>
-                                <option value="lb">pounds (lb)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="daily-intake">Daily Intake per Animal:</label>
-                        <div class="input-unit-group">
-                            <input type="number" id="daily-intake" name="daily-intake" min="0.1" step="0.1" placeholder="Enter daily intake" required>
-                            <select id="intake-unit" name="intake-unit" class="unit-select">
-                                <option value="g">grams (g)</option>
-                                <option value="kg">kilograms (kg)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="duration">Duration (days):</label>
-                        <input type="number" id="duration" name="duration" min="1" placeholder="30" required>
-                    </div>
-                    <div class="calculator-result" style="display: none;">
-                        <h4>Calculation Results</h4>
-                        <div class="result-items"></div>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="cancel-btn">Cancel</button>
-                        <button type="submit" class="save-btn">Calculate</button>
-                    </div>
-                </form>
-            </div>
-        `;
-        
-        const popup = createPopup(popupContent);
-        
-        // Setup feed type change event to show/hide weight per unit field
-        const feedTypeSelect = popup.querySelector('#feed-type');
-        const weightPerUnitGroup = popup.querySelector('.weight-per-unit-group');
-        const weightPerUnitInput = popup.querySelector('#weight-per-unit');
-        const unitLabel = popup.querySelector('.unit-label');
-        
-        feedTypeSelect.addEventListener('change', () => {
-            const selectedFeed = feedTypeSelect.value;
-            const feedData = feedInventory.get(selectedFeed);
-            
-            if (feedData) {
-                // Check if the unit is a non-weight unit (bags, bales, etc.)
-                const isNonWeightUnit = ['bags', 'bales'].includes(feedData.unit);
-                
-                // Show/hide weight per unit field based on unit type
-                weightPerUnitGroup.style.display = isNonWeightUnit ? 'block' : 'none';
-                
-                // If it's a non-weight unit, update the label and make the field required
-                if (isNonWeightUnit) {
-                    unitLabel.textContent = feedData.unit.slice(0, -1); // Remove the 's' at the end
-                    weightPerUnitInput.required = true;
-                    weightPerUnitInput.disabled = false;
-                    
-                    // Set default value if available
-                    if (feedData.weightPerKg) {
-                        weightPerUnitInput.value = feedData.weightPerKg;
-                        popup.querySelector('#weight-unit').value = 'kg'; // Default to kg
-                    }
-                } else {
-                    weightPerUnitInput.required = false;
-                    weightPerUnitInput.disabled = true;
-                }
-            }
-        });
-        
-        // Form submission handling
-        const form = popup.querySelector('form');
-        let calculationSaved = false;
-        
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            // If we've already calculated and saved, just close the popup
-            if (calculationSaved) {
-                popup.remove();
+        // First ensure we have the latest categories from storage
+        Promise.all([
+            getFeedCategories(),
+            getAnimalCategories()
+        ]).then(([feedCategories, animalCategories]) => {
+            console.log('Feed categories for popup:', feedCategories);
+            console.log('Animal categories for popup:', animalCategories);
+
+            // Check if we have any categories
+            if (!feedCategories || feedCategories.length === 0) {
+                console.log('No feed categories found, showing add category popup');
+                alert('Please add feed categories first before using the calculator.');
+                showAddFeedCategoryPopup();
                 return;
             }
-            
-            // First validate the form
-            if (!validateForm(form)) {
+
+            if (!animalCategories || animalCategories.length === 0) {
+                console.log('No animal categories found');
+                alert('No animal categories found. Please add animals first.');
                 return;
             }
-            
-            const animalCategory = form.querySelector('#animal-category').value;
-            const animalCount = parseInt(form.querySelector('#animal-count').value);
-            const feedType = form.querySelector('#feed-type').value;
-            const dailyIntake = parseFloat(form.querySelector('#daily-intake').value);
-            const intakeUnit = form.querySelector('#intake-unit').value;
-            const duration = parseInt(form.querySelector('#duration').value);
-            
-            // Get feed data
-            const feedData = feedInventory.get(feedType);
-            const feedUnit = feedData ? feedData.unit : 'kg';
-            
-            // Check if we need to handle weight conversion
-            const isNonWeightUnit = ['bags', 'bales'].includes(feedUnit);
-            let weightPerKg = 1;
-            
-            if (isNonWeightUnit) {
-                const weightPerUnit = parseFloat(form.querySelector('#weight-per-unit').value);
-                const weightUnit = form.querySelector('#weight-unit').value;
-                
-                // Validate weight per unit - must be greater than 0
-                if (weightPerUnit <= 0) {
-                    alert('Weight per unit must be greater than 0');
-                    return;
-                }
-                
-                // Convert weight to kg
-                if (weightUnit === 'g') {
-                    weightPerKg = weightPerUnit / 1000;
-                } else if (weightUnit === 'lb') {
-                    weightPerKg = weightPerUnit * 0.45359237; // 1 lb = 0.45359237 kg
-                } else {
-                    weightPerKg = weightPerUnit;
-                }
-                
-                // Validate final weight per kg - this prevents division by zero errors
-                if (weightPerKg <= 0) {
-                    alert('Weight equivalent must be greater than 0 kg');
-                    return;
-                }
-            }
-            
-            // Convert to grams for standardization
-            let dailyIntakeG = intakeUnit === 'kg' ? dailyIntake * 1000 : dailyIntake;
-            
-            // Do calculations (simplified version of the Electron app's calculations)
-            const dailyIntakeKg = dailyIntakeG / 1000;
-            const totalDailyIntakeKg = dailyIntakeKg * animalCount;
-            const totalFeedNeededKg = totalDailyIntakeKg * duration;
-            
-            // Calculate costs
-            let costPerAnimalPerDay = 0;
-            let totalDailyCost = 0;
-            let totalCost = 0;
-            let feedNeededInUnits = 0;
-            let pricePerKg = 0;
-            
-            if (feedData && feedData.price) {
-                if (isNonWeightUnit) {
-                    // For non-weight units like bags:
-                    // If a 50kg bag costs R280, price per kg = R280/50 = R5.60
-                    pricePerKg = feedData.price / weightPerKg;
-                    
-                    // Calculate how many units (bags/bales) needed
-                    feedNeededInUnits = totalFeedNeededKg / weightPerKg;
-                    
-                    console.log(`Debug - Non-weight unit calculation:
-                        Feed: ${feedType}
-                        Bag price: ${feedData.price}
-                        Weight per bag: ${weightPerKg}kg
-                        Price per kg: ${pricePerKg}
-                        Daily intake: ${dailyIntakeKg}kg
-                        Cost per animal per day: ${dailyIntakeKg * pricePerKg}
-                    `);
-                } else {
-                    // For weight units: price is already per kg or lb
-                    if (feedData.unit === 'lb') {
-                        // Convert price from per lb to per kg (1 kg = 2.20462 lb)
-                        pricePerKg = feedData.price * 2.20462;
-                    } else {
-                        // Already in price per kg
-                        pricePerKg = feedData.price;
-                    }
-                    
-                    // Units needed is same as kg needed (if unit is kg)
-                    feedNeededInUnits = totalFeedNeededKg;
-                    
-                    console.log(`Debug - Weight unit calculation:
-                        Feed: ${feedType}
-                        Unit: ${feedData.unit}
-                        Price per unit: ${feedData.price}
-                        Price per kg: ${pricePerKg}
-                        Daily intake: ${dailyIntakeKg}kg
-                        Cost per animal per day: ${dailyIntakeKg * pricePerKg}
-                    `);
-                }
-                
-                // Calculate cost per day per animal based on price per kg
-                costPerAnimalPerDay = dailyIntakeKg * pricePerKg;
-                
-                // Daily cost calculations for all animals
-                totalDailyCost = costPerAnimalPerDay * animalCount;
-                
-                // Total cost calculations for the entire duration
-                totalCost = totalDailyCost * duration;
-            }
-            
-            // Create calculation record with enhanced fields
-            const calculation = {
-                date: new Date().toISOString(),
-                animalCategory,
-                animalCount,
-                feedType,
-                feedUnit,
-                dailyIntake: dailyIntakeG,
-                duration,
-                totalFeedNeeded: totalFeedNeededKg,
-                totalFeedNeededInUnits: feedNeededInUnits,
-                pricePerKg: pricePerKg,
-                costPerAnimalPerDay,
-                totalDailyCost,
-                totalCost,
-                isNonWeightUnit,
-                weightPerKg: isNonWeightUnit ? weightPerKg : 1,
-                
-                // Add normalized fields for dashboard display
-                category: animalCategory,
-                numAnimals: animalCount,
-                result: totalFeedNeededKg,
-                unit: 'kg',
-                displayUnit: feedUnit,
-                period: duration > 1 ? duration + ' days' : 'daily',
-                type: 'Feed calculation',
-                method: 'Standard intake',
-                notes: `Feed type: ${feedType}, Intake: ${dailyIntake}${intakeUnit}/animal/day`
-            };
-            
-            // Add to calculations
-            feedCalculations.unshift(calculation);
-            
-            // Save and update UI
-            await saveState();
-            updateDisplays();
-            
-            // Mark as saved to prevent duplication
-            calculationSaved = true;
-            
-            // Show calculation results
-            const currency = worldCurrencies.find(c => c.code === selectedCurrency) || { symbol: 'R' };
-            const resultDiv = popup.querySelector('.calculator-result');
-            resultDiv.style.display = 'block';
-            resultDiv.querySelector('.result-items').innerHTML = `
-                <div class="result-item">
-                    <span>Feed needed per day:</span>
-                    <span>${totalDailyIntakeKg.toFixed(2)} kg</span>
-                </div>
-                <div class="result-item">
-                    <span>Total feed needed (${duration} days):</span>
-                    <span>${totalFeedNeededKg.toFixed(2)} kg${isNonWeightUnit ? ` (${feedNeededInUnits.toFixed(2)} ${feedUnit})` : ''}</span>
-                </div>
-                <div class="result-item">
-                    <span>Price per kg:</span>
-                    <span>${currency.symbol}${pricePerKg.toFixed(2)}/kg</span>
-                </div>
-                <div class="result-item">
-                    <span>Cost per animal per day:</span>
-                    <span>${currency.symbol}${costPerAnimalPerDay.toFixed(2)}</span>
-                </div>
-                <div class="result-item">
-                    <span>Daily cost (${animalCount} animals):</span>
-                    <span>${currency.symbol}${totalDailyCost.toFixed(2)}</span>
-                </div>
-                <div class="result-item total-cost">
-                    <span>Total cost for ${duration} days:</span>
-                    <span>${currency.symbol}${totalCost.toFixed(2)}</span>
+
+            // Generate the options HTML
+            const feedCategoryOptions = feedCategories.map(category => {
+                // Ensure category is a string
+                const categoryStr = typeof category === 'string' ? category : JSON.stringify(category);
+                return `<option value="${categoryStr}">${categoryStr}</option>`;
+            }).join('');
+            console.log('Generated feed category options:', feedCategoryOptions);
+
+            const animalCategoryOptions = animalCategories.map(category => 
+                `<option value="${category}">${category}</option>`
+            ).join('');
+            console.log('Generated animal category options:', animalCategoryOptions);
+
+            const popupContent = `
+                <div class="popup-content">
+                    <h3>Feed Calculator</h3>
+                    <form id="feed-calculator-form">
+                        <div class="form-group">
+                            <label for="animal-category">Animal Category:</label>
+                            <select id="animal-category" name="animal-category" required>
+                                <option value="">Select a category</option>
+                                ${animalCategoryOptions}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="animal-count">Number of Animals:</label>
+                            <input type="number" id="animal-count" name="animal-count" min="1" placeholder="Enter number of animals" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="feed-type">Feed Type:</label>
+                            <select id="feed-type" name="feed-type" required>
+                                <option value="">Select feed type</option>
+                                ${feedCategoryOptions}
+                            </select>
+                        </div>
+                        <div class="form-group weight-per-unit-group" style="display: none;">
+                            <label for="weight-per-unit">Weight per <span class="unit-label">bag</span>:</label>
+                            <div class="input-unit-group">
+                                <input type="number" id="weight-per-unit" name="weight-per-unit" min="0.1" step="0.1" placeholder="Enter weight" inputmode="decimal" pattern="[0-9]*(\.[0-9]+)?" autocomplete="off">
+                                <select id="weight-unit" name="weight-unit" class="unit-select">
+                                    <option value="kg">kilograms (kg)</option>
+                                    <option value="g">grams (g)</option>
+                                    <option value="lb">pounds (lb)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="daily-intake">Daily Intake per Animal:</label>
+                            <div class="input-unit-group">
+                                <input type="number" id="daily-intake" name="daily-intake" min="0.1" step="0.1" placeholder="Enter daily intake" required>
+                                <select id="intake-unit" name="intake-unit" class="unit-select">
+                                    <option value="g">grams (g)</option>
+                                    <option value="kg">kilograms (kg)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="duration">Duration (days):</label>
+                            <input type="number" id="duration" name="duration" min="1" placeholder="30" required>
+                        </div>
+                        <div class="form-group calculator-price-group">
+                            <label for="calculator-price">Price per <span class="calculator-unit-label">unit</span>:</label>
+                            <input type="number" id="calculator-price" name="calculator-price" min="0" step="0.01" placeholder="From last purchase or enter" inputmode="decimal" pattern="[0-9]*\.?[0-9]*">
+                            <span class="help-text" id="calculator-price-hint">Uses last recorded price if left blank</span>
+                        </div>
+                        <div class="calculator-result" style="display: none;">
+                            <h4>Calculation Results</h4>
+                            <div class="result-items"></div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="cancel-btn">Cancel</button>
+                            <button type="submit" class="save-btn">Calculate</button>
+                        </div>
+                    </form>
                 </div>
             `;
             
-            // Change submit button text to close
-            const submitBtn = form.querySelector('.save-btn');
-            submitBtn.textContent = 'Close';
+            const popup = createPopup(popupContent);
             
-            // Record has already been saved, so next submission just closes
-        });
-        
-        // Cancel button handling
-        popup.querySelector('.cancel-btn').addEventListener('click', () => {
-            popup.remove();
+            // Helper: get latest purchase price for a feed type (from feedTransactions)
+            function getLatestPurchasePriceForFeed(feedType) {
+                if (!feedTransactions || !Array.isArray(feedTransactions)) return 0;
+                const purchase = feedTransactions.find(t => t.type === 'purchase' && t.feedType === feedType);
+                return purchase && (purchase.pricePerUnit != null) ? parseFloat(purchase.pricePerUnit) : 0;
+            }
+
+            // Setup feed type change event to show/hide weight per unit field and pre-fill price
+            const feedTypeSelect = popup.querySelector('#feed-type');
+            const weightPerUnitGroup = popup.querySelector('.weight-per-unit-group');
+            const weightPerUnitInput = popup.querySelector('#weight-per-unit');
+            const unitLabel = popup.querySelector('.unit-label');
+            const calculatorPriceInput = popup.querySelector('#calculator-price');
+            const calculatorUnitLabel = popup.querySelector('.calculator-unit-label');
+            
+            feedTypeSelect.addEventListener('change', () => {
+                const selectedFeed = feedTypeSelect.value;
+                const feedData = feedInventory.get(selectedFeed);
+                
+                if (feedData) {
+                    // Price: use feedData.price, or latest purchase price, so calculator updates after a purchase
+                    const effectivePrice = (feedData.price && parseFloat(feedData.price) > 0)
+                        ? parseFloat(feedData.price)
+                        : getLatestPurchasePriceForFeed(selectedFeed);
+                    if (calculatorPriceInput) {
+                        calculatorPriceInput.value = effectivePrice > 0 ? effectivePrice.toFixed(2) : '';
+                        calculatorPriceInput.placeholder = effectivePrice > 0 ? 'From last purchase' : 'Enter price per unit';
+                    }
+                    const unit = feedData.unit || 'kg';
+                    const unitLabelText = unit === 'bags' ? 'bag' : (unit === 'bales' ? 'bale' : unit);
+                    if (calculatorUnitLabel) calculatorUnitLabel.textContent = unitLabelText;
+                    
+                    // Check if the unit is a non-weight unit (bags, bales, etc.)
+                    const isNonWeightUnit = ['bags', 'bales'].includes(feedData.unit);
+                    
+                    // Show/hide weight per unit field based on unit type
+                    weightPerUnitGroup.style.display = isNonWeightUnit ? 'block' : 'none';
+                    
+                    // If it's a non-weight unit, update the label and make the field required
+                    if (isNonWeightUnit) {
+                        unitLabel.textContent = feedData.unit.slice(0, -1); // Remove the 's' at the end
+                        weightPerUnitInput.required = true;
+                        weightPerUnitInput.disabled = false;
+                        
+                        // Set default value if available
+                        if (feedData.weightPerKg) {
+                            weightPerUnitInput.value = feedData.weightPerKg;
+                            popup.querySelector('#weight-unit').value = 'kg'; // Default to kg
+                        }
+                    } else {
+                        weightPerUnitInput.required = false;
+                        weightPerUnitInput.disabled = true;
+                    }
+                }
+            });
+            
+            // Form submission handling
+            const form = popup.querySelector('form');
+            let calculationSaved = false;
+            
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                // If we've already calculated and saved, just close the popup
+                if (calculationSaved) {
+                    popup.remove();
+                    return;
+                }
+                
+                // First validate the form
+                if (!validateForm(form)) {
+                    return;
+                }
+                
+                const animalCategory = form.querySelector('#animal-category').value;
+                const animalCount = parseInt(form.querySelector('#animal-count').value);
+                const feedType = form.querySelector('#feed-type').value;
+                const dailyIntake = parseFloat(form.querySelector('#daily-intake').value);
+                const intakeUnit = form.querySelector('#intake-unit').value;
+                const duration = parseInt(form.querySelector('#duration').value);
+                
+                // Get feed data
+                const feedData = feedInventory.get(feedType);
+                const feedUnit = feedData ? feedData.unit : 'kg';
+                
+                // Price: from calculator field, or feed inventory, or latest purchase (so it updates after a purchase)
+                const priceInputVal = form.querySelector('#calculator-price') && form.querySelector('#calculator-price').value;
+                const priceFromInput = priceInputVal !== '' && priceInputVal !== undefined ? parseFloat(priceInputVal) : NaN;
+                const priceFromInventory = feedData && feedData.price ? parseFloat(feedData.price) : 0;
+                const priceFromPurchase = getLatestPurchasePriceForFeed(feedType);
+                const effectivePrice = (!isNaN(priceFromInput) && priceFromInput >= 0) ? priceFromInput : (priceFromInventory || priceFromPurchase);
+                
+                // If user entered a price in calculator, save to feed inventory for next time
+                if (feedData && !isNaN(priceFromInput) && priceFromInput >= 0) {
+                    feedData.price = priceFromInput;
+                    feedInventory.set(feedType, feedData);
+                    await saveState();
+                }
+                
+                // Check if we need to handle weight conversion
+                const isNonWeightUnit = ['bags', 'bales'].includes(feedUnit);
+                let weightPerKg = 1;
+                
+                if (isNonWeightUnit) {
+                    const weightPerUnit = parseFloat(form.querySelector('#weight-per-unit').value);
+                    const weightUnit = form.querySelector('#weight-unit').value;
+                    
+                    // Validate weight per unit - must be greater than 0
+                    if (weightPerUnit <= 0) {
+                        alert('Weight per unit must be greater than 0');
+                        return;
+                    }
+                    
+                    // Convert weight to kg
+                    if (weightUnit === 'g') {
+                        weightPerKg = weightPerUnit / 1000;
+                    } else if (weightUnit === 'lb') {
+                        weightPerKg = weightPerUnit * 0.45359237; // 1 lb = 0.45359237 kg
+                    } else {
+                        weightPerKg = weightPerUnit;
+                    }
+                    
+                    // Validate final weight per kg - this prevents division by zero errors
+                    if (weightPerKg <= 0) {
+                        alert('Weight equivalent must be greater than 0 kg');
+                        return;
+                    }
+                }
+                
+                // Convert to grams for standardization
+                let dailyIntakeG = intakeUnit === 'kg' ? dailyIntake * 1000 : dailyIntake;
+                
+                // Do calculations
+                const dailyIntakeKg = dailyIntakeG / 1000;
+                const totalDailyIntakeKg = dailyIntakeKg * animalCount;
+                const totalFeedNeededKg = totalDailyIntakeKg * duration;
+                
+                // Calculate costs (use effectivePrice from calculator field, inventory, or last purchase)
+                let costPerAnimalPerDay = 0;
+                let totalDailyCost = 0;
+                let totalCost = 0;
+                let feedNeededInUnits = 0;
+                let pricePerKg = 0;
+                
+                if (effectivePrice > 0) {
+                    if (isNonWeightUnit) {
+                        pricePerKg = effectivePrice / weightPerKg;
+                        feedNeededInUnits = totalFeedNeededKg / weightPerKg;
+                    } else {
+                        if (feedData && feedData.unit === 'lb') {
+                            pricePerKg = effectivePrice * 2.20462;
+                        } else {
+                            pricePerKg = effectivePrice;
+                        }
+                        feedNeededInUnits = totalFeedNeededKg;
+                    }
+                    
+                    costPerAnimalPerDay = dailyIntakeKg * pricePerKg;
+                    totalDailyCost = costPerAnimalPerDay * animalCount;
+                    totalCost = totalDailyCost * duration;
+                }
+                
+                // Create calculation record
+                const calculation = {
+                    date: new Date().toISOString(),
+                    animalCategory,
+                    animalCount,
+                    feedType,
+                    feedUnit,
+                    dailyIntake: dailyIntakeG,
+                    duration,
+                    totalFeedNeeded: totalFeedNeededKg,
+                    totalFeedNeededInUnits: feedNeededInUnits,
+                    pricePerKg,
+                    costPerAnimalPerDay,
+                    totalDailyCost,
+                    totalCost,
+                    isNonWeightUnit,
+                    weightPerKg: isNonWeightUnit ? weightPerKg : 1
+                };
+                
+                // Add to calculations
+                feedCalculations.unshift(calculation);
+                
+                // Save and update UI
+                await saveState();
+                updateDisplays();
+                
+                // Mark as saved
+                calculationSaved = true;
+                
+                // Show calculation results
+                const currency = worldCurrencies.find(c => c.code === selectedCurrency) || { symbol: 'R' };
+                const resultDiv = popup.querySelector('.calculator-result');
+                resultDiv.style.display = 'block';
+                resultDiv.querySelector('.result-items').innerHTML = `
+                    <div class="result-item">
+                        <span>Feed needed per day:</span>
+                        <span>${totalDailyIntakeKg.toFixed(2)} kg</span>
+                    </div>
+                    <div class="result-item">
+                        <span>Total feed needed (${duration} days):</span>
+                        <span>${totalFeedNeededKg.toFixed(2)} kg${isNonWeightUnit ? ` (${feedNeededInUnits.toFixed(2)} ${feedUnit})` : ''}</span>
+                    </div>
+                    <div class="result-item">
+                        <span>Price per kg:</span>
+                        <span>${currency.symbol}${pricePerKg.toFixed(2)}/kg</span>
+                    </div>
+                    <div class="result-item">
+                        <span>Cost per animal per day:</span>
+                        <span>${currency.symbol}${costPerAnimalPerDay.toFixed(2)}</span>
+                    </div>
+                    <div class="result-item">
+                        <span>Daily cost (${animalCount} animals):</span>
+                        <span>${currency.symbol}${totalDailyCost.toFixed(2)}</span>
+                    </div>
+                    <div class="result-item total-cost">
+                        <span>Total cost for ${duration} days:</span>
+                        <span>${currency.symbol}${totalCost.toFixed(2)}</span>
+                    </div>
+                `;
+                
+                // Change submit button text to close
+                const submitBtn = form.querySelector('.save-btn');
+                submitBtn.textContent = 'Close';
+            });
+            
+            // Cancel button handling
+            popup.querySelector('.cancel-btn').addEventListener('click', () => {
+                popup.remove();
+            });
+        }).catch(error => {
+            console.error('Error setting up feed calculator popup:', error);
+            alert('There was an error loading the feed calculator. Please try again.');
         });
     }
     
@@ -1072,6 +1384,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 unitLabel.textContent = `Quantity (${unit}):`;
                 const priceLabel = popup.querySelector('label[for="price"]');
                 priceLabel.textContent = `Price per ${unit}:`;
+                
+                // Pre-fill price from last recorded value (from inventory, updated when purchase is recorded)
+                const lastPrice = feedData.price && parseFloat(feedData.price) > 0 ? parseFloat(feedData.price) : 0;
+                if (priceInput) {
+                    priceInput.value = lastPrice > 0 ? lastPrice.toFixed(2) : '';
+                    priceInput.placeholder = lastPrice > 0 ? 'From last purchase' : 'Enter price per ' + (unit === 'bags' ? 'bag' : (unit === 'bales' ? 'bale' : unit));
+                }
                 
                 // Check if the unit is a non-weight unit (bags, bales, etc.)
                 const isNonWeightUnit = ['bags', 'bales'].includes(unit);
@@ -1272,7 +1591,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     
-    function showFeedUsedPopup() {
+    async function showFeedUsedPopup() {
         // Only show popup if there are feed categories with inventory
         const feedsWithInventory = Array.from(feedInventory.entries())
             .filter(([_, data]) => data.quantity > 0);
@@ -1282,6 +1601,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             showFeedPurchasedPopup();
             return;
         }
+        
+        // Load animal categories so "Used for" dropdown is populated (getAnimalCategoriesOptions is async)
+        const animalCategoryOptions = await getAnimalCategoriesOptions();
         
         const popupContent = `
             <div class="popup-content">
@@ -1313,7 +1635,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <label for="animal-category">Used For:</label>
                         <select id="animal-category" name="animal-category" required>
                             <option value="">Select a category</option>
-                            ${getAnimalCategoriesOptions()}
+                            ${animalCategoryOptions}
                         </select>
                     </div>
                     <div class="form-group">
@@ -1722,53 +2044,5 @@ document.addEventListener('DOMContentLoaded', async () => {
                 alert('There was an error clearing feed data. Please try again.');
             }
         }
-    }
-    
-    // Helper function to get animal categories
-    async function getAnimalCategories() {
-        const categoriesStr = await mobileStorage.getItem('animalCategories');
-        return categoriesStr ? JSON.parse(categoriesStr) : [];
-    }
-    
-    // Helper function to generate options for animal categories
-    function getAnimalCategoriesOptions() {
-        return getAnimalCategories.value?.map(category => 
-            `<option value="${category}">${category}</option>`
-        ).join('') || '';
-    }
-    
-    // Helper function to generate options for feed categories
-    function getFeedCategoriesOptions() {
-        return feedCategories.map(category => 
-            `<option value="${category}">${category}</option>`
-        ).join('');
-    }
-    
-    // Initialize animal categories accessor
-    getAnimalCategories.value = [];
-    
-    // Get animal categories on page load
-    (async function() {
-        getAnimalCategories.value = await getAnimalCategories();
-    })();
-
-    // Add form validation function
-    function validateForm(form) {
-        // Check all visible required fields are filled
-        const visibleRequiredFields = Array.from(form.querySelectorAll('input[required]:not([disabled]), select[required]:not([disabled]), textarea[required]:not([disabled])'));
-        
-        for (const field of visibleRequiredFields) {
-            // Skip hidden fields
-            if (field.closest('.form-group').style.display === 'none') {
-                continue;
-            }
-            
-            if (!field.value) {
-                field.focus();
-                return false;
-            }
-        }
-        
-        return true;
     }
 }); 

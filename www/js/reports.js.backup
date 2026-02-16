@@ -835,59 +835,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             switch (reportType) {
                 // Feed reports
                 case 'feed-calculation':
-                    const feedCalcResult = createFeedCalculationTable(reportData, filters);
-                    reportHTML = createStandardReportStructure(
-                        reportTitle,
-                        reportSubtitle,
-                        dateRangeText,
-                        feedCalcResult.html,
-                        feedCalcResult.summaryData,
-                        false,
-                        reportType
-                    );
-                    return reportHTML;
-                    break;
+                    reportHTML = createFeedCalculationTable(reportData, filters);
+                    return reportHTML; // Return directly since createFeedCalculationTable already uses createStandardReportStructure
                 case 'all-feed':
                     reportHTML = createAllFeedReportTable(reportData);
-                    break;
+                    return reportHTML; // Return directly since createAllFeedReportTable now uses createStandardReportStructure
                 case 'feed-purchase':
-                    const feedPurchaseResult = createFeedPurchaseTable(reportData);
-                    reportHTML = createStandardReportStructure(
-                        reportTitle,
-                        reportSubtitle,
-                        dateRangeText,
-                        feedPurchaseResult.html,
-                        feedPurchaseResult.summaryData,
-                        false,
-                        reportType
-                    );
-                    return reportHTML;
+                    reportHTML = createFeedPurchaseTable(reportData);
                     break;
                 case 'feed-usage':
-                    const feedUsageResult = createFeedUsageTable(reportData);
-                    reportHTML = createStandardReportStructure(
-                        reportTitle,
-                        reportSubtitle,
-                        dateRangeText,
-                        feedUsageResult.html,
-                        feedUsageResult.summaryData,
-                        false,
-                        reportType
-                    );
-                    return reportHTML;
+                    reportHTML = createFeedUsageTable(reportData);
                     break;
                 case 'feed-inventory':
-                    const feedInventoryResult = createFeedInventoryTable(reportData);
-                    reportHTML = createStandardReportStructure(
-                        reportTitle,
-                        reportSubtitle,
-                        dateRangeText,
-                        feedInventoryResult.html,
-                        feedInventoryResult.summaryData,
-                        false,
-                        reportType
-                    );
-                    return reportHTML;
+                    reportHTML = createFeedInventoryTable(reportData);
                     break;
                 
                 // Animal reports - these return complete report HTML with buttons already included
@@ -965,29 +925,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Helper function to create the feed calculation table - extracted from handleGenerateReport
     function createFeedCalculationTable(feedCalculations, filters) {
-        if (!feedCalculations || feedCalculations.length === 0) {
-            return {
-                html: `
-                    <div class="empty-state">
-                        <h3>No Feed Calculations Available</h3>
-                        <p>There are no feed calculations in the system for the selected date range.</p>
-                        <p>Try adding some feed calculations first, or select a different date range.</p>
-                    </div>
-                `,
-                summaryData: null
-            };
-        }
-
-        const totalCost = feedCalculations.reduce((sum, calc) => sum + (calc.totalCost || 0), 0);
-
-        // Create summary data
-        const summaryData = {
-            'Report date range': formatDateRange(filters.dateRange.start, filters.dateRange.end),
-            'Total number of calculations': feedCalculations.length,
-            'Total feed cost': formatCurrency(totalCost)
-        };
-        
-        let reportHTML = `
+        // Create the main content first
+        let tableHTML = `
             <div class="report-section">
                 <h3>Feed Calculations</h3>
         `;
@@ -1017,7 +956,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `${(totalFeed).toFixed(2)} kg` : 
                 `${totalFeed.toFixed(2)} ${intakeUnit}`;
             
-            reportHTML += `
+            tableHTML += `
                 <div class="calculation-card feed-calculation-card">
                     <div class="card-header">
                         <h4>${animalType} (${count} animals)</h4>
@@ -1040,7 +979,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         
         // Add summary table
-        reportHTML += `
+        tableHTML += `
             <h3>Summary Table</h3>
             <table class="report-table">
             <thead>
@@ -1083,7 +1022,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 `${(totalFeed).toFixed(2)} kg` : 
                 `${totalFeed.toFixed(2)} ${intakeUnit}`;
             
-            reportHTML += `
+            tableHTML += `
                 <tr>
                     <td>${animalType}</td>
                     <td>${count}</td>
@@ -1099,7 +1038,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         
         // Add totals row
-        reportHTML += `
+        const totalCost = feedCalculations.reduce((sum, calc) => sum + (calc.totalCost || 0), 0);
+        tableHTML += `
                 <tr class="total-row">
                     <td colspan="8" class="text-right"><strong>Total Cost:</strong></td>
                     <td>${formatCurrency(totalCost)}</td>
@@ -1117,11 +1057,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
         </div>
         `;
-        
-        return {
-            html: reportHTML,
-            summaryData: summaryData
+
+        // Create summary data for the standard report structure
+        const summaryData = {
+            totalCalculations: feedCalculations.length,
+            totalCost: totalCost
         };
+
+        // Use the standard report structure
+        return createStandardReportStructure(
+            'Feed Calculations Report',
+            `Total calculations: ${feedCalculations.length}`,
+            filters.dateRange,
+            tableHTML,
+            summaryData,
+            false,
+            'feed-calculations'
+        );
     }
     
     /**
@@ -1132,21 +1084,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     function createAllFeedReportTable(data) {
         // Check if data is empty or null
         if (!data || data.length === 0) {
-            return `
-                <div class="report-header">
-                    <div class="report-type-header">
-                        <div class="report-type-title">All Feed Transactions Report</div>
-                    </div>
-                    <div class="report-summary">
-                        <p>No feed data found for the selected period.</p>
-                    </div>
-                </div>
-                <div class="empty-state">
+            return createStandardReportStructure(
+                'All Feed Transactions Report',
+                '',
+                null,
+                `<div class="empty-state">
                     <h3>No Feed Data Available</h3>
                     <p>There are no feed records in the system for the selected date range.</p>
                     <p>Try adding some feed transactions first, or select a different date range.</p>
-                </div>
-            `;
+                </div>`,
+                { message: 'No feed data found for the selected period.' },
+                false,
+                'all-feed'
+            );
         }
         
         // Calculate summary statistics
@@ -1159,39 +1109,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return sum + parseFloat(cost);
             }, 0);
         
-        let reportHTML = `
-            <div class="report-header">
-                <div class="report-type-header">
-                    <div class="report-type-title">All Feed Transactions Report</div>
-                </div>
-                <div class="report-summary">
-                    <p>Total transactions: ${data.length}</p>
-                    <p>Purchases: ${purchaseCount} transactions (${formatCurrency(totalPurchaseCost)})</p>
-                    <p>Usage: ${usageCount} transactions</p>
-                </div>
-            </div>
-            
-            <div class="report-section">
-                <h3>Feed Transactions</h3>
-                <table class="report-table" id="all-feed-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Type</th>
-                            <th>Feed</th>
-                            <th>Quantity</th>
-                            <th>Unit</th>
-                            <th>Price/Cost</th>
-                            <th>Notes</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-        
         // Sort transactions by date (newest first)
         const sortedData = [...data].sort((a, b) => {
             return new Date(b.date) - new Date(a.date);
         });
+
+        // Find date range from the data
+        const dates = data.map(t => new Date(t.date));
+        const startDate = new Date(Math.min(...dates));
+        const endDate = new Date(Math.max(...dates));
+        
+        // Create the table HTML
+        let tableHTML = `
+            <table class="report-table feed-report-table" id="all-feed-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Feed</th>
+                        <th>Quantity</th>
+                        <th>Unit</th>
+                        <th>Price/Cost</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
         
         // Add rows for each transaction
         sortedData.forEach(transaction => {
@@ -1204,18 +1147,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Format cost based on transaction type
             let costDisplay = '';
             if (transaction.type === 'purchase') {
-                // Try various possible cost property names
                 const cost = transaction.totalPrice || transaction.cost || transaction.totalCost || 0;
                 costDisplay = formatCurrency(cost);
             } else if (transaction.type === 'usage') {
-                // Try various possible cost property names
                 const cost = transaction.totalCost || transaction.estimatedCost || 0;
                 costDisplay = formatCurrency(cost);
             }
             
             const notes = transaction.notes || '';
             
-            reportHTML += `
+            tableHTML += `
                 <tr class="${transaction.type}-row">
                     <td>${date}</td>
                     <td>${type}</td>
@@ -1228,13 +1169,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
         });
         
-        reportHTML += `
-                    </tbody>
-                </table>
-                </div>
-            `;
-        
-        return reportHTML;
+        tableHTML += `
+                </tbody>
+            </table>
+        `;
+
+        // Create summary data for the standard report structure
+        const summaryData = {
+            summary: [
+                `Total transactions: ${data.length}`,
+                `Purchases: ${purchaseCount} transactions (${formatCurrency(totalPurchaseCost)})`,
+                `Usage: ${usageCount} transactions`
+            ]
+        };
+
+        // Return the complete report using the standard structure
+        return createStandardReportStructure(
+            'All Feed Transactions Report',
+            'Feed Transactions',
+            { start: startDate, end: endDate },
+            tableHTML,
+            summaryData,
+            false,
+            'all-feed'
+        );
     }
     
     /**
@@ -1249,11 +1207,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!data || ((!data.transactions || data.transactions.length === 0) && 
                      (!data.inventory || (Array.isArray(data.inventory) && data.inventory.length === 0) || 
                      (typeof data.inventory === 'object' && Object.keys(data.inventory).length === 0)))) {
-            return createStandardReportStructure(
-                'All Animal Transactions Report',
-                'No Data Available',
-                '',
-                `<div class="report-header">
+            return `
+                <div class="report-header">
                     <h3>All Animal Transactions Report</h3>
                     <div class="report-summary">
                         <p>No animal data found for the selected period.</p>
@@ -1263,11 +1218,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <h3>No Animal Data Available</h3>
                     <p>There are no animal records in the system for the selected date range.</p>
                     <p>Try adding some animal transactions first, or select a different date range.</p>
-                </div>`,
-                null,
-                false,
-                'all-animal'
-            );
+                </div>
+            `;
         }
         
         const { inventory = [], transactions = [] } = data;
@@ -1279,18 +1231,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Count transaction types
         const transactionCounts = {};
         if (transactions && transactions.length > 0) {
-            transactions.forEach(tx => {
-                const type = tx.type || 'unknown';
-                transactionCounts[type] = (transactionCounts[type] || 0) + 1;
-            });
+        transactions.forEach(tx => {
+            const type = tx.type || 'unknown';
+            transactionCounts[type] = (transactionCounts[type] || 0) + 1;
+        });
         }
-        
-        // Create summary data for standardized report
-        const summaryData = {
-            'Total Animals': totalAnimals,
-            'Total Transactions': transactions ? transactions.length : 0,
-            ...transactionCounts
-        };
         
         // Create a more detailed and formatted table with proper field references
         let reportHTML = `
@@ -1527,16 +1472,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
         `;
         
-        // Return using standardized report structure
-        return createStandardReportStructure(
-            'All Animal Transactions Report',
-            'Record of All Animal Transactions',
-            data.dateRange ? formatDateRange(data.dateRange.start, data.dateRange.end) : '',
-            reportHTML,
-            summaryData,
-            false,
-            'all-animal'
-        );
+        return reportHTML;
     }
     
     /**
@@ -1547,7 +1483,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     function createAnimalInventoryTable(data) {
         if (!data || !data.inventory) {
             console.error('No data provided to createAnimalInventoryTable');
-            return '<div class="error-message">No animal inventory data available</div>';
+            return createStandardReportStructure(
+                'Animal Inventory Report',
+                'No Data Available',
+                '',
+                '<div class="error-message">No animal inventory data available</div>',
+                null,
+                false,
+                'animal-inventory'
+            );
         }
         
         const { inventory } = data;
@@ -1578,20 +1522,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             return groups;
         }, {});
         
-        // Create report HTML
-        let reportHTML = `
-            <div class="report-header">
-                <div class="report-type-header">
-                    <div class="report-type-title">Animal Inventory Report</div>
-                    <div class="report-actions">
-                        <button onclick="window.print()" class="print-button">Print Report</button>
-                        <button onclick="exportReportToCSV('animal-inventory')" class="export-button">Export to CSV</button>
-                    </div>
-                </div>
-                <div class="report-summary">
-                    <p>Total animals: ${totalAnimals}</p>
-                    <p>Animal types: ${Object.keys(typeGroups).length}</p>
-                </div>
+        // Create the main content HTML
+        let contentHTML = `
+            <div class="report-summary">
+                <p>Total animals: ${totalAnimals}</p>
+                <p>Animal types: ${Object.keys(typeGroups).length}</p>
             </div>
             
             <div class="report-section">
@@ -1613,7 +1548,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         sortedTypes.forEach(([type, data]) => {
             const percentage = totalAnimals > 0 ? (data.count / totalAnimals * 100).toFixed(1) : 0;
             
-            reportHTML += `
+            contentHTML += `
                 <tr>
                     <td>${type}</td>
                     <td>${data.count}</td>
@@ -1622,7 +1557,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
         });
         
-        reportHTML += `
+        contentHTML += `
                 </tbody>
             </table>
         </div>
@@ -1649,14 +1584,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         
         if (sortedInventory.length === 0) {
-            reportHTML += `
+            contentHTML += `
                 <tr>
                     <td colspan="5" class="no-data">No animal inventory found</td>
                 </tr>
             `;
         } else {
             sortedInventory.forEach(item => {
-                reportHTML += `
+                contentHTML += `
                     <tr>
                         <td>${item.type || 'Unknown'}</td>
                         <td>${item.location || 'Not specified'}</td>
@@ -1668,13 +1603,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
         
-        reportHTML += `
+        contentHTML += `
                 </tbody>
             </table>
         </div>
         `;
         
-        return reportHTML;
+        // Create summary data for the standard report structure
+        const summaryData = {
+            totalAnimals,
+            typeCount: Object.keys(typeGroups).length,
+            typeBreakdown: typeGroups
+        };
+        
+        // Return the complete report using the standard structure
+        return createStandardReportStructure(
+            'Animal Inventory Report',
+            'Current Animal Inventory Status',
+            data.dateRange ? formatDateRange(data.dateRange.start, data.dateRange.end) : '',
+            contentHTML,
+            summaryData,
+            false,
+            'animal-inventory'
+        );
     }
     
     /**
@@ -1684,16 +1635,25 @@ document.addEventListener('DOMContentLoaded', async () => {
      */
     function createFeedInventoryTable(data) {
         if (!data || !data.feedInventory || data.feedInventory.length === 0) {
-            return {
-                html: `
-                    <div class="empty-state">
-                        <h3>No Feed Inventory Data Available</h3>
-                        <p>There are no feed inventory records in the system for the selected date range.</p>
-                        <p>Try adding some feed inventory records first, or select a different date range.</p>
+            return `
+                <div class="report-header">
+                    <div class="report-type-header">
+                        <div class="report-type-title">Feed Inventory Report</div>
+                        <div class="report-actions">
+                            <button onclick="window.print()" class="print-button">Print Report</button>
+                            <button onclick="exportReportToCSV('feed-inventory')" class="export-button">Export to CSV</button>
+                        </div>
                     </div>
-                `,
-                summaryData: null
-            };
+                    <div class="report-summary">
+                        <p>No feed inventory data found for the selected period.</p>
+                    </div>
+                </div>
+                <div class="empty-state">
+                    <h3>No Feed Inventory Data Available</h3>
+                    <p>There are no feed inventory records in the system for the selected date range.</p>
+                    <p>Try adding some feed inventory records first, or select a different date range.</p>
+                </div>
+            `;
         }
         
         // Calculate total inventory value
@@ -1707,16 +1667,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sortedInventory = [...data.feedInventory].sort((a, b) => {
             return (a.feedType || 'Unknown').localeCompare(b.feedType || 'Unknown');
         });
-
-        // Create summary data
-        const summaryData = {
-            'Total feed items': data.feedInventory.length,
-            'Total inventory value': formatCurrency(totalValue),
-            'Recent transactions': data.feedTransactions ? data.feedTransactions.length : 0
-        };
         
         // Create report HTML
         let reportHTML = `
+            <div class="report-header">
+                <div class="report-type-header">
+                    <div class="report-type-title">Feed Inventory Report</div>
+                    <div class="report-actions">
+                        <button onclick="window.print()" class="print-button">Print Report</button>
+                        <button onclick="exportReportToCSV('feed-inventory')" class="export-button">Export to CSV</button>
+                    </div>
+                </div>
+                <div class="report-summary">
+                    <p>Total feed items: ${data.feedInventory.length}</p>
+                    <p>Total inventory value: ${formatCurrency(totalValue)}</p>
+                    <p>Recent transactions: ${data.feedTransactions ? data.feedTransactions.length : 0}</p>
+                </div>
+            </div>
+            
             <div class="report-section">
                 <h3>Current Feed Inventory</h3>
                 <table class="report-table" id="feed-inventory-table">
@@ -1834,10 +1802,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
         }
         
-        return {
-            html: reportHTML,
-            summaryData: summaryData
-        };
+        return reportHTML;
     }
     
     /**
@@ -4059,24 +4024,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Create table HTML
         let tableHTML = `
-            <div class="report-type-header">
-                <div class="report-type-title">Animal Movement Report</div>
-            </div>
-            <table class="report-table animal-report-table" id="animal-movement-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Movement Type</th>
-                        <th>Source Animal Type</th>
-                        <th>Count</th>
-                        <th>From Category</th>
-                        <th>To Category</th>
-                        <th>From Location</th>
-                        <th>To Location</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <div class="report-section">
+                <table class="report-table animal-report-table" id="animal-movement-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Movement Type</th>
+                            <th>Source Animal Type</th>
+                            <th>Count</th>
+                            <th>From Category</th>
+                            <th>To Category</th>
+                            <th>From Location</th>
+                            <th>To Location</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
         `;
         
         if (transactions.length === 0) {
@@ -4118,7 +4081,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     movementType = 'Category';
                 } 
                     
-                    if (transaction.fromLocation && transaction.toLocation) {
+                if (transaction.fromLocation && transaction.toLocation) {
                     // This is a location move
                     movementType = movementType === 'Category' ? 'Category & Location' : 'Location';
                 } else if (transaction.type === 'move') {
@@ -4153,6 +4116,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         tableHTML += `
                 </tbody>
             </table>
+        </div>
         `;
         
         // Create standardized report
@@ -4176,6 +4140,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Extract data
         const { inventory, transactions } = data;
         
+        // If no data, return empty report
+        if (!transactions || transactions.length === 0) {
+            return createStandardReportStructure(
+                'Animal Purchase Report',
+                'No Data Available',
+                '',
+                `<div class="empty-state">
+                    <h3>No Animal Purchase Data Available</h3>
+                    <p>There are no animal purchase records in the system for the selected date range.</p>
+                    <p>Try adding some animal purchase records first, or select a different date range.</p>
+                </div>`,
+                null,
+                false,
+                'animal-purchase'
+            );
+        }
+        
         // Calculate totals
         const totalCost = transactions.reduce((sum, t) => sum + (parseFloat(t.cost) || parseFloat(t.amount) || parseFloat(t.price) || 0), 0);
         const totalAnimals = transactions.reduce((sum, t) => sum + (parseInt(t.count) || parseInt(t.quantity) || 0), 0);
@@ -4189,77 +4170,71 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Create table HTML
         let tableHTML = `
-            <table class="report-table animal-report-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Animal Type</th>
-                        <th>Quantity</th>
-                        <th>Location</th>
-                        <th>Supplier</th>
-                        <th>Cost</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <div class="report-section">
+                <div class="report-summary">
+                    <p>Total purchases: ${transactions.length}</p>
+                    <p>Total animals purchased: ${totalAnimals}</p>
+                    <p>Total cost: ${formatCurrency(totalCost)}</p>
+                </div>
+                <table class="report-table animal-report-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Animal Type</th>
+                            <th>Quantity</th>
+                            <th>Location</th>
+                            <th>Supplier</th>
+                            <th>Cost</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
         `;
         
-        if (transactions.length === 0) {
+        // Sort by date (newest first)
+        const sortedTransactions = [...transactions].sort((a, b) => {
+            return new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date);
+        });
+        
+        sortedTransactions.forEach(transaction => {
+            const date = transaction.timestamp || transaction.date;
+            const animalType = transaction.animalType || transaction.type || 'Unknown';
+            const quantity = transaction.count || transaction.quantity || 0;
+            const location = transaction.location || '-';
+            const supplier = transaction.supplier || transaction.vendor || '-';
+            const cost = transaction.cost || transaction.amount || transaction.price || 0;
+            const notes = transaction.notes || '-';
+            
             tableHTML += `
                 <tr>
-                    <td colspan="7" class="no-data">No animal purchase data found</td>
+                    <td>${formatDate(date)}</td>
+                    <td>${animalType}</td>
+                    <td>${quantity}</td>
+                    <td>${location}</td>
+                    <td>${supplier}</td>
+                    <td>${formatCurrency(cost)}</td>
+                    <td>${notes}</td>
                 </tr>
             `;
-        } else {
-            // Sort by date (newest first)
-            const sortedTransactions = [...transactions].sort((a, b) => {
-                return new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date);
-            });
-            
-            sortedTransactions.forEach(tx => {
-                const date = formatDate(tx.timestamp || tx.date);
-                const animalType = tx.category || tx.animalType || 'Unknown';
-                const quantity = tx.quantity || tx.count || 0;
-                const location = tx.location || '-';
-                const supplier = tx.supplier || tx.source || '-';
-                const cost = formatCurrency(tx.cost || tx.amount || tx.price || 0);
-                const notes = tx.notes || '-';
-                
-                tableHTML += `
-                    <tr>
-                        <td>${date}</td>
-                        <td>${animalType}</td>
-                        <td>${quantity}</td>
-                        <td>${location}</td>
-                        <td>${supplier}</td>
-                        <td class="cost">${cost}</td>
-                        <td>${notes}</td>
-                    </tr>
-                `;
-            });
-            
-            // Add total row
-            tableHTML += `
-                <tr class="summary-row">
-                    <td colspan="2"><strong>Total</strong></td>
-                    <td><strong>${totalAnimals}</strong></td>
-                    <td colspan="2"></td>
-                    <td class="cost"><strong>${formatCurrency(totalCost)}</strong></td>
-                    <td></td>
-                </tr>
-            `;
-        }
+        });
         
         tableHTML += `
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         `;
         
-        // Return standardized report
+        // Get date range if available
+        let dateRangeText = '';
+        if (data && data.dateRange) {
+            dateRangeText = formatDateRange(data.dateRange.start, data.dateRange.end);
+        }
+        
+        // Return the complete report using the standard structure
         return createStandardReportStructure(
             'Animal Purchase Report',
             'Record of Animal Purchases',
-            data.dateRange ? formatDateRange(data.dateRange.start, data.dateRange.end) : '',
+            dateRangeText,
             tableHTML,
             summaryData,
             false,
@@ -4276,6 +4251,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Extract data
         const { inventory, transactions } = data;
         
+        // If no data, return empty report
+        if (!transactions || transactions.length === 0) {
+            return createStandardReportStructure(
+                'Animal Sale Report',
+                'No Data Available',
+                '',
+                `<div class="empty-state">
+                    <h3>No Animal Sale Data Available</h3>
+                    <p>There are no animal sale records in the system for the selected date range.</p>
+                    <p>Try adding some animal sale records first, or select a different date range.</p>
+                </div>`,
+                null,
+                false,
+                'animal-sale'
+            );
+        }
+        
         // Calculate totals
         const totalRevenue = transactions.reduce((sum, t) => sum + (parseFloat(t.revenue) || parseFloat(t.amount) || parseFloat(t.price) || 0), 0);
         const totalAnimals = transactions.reduce((sum, t) => sum + (parseInt(t.count) || parseInt(t.quantity) || 0), 0);
@@ -4289,77 +4281,71 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Create table HTML
         let tableHTML = `
-            <table class="report-table animal-report-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Animal Type</th>
-                        <th>Quantity</th>
-                        <th>Location</th>
-                        <th>Buyer</th>
-                        <th>Revenue</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <div class="report-section">
+                <div class="report-summary">
+                    <p>Total sales: ${transactions.length}</p>
+                    <p>Total animals sold: ${totalAnimals}</p>
+                    <p>Total revenue: ${formatCurrency(totalRevenue)}</p>
+                </div>
+                <table class="report-table animal-report-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Animal Type</th>
+                            <th>Quantity</th>
+                            <th>Location</th>
+                            <th>Buyer</th>
+                            <th>Revenue</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
         `;
         
-        if (transactions.length === 0) {
+        // Sort by date (newest first)
+        const sortedTransactions = [...transactions].sort((a, b) => {
+            return new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date);
+        });
+        
+        sortedTransactions.forEach(transaction => {
+            const date = transaction.timestamp || transaction.date;
+            const animalType = transaction.animalType || transaction.type || 'Unknown';
+            const quantity = transaction.count || transaction.quantity || 0;
+            const location = transaction.location || '-';
+            const buyer = transaction.buyer || transaction.destination || '-';
+            const revenue = transaction.revenue || transaction.amount || transaction.price || 0;
+            const notes = transaction.notes || '-';
+            
             tableHTML += `
                 <tr>
-                    <td colspan="7" class="no-data">No animal sale data found</td>
+                    <td>${formatDate(date)}</td>
+                    <td>${animalType}</td>
+                    <td>${quantity}</td>
+                    <td>${location}</td>
+                    <td>${buyer}</td>
+                    <td>${formatCurrency(revenue)}</td>
+                    <td>${notes}</td>
                 </tr>
             `;
-        } else {
-            // Sort by date (newest first)
-            const sortedTransactions = [...transactions].sort((a, b) => {
-                return new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date);
-            });
-            
-            sortedTransactions.forEach(tx => {
-                const date = formatDate(tx.timestamp || tx.date);
-                const animalType = tx.category || tx.animalType || 'Unknown';
-                const quantity = tx.quantity || tx.count || 0;
-                const location = tx.location || '-';
-                const buyer = tx.buyer || tx.destination || '-';
-                const revenue = formatCurrency(tx.revenue || tx.amount || tx.price || 0);
-                const notes = tx.notes || '-';
-                
-                tableHTML += `
-                    <tr>
-                        <td>${date}</td>
-                        <td>${animalType}</td>
-                        <td>${quantity}</td>
-                        <td>${location}</td>
-                        <td>${buyer}</td>
-                        <td class="revenue">${revenue}</td>
-                        <td>${notes}</td>
-                    </tr>
-                `;
-            });
-            
-            // Add total row
-            tableHTML += `
-                <tr class="summary-row">
-                    <td colspan="2"><strong>Total</strong></td>
-                    <td><strong>${totalAnimals}</strong></td>
-                    <td colspan="2"></td>
-                    <td class="revenue"><strong>${formatCurrency(totalRevenue)}</strong></td>
-                    <td></td>
-                </tr>
-            `;
-        }
+        });
         
         tableHTML += `
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         `;
         
-        // Return standardized report
+        // Get date range if available
+        let dateRangeText = '';
+        if (data && data.dateRange) {
+            dateRangeText = formatDateRange(data.dateRange.start, data.dateRange.end);
+        }
+        
+        // Return the complete report using the standard structure
         return createStandardReportStructure(
             'Animal Sale Report',
             'Record of Animal Sales',
-            data.dateRange ? formatDateRange(data.dateRange.start, data.dateRange.end) : '',
+            dateRangeText,
             tableHTML,
             summaryData,
             false,
@@ -4376,6 +4362,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Extract data
         const { inventory, transactions } = data;
         
+        // If no data, return empty report
+        if (!transactions || transactions.length === 0) {
+            return createStandardReportStructure(
+                'Animal Birth Report',
+                'No Data Available',
+                '',
+                `<div class="empty-state">
+                    <h3>No Animal Birth Data Available</h3>
+                    <p>There are no animal birth records in the system for the selected date range.</p>
+                    <p>Try adding some animal birth records first, or select a different date range.</p>
+                </div>`,
+                null,
+                false,
+                'animal-birth'
+            );
+        }
+        
         // Calculate totals
         const totalBirths = transactions.reduce((sum, t) => sum + (parseInt(t.count) || parseInt(t.quantity) || 0), 0);
         
@@ -4387,139 +4390,149 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Create table HTML
         let tableHTML = `
-            <table class="report-table animal-report-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Animal Type</th>
-                        <th>Count</th>
-                        <th>Location</th>
-                        <th>Mother ID</th>
-                        <th>Batch ID</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <div class="report-section">
+                <div class="report-summary">
+                    <p>Total birth records: ${transactions.length}</p>
+                    <p>Total animals born: ${totalBirths}</p>
+                </div>
+                <table class="report-table animal-report-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Animal Type</th>
+                            <th>Count</th>
+                            <th>Location</th>
+                            <th>Mother ID</th>
+                            <th>Batch ID</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
         `;
         
-        if (transactions.length === 0) {
-            tableHTML += `
-                <tr>
-                    <td colspan="7" class="no-data">No animal birth data found</td>
-                </tr>
-            `;
-        } else {
-            // Sort transactions by date (newest first)
-            const sortedTransactions = [...transactions].sort((a, b) => {
-                return new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date);
-            });
-            
-            sortedTransactions.forEach(tx => {
-                const date = formatDate(tx.timestamp || tx.date);
-                const animalType = tx.category || tx.animalType || 'Unknown';
-                const count = tx.quantity || tx.count || 0;
-                const location = tx.location || '-';
-                const motherId = tx.motherId || tx.mother || '-';
-                const batchId = tx.batchId || tx.batch || '-';
-                const notes = tx.notes || '-';
-                
-                tableHTML += `
-                    <tr>
-                        <td>${date}</td>
-                        <td>${animalType}</td>
-                        <td>${count}</td>
-                        <td>${location}</td>
-                        <td>${motherId}</td>
-                        <td>${batchId}</td>
-                        <td>${notes}</td>
-                    </tr>
-                `;
-            });
-            
-            // Add total row
-            tableHTML += `
-                <tr class="summary-row">
-                    <td colspan="2"><strong>Total</strong></td>
-                    <td><strong>${totalBirths}</strong></td>
-                    <td colspan="4"></td>
-                </tr>
-            `;
-        }
-        
-        tableHTML += `
-            </tbody>
-        </table>
-    `;
-    
-    // Create standardized report
-    return createStandardReportStructure(
-        'Animal Birth Report',
-        'Record of Animal Births',
-        data.dateRange ? formatDateRange(data.dateRange.start, data.dateRange.end) : '',
-        tableHTML,
-        summaryData,
-        false,
-        'animal-birth'
-    );
-}
-
-/**
- * Create the animal death report table
- * @param {Object} data - Animal death data
- * @returns {string} HTML for the animal death report
- */
-function createAnimalDeathTable(data) {
-    // Extract data
-    const { inventory, transactions } = data;
-    
-    // Calculate totals
-    const totalDeaths = transactions.reduce((sum, t) => sum + (parseInt(t.count) || parseInt(t.quantity) || 0), 0);
-    
-    // Create summary data
-    const summaryData = {
-        'Total death records': transactions.length,
-        'Total animal deaths': totalDeaths
-    };
-    
-    // Create table HTML
-    let tableHTML = `
-        <table class="report-table animal-report-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Animal Type</th>
-                    <th>Count</th>
-                    <th>Location</th>
-                    <th>Cause</th>
-                    <th>Notes</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-    
-    if (transactions.length === 0) {
-        tableHTML += `
-            <tr>
-                <td colspan="6" class="no-data">No animal death data found</td>
-            </tr>
-        `;
-    } else {
         // Sort transactions by date (newest first)
         const sortedTransactions = [...transactions].sort((a, b) => {
             return new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date);
         });
         
-        sortedTransactions.forEach(tx => {
-            const date = formatDate(tx.timestamp || tx.date);
-            const animalType = tx.category || tx.animalType || 'Unknown';
-            const count = tx.quantity || tx.count || 0;
-            const location = tx.location || '-';
-            const cause = tx.cause || '-';
-            const notes = tx.notes || '-';
+        sortedTransactions.forEach(transaction => {
+            const date = transaction.timestamp || transaction.date;
+            const animalType = transaction.animalType || transaction.type || 'Unknown';
+            const count = transaction.count || transaction.quantity || 0;
+            const location = transaction.location || '-';
+            const motherId = transaction.motherId || transaction.mother || '-';
+            const batchId = transaction.batchId || transaction.batch || '-';
+            const notes = transaction.notes || '-';
             
             tableHTML += `
                 <tr>
-                    <td>${date}</td>
+                    <td>${formatDate(date)}</td>
+                    <td>${animalType}</td>
+                    <td>${count}</td>
+                    <td>${location}</td>
+                    <td>${motherId}</td>
+                    <td>${batchId}</td>
+                    <td>${notes}</td>
+                </tr>
+            `;
+        });
+        
+        tableHTML += `
+                </tbody>
+            </table>
+        </div>
+    `;
+        
+        // Get date range if available
+        let dateRangeText = '';
+        if (data && data.dateRange) {
+            dateRangeText = formatDateRange(data.dateRange.start, data.dateRange.end);
+        }
+        
+        // Return the complete report using the standard structure
+        return createStandardReportStructure(
+            'Animal Birth Report',
+            'Record of Animal Births',
+            dateRangeText,
+            tableHTML,
+            summaryData,
+            false,
+            'animal-birth'
+        );
+    }
+
+    /**
+     * Create the animal death report table
+     * @param {Object} data - Animal death data
+     * @returns {string} HTML for the animal death report
+     */
+    function createAnimalDeathTable(data) {
+        // Extract data
+        const { inventory, transactions } = data;
+        
+        // If no data, return empty report
+        if (!transactions || transactions.length === 0) {
+            return createStandardReportStructure(
+                'Animal Death Report',
+                'No Data Available',
+                '',
+                `<div class="empty-state">
+                    <h3>No Animal Death Data Available</h3>
+                    <p>There are no animal death records in the system for the selected date range.</p>
+                    <p>Try adding some animal death records first, or select a different date range.</p>
+                </div>`,
+                null,
+                false,
+                'animal-death'
+            );
+        }
+        
+        // Calculate totals
+        const totalDeaths = transactions.reduce((sum, t) => sum + (parseInt(t.count) || parseInt(t.quantity) || 0), 0);
+        
+        // Create summary data
+        const summaryData = {
+            'Total death records': transactions.length,
+            'Total animal deaths': totalDeaths
+        };
+        
+        // Create table HTML
+        let tableHTML = `
+            <div class="report-section">
+                <div class="report-summary">
+                    <p>Total death records: ${transactions.length}</p>
+                    <p>Total animal deaths: ${totalDeaths}</p>
+                </div>
+                <table class="report-table animal-report-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Animal Type</th>
+                            <th>Count</th>
+                            <th>Location</th>
+                            <th>Cause</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        // Sort transactions by date (newest first)
+        const sortedTransactions = [...transactions].sort((a, b) => {
+            return new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date);
+        });
+        
+        sortedTransactions.forEach(transaction => {
+            const date = transaction.timestamp || transaction.date;
+            const animalType = transaction.animalType || transaction.type || 'Unknown';
+            const count = transaction.count || transaction.quantity || 0;
+            const location = transaction.location || '-';
+            const cause = transaction.cause || '-';
+            const notes = transaction.notes || '-';
+            
+            tableHTML += `
+                <tr>
+                    <td>${formatDate(date)}</td>
                     <td>${animalType}</td>
                     <td>${count}</td>
                     <td>${location}</td>
@@ -4529,100 +4542,114 @@ function createAnimalDeathTable(data) {
             `;
         });
         
-        // Add total row
         tableHTML += `
-            <tr class="summary-row">
-                <td colspan="2"><strong>Total</strong></td>
-                <td><strong>${totalDeaths}</strong></td>
-                <td colspan="3"></td>
-            </tr>
-        `;
+                </tbody>
+            </table>
+        </div>
+    `;
+        
+        // Get date range if available
+        let dateRangeText = '';
+        if (data && data.dateRange) {
+            dateRangeText = formatDateRange(data.dateRange.start, data.dateRange.end);
+        }
+        
+        // Return the complete report using the standard structure
+        return createStandardReportStructure(
+            'Animal Death Report',
+            'Record of Animal Deaths',
+            dateRangeText,
+            tableHTML,
+            summaryData,
+            false,
+            'animal-death'
+        );
     }
-    
-    tableHTML += `
-            </tbody>
-        </table>
-    `;
-    
-    // Create standardized report
-    return createStandardReportStructure(
-        'Animal Death Report',
-        'Record of Animal Deaths',
-        data.dateRange ? formatDateRange(data.dateRange.start, data.dateRange.end) : '',
-        tableHTML,
-        summaryData,
-        false,
-        'animal-death'
-    );
-}
 
-/**
- * Create the animal count report table
- * @param {Object} data - Animal count data
- * @returns {string} HTML for the animal count report
- */
-function createAnimalCountTable(data) {
-    // Extract data
-    const { inventory, transactions } = data;
-    
-    // Calculate totals and stats
-    const totalCounts = transactions.length;
-    const totalAnimals = transactions.reduce((sum, t) => sum + (parseInt(t.actual) || 0), 0);
-    const expectedAnimals = transactions.reduce((sum, t) => sum + (parseInt(t.expected) || 0), 0);
-    const difference = totalAnimals - expectedAnimals;
-    
-    // Create summary data
-    const summaryData = {
-        'Total count records': totalCounts,
-        'Total animals counted': totalAnimals,
-        'Expected animals': expectedAnimals,
-        'Difference': difference
-    };
-    
-    // Create table HTML
-    let tableHTML = `
-        <table class="report-table animal-report-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Animal Type</th>
-                    <th>Location</th>
-                    <th>Expected</th>
-                    <th>Actual</th>
-                    <th>Difference</th>
-                    <th>Counter</th>
-                    <th>Notes</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-    
-    if (transactions.length === 0) {
-        tableHTML += `
-            <tr>
-                <td colspan="8" class="no-data">No animal count data found</td>
-            </tr>
+    /**
+     * Create the animal count report table
+     * @param {Object} data - Animal count data
+     * @returns {string} HTML for the animal count report
+     */
+    function createAnimalCountTable(data) {
+        // Extract data
+        const { inventory, transactions } = data;
+        
+        // If no data, return empty report
+        if (!transactions || transactions.length === 0) {
+            return createStandardReportStructure(
+                'Animal Count Report',
+                'No Data Available',
+                '',
+                `<div class="empty-state">
+                    <h3>No Animal Count Data Available</h3>
+                    <p>There are no animal count records in the system for the selected date range.</p>
+                    <p>Try adding some animal count records first, or select a different date range.</p>
+                </div>`,
+                null,
+                false,
+                'animal-count'
+            );
+        }
+        
+        // Calculate totals and stats
+        const totalCounts = transactions.length;
+        const totalAnimals = transactions.reduce((sum, t) => sum + (parseInt(t.actual) || 0), 0);
+        const expectedAnimals = transactions.reduce((sum, t) => sum + (parseInt(t.expected) || 0), 0);
+        const difference = totalAnimals - expectedAnimals;
+        
+        // Create summary data
+        const summaryData = {
+            'Total count records': totalCounts,
+            'Total animals counted': totalAnimals,
+            'Expected animals': expectedAnimals,
+            'Difference': difference
+        };
+        
+        // Create table HTML
+        let tableHTML = `
+            <div class="report-section">
+                <div class="report-summary">
+                    <p>Total count records: ${totalCounts}</p>
+                    <p>Total animals counted: ${totalAnimals}</p>
+                    <p>Expected animals: ${expectedAnimals}</p>
+                    <p>Difference: <span class="${difference === 0 ? 'neutral' : (difference > 0 ? 'positive' : 'negative')}">${difference > 0 ? '+' + difference : difference}</span></p>
+                </div>
+                <table class="report-table animal-report-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Animal Type</th>
+                            <th>Location</th>
+                            <th>Expected</th>
+                            <th>Actual</th>
+                            <th>Difference</th>
+                            <th>Counter</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
         `;
-    } else {
+        
         // Sort transactions by date (newest first)
         const sortedTransactions = [...transactions].sort((a, b) => {
             return new Date(b.timestamp || b.date) - new Date(a.timestamp || a.date);
         });
         
-        sortedTransactions.forEach(tx => {
-            const date = formatDate(tx.timestamp || tx.date);
-            const animalType = tx.category || tx.animalType || 'Unknown';
-            const location = tx.location || '-';
-            const expected = tx.expected || 0;
-            const actual = tx.actual || 0;
+        sortedTransactions.forEach(transaction => {
+            const date = transaction.timestamp || transaction.date;
+            const animalType = transaction.animalType || transaction.type || 'Unknown';
+            const location = transaction.location || '-';
+            const expected = transaction.expected || 0;
+            const actual = transaction.actual || 0;
             const diff = actual - expected;
             const diffClass = diff === 0 ? 'neutral' : (diff > 0 ? 'positive' : 'negative');
-            const counter = tx.counter || tx.countedBy || '-';
-            const notes = tx.notes || '-';
+            const counter = transaction.counter || transaction.countedBy || '-';
+            const notes = transaction.notes || '-';
             
             tableHTML += `
                 <tr>
-                    <td>${date}</td>
+                    <td>${formatDate(date)}</td>
                     <td>${animalType}</td>
                     <td>${location}</td>
                     <td>${expected}</td>
@@ -4634,779 +4661,809 @@ function createAnimalCountTable(data) {
             `;
         });
         
-        // Add total row
         tableHTML += `
-            <tr class="summary-row">
-                <td colspan="2"><strong>Total</strong></td>
-                <td></td>
-                <td><strong>${expectedAnimals}</strong></td>
-                <td><strong>${totalAnimals}</strong></td>
-                <td class="${difference === 0 ? 'neutral' : (difference > 0 ? 'positive' : 'negative')}">
-                    <strong>${difference > 0 ? '+' + difference : difference}</strong>
-                </td>
-                <td colspan="2"></td>
-            </tr>
+                    </tbody>
+                </table>
+            </div>
         `;
+        
+        // Get date range if available
+        let dateRangeText = '';
+        if (data && data.dateRange) {
+            dateRangeText = formatDateRange(data.dateRange.start, data.dateRange.end);
+        }
+        
+        // Return the complete report using the standard structure
+        return createStandardReportStructure(
+            'Animal Count Report',
+            'Record of Animal Counts',
+            dateRangeText,
+            tableHTML,
+            summaryData,
+            false,
+            'animal-count'
+        );
     }
-    
-    tableHTML += `
-            </tbody>
-        </table>
-    `;
-    
-    // Return standardized report
-    return createStandardReportStructure(
-        'Animal Count Report',
-        'Record of Animal Counts',
-        data.dateRange ? formatDateRange(data.dateRange.start, data.dateRange.end) : '',
-        tableHTML,
-        summaryData,
-        false,
-        'animal-count'
-    );
-}
 
-/**
- * Create the animal discrepancy report table
- * @param {Object} data - Animal discrepancy data
- * @returns {string} HTML for the animal discrepancy report
- */
-function createAnimalDiscrepancyTable(data) {
-    console.log('Creating discrepancy table with data:', data);
-    
-    // Check if we have the isEmpty flag
-    if (data && data.isEmpty === true) {
+    /**
+     * Create the animal discrepancy report table
+     * @param {Object} data - Animal discrepancy data
+     * @returns {string} HTML for the animal discrepancy report
+     */
+    function createAnimalDiscrepancyTable(data) {
+        console.log('Creating discrepancy table with data:', data);
+        
+        // Check if we have the isEmpty flag
+        if (data && data.isEmpty === true) {
+            return createStandardReportStructure(
+                'Animal Discrepancy Report',
+                'Record of Inventory Adjustments',
+                data.dateRange ? formatDateRange(data.dateRange.start, data.dateRange.end) : '',
+                `<div class="no-data-message">
+                    <p>No discrepancies found for this period.</p>
+                    <p>If you've just cleared all animal data, that's expected - new discrepancies will appear here when stock counts are performed.</p>
+                </div>`,
+                null, // No summary data
+                false, // Not demo data
+                'animal-discrepancy'
+            );
+        }
+        
+        // Extract transactions from data object
+        const transactions = Array.isArray(data) ? data : (data && data.transactions ? data.transactions : []);
+        
+        console.log(`Processing ${transactions.length} discrepancy transactions`);
+        
+        // Format date range if available
+        let dateRangeText = '';
+        if (data && data.dateRange) {
+            dateRangeText = formatDateRange(data.dateRange.start, data.dateRange.end);
+        }
+        
+        // Create a map to store resolution entries
+        const resolutionEntries = [];
+        
+        // Create table
+        var tableHTML = "<table class='report-table animal-discrepancy-table'>";
+        tableHTML += "<thead><tr>";
+        tableHTML += "<th>Date</th>";
+        tableHTML += "<th>Category</th>";
+        tableHTML += "<th>Expected</th>";
+        tableHTML += "<th>Actual</th>";
+        tableHTML += "<th>Difference</th>";
+        tableHTML += "<th>Counter</th>";
+        tableHTML += "<th>Status</th>";
+        tableHTML += "<th>Notes</th>";
+        tableHTML += "</tr></thead>";
+        tableHTML += "<tbody>";
+
+        if (transactions && transactions.length > 0) {
+            var resolved = 0;
+            var unresolved = 0;
+            var totalDifference = 0;
+
+            for (var i = 0; i < transactions.length; i++) {
+                var record = transactions[i];
+                var date = record.date ? new Date(record.date) : (record.timestamp ? new Date(record.timestamp) : new Date());
+                var formattedDate = formatDate(date);
+                var difference = (record.actual - record.expected) || 0;
+                totalDifference += difference;
+
+                // Check if resolution exists
+                let resolutionText = '';
+                let status = 'Unresolved';
+                
+                if (record.resolution || (record.notes && record.notes.includes('Resolution:'))) {
+                    status = 'Resolved';
+                    resolved++;
+                    
+                    // Create a separate resolution entry
+                    if (record.finalCount !== undefined) {
+                        // Create a resolution entry that will be added after all discrepancies
+                        const resolutionDate = record.resolutionDate || record.date || record.timestamp;
+                        const resolutionTimestamp = record.resolutionTimestamp || record.timestamp;
+                        
+                        resolutionEntries.push({
+                            date: resolutionDate,
+                            timestamp: resolutionTimestamp,
+                            category: record.category,
+                            expected: record.actual, // The expected count for the resolution is the actual count from discrepancy
+                            actual: record.finalCount,
+                            difference: record.finalCount - record.actual,
+                            counterName: record.counterName,
+                            resolution: record.resolution || "Issue resolved",
+                            isResolution: true
+                        });
+                    }
+                } else {
+                    unresolved++;
+                }
+                
+                // Notes field for discrepancy record
+                const notes = record.notes || '';
+
+                var counterName = record.counterName || '-';
+                
+                tableHTML += "<tr>";
+                tableHTML += "<td>" + formattedDate + "</td>";
+                tableHTML += "<td>" + (record.category || '') + "</td>";
+                tableHTML += "<td>" + (record.expected || 0) + "</td>";
+                tableHTML += "<td>" + (record.actual || 0) + "</td>";
+                tableHTML += "<td class='" + (difference < 0 ? 'negative' : (difference > 0 ? 'positive' : '')) + "'>" + (difference > 0 ? '+' + difference : difference) + "</td>";
+                tableHTML += "<td>" + counterName + "</td>";
+                tableHTML += "<td class='" + status.toLowerCase() + "'>" + status + "</td>";
+                tableHTML += "<td>" + notes + "</td>";
+                tableHTML += "</tr>";
+            }
+            
+            // Add resolution entries
+            if (resolutionEntries.length > 0) {
+                // Sort resolution entries by date
+                resolutionEntries.sort((a, b) => {
+                    const dateA = new Date(a.date || a.timestamp);
+                    const dateB = new Date(b.date || b.timestamp);
+                    return dateA - dateB;
+                });
+                
+                // Add all resolution entries
+                for (const resolution of resolutionEntries) {
+                    const resDate = resolution.date ? new Date(resolution.date) : (resolution.timestamp ? new Date(resolution.timestamp) : new Date());
+                    const resFormattedDate = formatDate(resDate);
+                    const resDifference = resolution.difference || 0;
+                    
+                    tableHTML += "<tr class='resolution-row'>";
+                    tableHTML += "<td>" + resFormattedDate + "</td>";
+                    tableHTML += "<td>" + (resolution.category || '') + "</td>";
+                    tableHTML += "<td>" + (resolution.expected || 0) + "</td>";
+                    tableHTML += "<td>" + (resolution.actual || 0) + "</td>";
+                    tableHTML += "<td class='" + (resDifference < 0 ? 'negative' : (resDifference > 0 ? 'positive' : '')) + "'>" + (resDifference > 0 ? '+' + resDifference : resDifference) + "</td>";
+                    tableHTML += "<td>" + (resolution.counterName || '-') + "</td>";
+                    tableHTML += "<td class='resolved'>Resolution</td>";
+                    tableHTML += "<td>" + resolution.resolution + "</td>";
+                    tableHTML += "</tr>";
+                }
+            }
+
+            // Add summary row
+            tableHTML += "<tr class='summary-row'>";
+            tableHTML += "<td colspan='4'><strong>Summary</strong></td>";
+            tableHTML += "<td class='" + (totalDifference < 0 ? 'negative' : (totalDifference > 0 ? 'positive' : '')) + "'>" + (totalDifference > 0 ? '+' + totalDifference : totalDifference) + "</td>";
+            tableHTML += "<td colspan='3'>Resolved: " + resolved + ", Unresolved: " + unresolved + "</td>";
+            tableHTML += "</tr>";
+        } else {
+            tableHTML += "<tr><td colspan='8' class='text-center'>No discrepancies found</td></tr>";
+        }
+
+        tableHTML += "</tbody></table>";
+        
+        // Wrap in standard report structure
         return createStandardReportStructure(
             'Animal Discrepancy Report',
             'Record of Inventory Adjustments',
-            data.dateRange ? formatDateRange(data.dateRange.start, data.dateRange.end) : '',
-            `<div class="no-data-message">
-                <p>No discrepancies found for this period.</p>
-                <p>If you've just cleared all animal data, that's expected - new discrepancies will appear here when stock counts are performed.</p>
-            </div>`,
+            dateRangeText,
+            tableHTML,
             null, // No summary data
             false, // Not demo data
             'animal-discrepancy'
         );
     }
-    
-    // Extract transactions from data object
-    const transactions = Array.isArray(data) ? data : (data && data.transactions ? data.transactions : []);
-    
-    console.log(`Processing ${transactions.length} discrepancy transactions`);
-    
-    // Format date range if available
-    let dateRangeText = '';
-    if (data && data.dateRange) {
-        dateRangeText = formatDateRange(data.dateRange.start, data.dateRange.end);
-    }
-    
-    // Create a map to store resolution entries
-    const resolutionEntries = [];
-    
-    // Create table
-    var tableHTML = "<table class='report-table animal-discrepancy-table'>";
-    tableHTML += "<thead><tr>";
-    tableHTML += "<th>Date</th>";
-    tableHTML += "<th>Category</th>";
-    tableHTML += "<th>Expected</th>";
-    tableHTML += "<th>Actual</th>";
-    tableHTML += "<th>Difference</th>";
-    tableHTML += "<th>Counter</th>";
-    tableHTML += "<th>Status</th>";
-    tableHTML += "<th>Notes</th>";
-    tableHTML += "</tr></thead>";
-    tableHTML += "<tbody>";
 
-    if (transactions && transactions.length > 0) {
-        var resolved = 0;
-        var unresolved = 0;
-        var totalDifference = 0;
-
-        for (var i = 0; i < transactions.length; i++) {
-            var record = transactions[i];
-            var date = record.date ? new Date(record.date) : (record.timestamp ? new Date(record.timestamp) : new Date());
-            var formattedDate = formatDate(date);
-            var difference = (record.actual - record.expected) || 0;
-            totalDifference += difference;
-
-            // Check if resolution exists
-            let resolutionText = '';
-            let status = 'Unresolved';
-            
-            if (record.resolution || (record.notes && record.notes.includes('Resolution:'))) {
-                status = 'Resolved';
-                resolved++;
-                
-                // Create a separate resolution entry
-                if (record.finalCount !== undefined) {
-                    // Create a resolution entry that will be added after all discrepancies
-                    const resolutionDate = record.resolutionDate || record.date || record.timestamp;
-                    const resolutionTimestamp = record.resolutionTimestamp || record.timestamp;
-                    
-                    resolutionEntries.push({
-                        date: resolutionDate,
-                        timestamp: resolutionTimestamp,
-                        category: record.category,
-                        expected: record.actual, // The expected count for the resolution is the actual count from discrepancy
-                        actual: record.finalCount,
-                        difference: record.finalCount - record.actual,
-                        counterName: record.counterName,
-                        resolution: record.resolution || "Issue resolved",
-                        isResolution: true
-                    });
-                }
-            } else {
-                unresolved++;
-            }
-            
-            // Notes field for discrepancy record
-            const notes = record.notes || '';
-
-            var counterName = record.counterName || '-';
-            
-            tableHTML += "<tr>";
-            tableHTML += "<td>" + formattedDate + "</td>";
-            tableHTML += "<td>" + (record.category || '') + "</td>";
-            tableHTML += "<td>" + (record.expected || 0) + "</td>";
-            tableHTML += "<td>" + (record.actual || 0) + "</td>";
-            tableHTML += "<td class='" + (difference < 0 ? 'negative' : (difference > 0 ? 'positive' : '')) + "'>" + (difference > 0 ? '+' + difference : difference) + "</td>";
-            tableHTML += "<td>" + counterName + "</td>";
-            tableHTML += "<td class='" + status.toLowerCase() + "'>" + status + "</td>";
-            tableHTML += "<td>" + notes + "</td>";
-            tableHTML += "</tr>";
-        }
+    /**
+     * Creates a standard report HTML structure used by all report types
+     * @param {string} reportTitle - Title of the report
+     * @param {string} reportSubtitle - Optional subtitle or description
+     * @param {string|Object} dateRange - Formatted date range string or object with start/end properties
+     * @param {string} tableHTML - The HTML content for the report table
+     * @param {Object} summaryData - Summary statistics to display
+     * @param {boolean} isDemoData - Whether this is demo data
+     * @param {string} reportType - Type of report for export purposes
+     * @returns {string} Complete standardized report HTML
+     */
+    function createStandardReportStructure(reportTitle, reportSubtitle, dateRange, tableHTML, summaryData, isDemoData = false, reportType = 'report') {
+        // Format the date range for display
+        let formattedDateRange = '';
         
-        // Add resolution entries
-        if (resolutionEntries.length > 0) {
-            // Sort resolution entries by date
-            resolutionEntries.sort((a, b) => {
-                const dateA = new Date(a.date || a.timestamp);
-                const dateB = new Date(b.date || b.timestamp);
-                return dateA - dateB;
-            });
-            
-            // Add all resolution entries
-            for (const resolution of resolutionEntries) {
-                const resDate = resolution.date ? new Date(resolution.date) : (resolution.timestamp ? new Date(resolution.timestamp) : new Date());
-                const resFormattedDate = formatDate(resDate);
-                const resDifference = resolution.difference || 0;
-                
-                tableHTML += "<tr class='resolution-row'>";
-                tableHTML += "<td>" + resFormattedDate + "</td>";
-                tableHTML += "<td>" + (resolution.category || '') + "</td>";
-                tableHTML += "<td>" + (resolution.expected || 0) + "</td>";
-                tableHTML += "<td>" + (resolution.actual || 0) + "</td>";
-                tableHTML += "<td class='" + (resDifference < 0 ? 'negative' : (resDifference > 0 ? 'positive' : '')) + "'>" + (resDifference > 0 ? '+' + resDifference : resDifference) + "</td>";
-                tableHTML += "<td>" + (resolution.counterName || '-') + "</td>";
-                tableHTML += "<td class='resolved'>Resolution</td>";
-                tableHTML += "<td>" + resolution.resolution + "</td>";
-                tableHTML += "</tr>";
+        if (typeof dateRange === 'string') {
+            // If it's already a string, use it directly
+            formattedDateRange = dateRange;
+        } else if (dateRange && typeof dateRange === 'object') {
+            // If it's an object with start and end properties, format it
+            if (dateRange.start && dateRange.end) {
+                formattedDateRange = formatDateRange(dateRange.start, dateRange.end);
+            } else if (dateRange.start) {
+                formattedDateRange = `From ${formatDate(dateRange.start)}`;
+            } else if (dateRange.end) {
+                formattedDateRange = `Until ${formatDate(dateRange.end)}`;
             }
         }
 
-        // Add summary row
-        tableHTML += "<tr class='summary-row'>";
-        tableHTML += "<td colspan='4'><strong>Summary</strong></td>";
-        tableHTML += "<td class='" + (totalDifference < 0 ? 'negative' : (totalDifference > 0 ? 'positive' : '')) + "'>" + (totalDifference > 0 ? '+' + totalDifference : totalDifference) + "</td>";
-        tableHTML += "<td colspan='3'>Resolved: " + resolved + ", Unresolved: " + unresolved + "</td>";
-        tableHTML += "</tr>";
-    } else {
-        tableHTML += "<tr><td colspan='8' class='text-center'>No discrepancies found</td></tr>";
-    }
-
-    tableHTML += "</tbody></table>";
-    
-    // Wrap in standard report structure
-    return createStandardReportStructure(
-        'Animal Discrepancy Report',
-        'Record of Inventory Adjustments',
-        dateRangeText,
-        tableHTML,
-        null, // No summary data
-        false, // Not demo data
-        'animal-discrepancy'
-    );
-}
-
-/**
- * Creates a standard report HTML structure used by all report types
- * @param {string} reportTitle - Title of the report
- * @param {string} reportSubtitle - Optional subtitle or description
- * @param {string|Object} dateRange - Formatted date range string or object with start/end properties
- * @param {string} tableHTML - The HTML content for the report table
- * @param {Object} summaryData - Summary statistics to display
- * @param {boolean} isDemoData - Whether this is demo data
- * @param {string} reportType - Type of report for export purposes
- * @returns {string} Complete standardized report HTML
- */
-function createStandardReportStructure(reportTitle, reportSubtitle, dateRange, tableHTML, summaryData, isDemoData = false, reportType = 'report') {
-    // Format the date range for display
-    let formattedDateRange = '';
-    
-    if (typeof dateRange === 'string') {
-        // If it's already a string, use it directly
-        formattedDateRange = dateRange;
-    } else if (dateRange && typeof dateRange === 'object') {
-        // If it's an object with start and end properties, format it
-        if (dateRange.start && dateRange.end) {
-            formattedDateRange = formatDateRange(dateRange.start, dateRange.end);
-        } else if (dateRange.start) {
-            formattedDateRange = `From ${formatDate(dateRange.start)}`;
-        } else if (dateRange.end) {
-            formattedDateRange = `Until ${formatDate(dateRange.end)}`;
+        // Format summary data if available
+        let summaryHTML = '';
+        if (summaryData && summaryData.summary && Array.isArray(summaryData.summary)) {
+            summaryHTML = summaryData.summary.map(item => `<p class="summary-item">${item}</p>`).join('');
         }
-    }
-    
-    // Build the HTML structure for the report
-    let reportHTML = `
-        <div class="report-container ${reportType}">
-            <div class="report-header">
-                <h2 class="report-title">${reportTitle}</h2>
-                <div class="report-meta">
-                    <p class="report-date-range">Report period: ${formattedDateRange}</p>
-                    ${reportSubtitle ? `<p class="report-subtitle">${reportSubtitle}</p>` : ''}
-                    ${isDemoData ? '<p class="demo-data-notice">* Using demo data for illustration</p>' : ''}
+        
+        // Build the HTML structure for the report
+        let reportHTML = `
+            <div class="report-container ${reportType}">
+                <div class="report-header">
+                    <h2 class="report-title">${reportTitle}</h2>
+                    <div class="report-meta">
+                        <p class="report-date-range">Report period: ${formattedDateRange}</p>
+                        ${reportSubtitle ? `<p class="report-subtitle">${reportSubtitle}</p>` : ''}
+                        ${summaryHTML}
+                        ${isDemoData ? '<p class="demo-data-notice">* Using demo data for illustration</p>' : ''}
+                    </div>
+                    <div class="report-actions">
+                        <button onclick="window.print()" class="print-button">Print Report</button>
+                        <button onclick="exportReportToCSV('${reportType}')" class="export-button">Export to CSV</button>
+                    </div>
                 </div>
-                <div class="report-actions">
-                    <button onclick="window.print()" class="print-button">Print Report</button>
-                    <button onclick="exportReportToCSV('${reportType}')" class="export-button">Export to CSV</button>
+                <div class="report-body">
+                    ${tableHTML}
+                </div>
+                <div class="report-footer">
+                    <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
                 </div>
             </div>
-            <div class="report-body">
-                ${tableHTML}
-            </div>
-            <div class="report-footer">
-                <p>Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
-            </div>
-        </div>
-    `;
-    
-    return reportHTML;
-}
-
-/**
- * Format date for display in reports
- * @param {string|Date} date - Date to format
- * @returns {string} Formatted date string
- */
-function formatDate(date) {
-    if (!date) return 'N/A';
-    
-    try {
-        const dateObj = new Date(date);
+        `;
         
-        // Check if date is valid
-        if (isNaN(dateObj.getTime())) {
-            return 'Invalid date';
-        }
-        
-        // Format date as YYYY-MM-DD
-        return dateObj.toISOString().split('T')[0];
-    } catch (e) {
-        console.error('Error formatting date:', e);
-        return 'Error';
+        return reportHTML;
     }
-}
 
-/**
- * Format date range for display in reports
- * @param {string|Date} startDate - Start date
- * @param {string|Date} endDate - End date
- * @returns {string} Formatted date range
- */
-function formatDateRange(startDate, endDate) {
-    return `${formatDate(startDate)} to ${formatDate(endDate)}`;
-}
-
-/**
- * Helper function to capitalize the first letter of a string
- * @param {string} string - Input string
- * @returns {string} String with first letter capitalized
- */
-function capitalizeFirstLetter(string) {
-    if (!string) return '';
-    return string.charAt(0).toUpperCase() + string.slice(1);
-}
-
-/**
- * Global function to export reports to CSV
- * This can be called from the UI for any report type
- */
-window.exportReportToCSV = function(reportType) {
-    try {
-        // Get the appropriate table based on report type
-        const tableSelector = getTableSelectorForReportType(reportType);
-        const table = document.querySelector(tableSelector);
+    /**
+     * Format date for display in reports
+     * @param {string|Date} date - Date to format
+     * @returns {string} Formatted date string
+     */
+    function formatDate(date) {
+        if (!date) return 'N/A';
         
-        if (!table) {
-            console.error('No table found for export');
-            alert('No data available to export');
-            return;
+        try {
+            const dateObj = new Date(date);
+            
+            // Check if date is valid
+            if (isNaN(dateObj.getTime())) {
+                return 'Invalid date';
+            }
+            
+            // Format date as YYYY-MM-DD
+            return dateObj.toISOString().split('T')[0];
+        } catch (e) {
+            console.error('Error formatting date:', e);
+            return 'Error';
         }
-        
-        // Extract table data
-        const rows = [];
-        const headers = [];
-        
-        // Get headers
-        const headerRow = table.querySelector('thead tr');
-        if (headerRow) {
-            const headerCells = headerRow.querySelectorAll('th');
-            headerCells.forEach(cell => {
-                headers.push(cell.textContent.trim());
-            });
-            rows.push(headers);
-        }
-        
-        // Get data rows
-        const dataRows = table.querySelectorAll('tbody tr');
-        dataRows.forEach(row => {
-            // Skip rows that are empty or total rows
-            if (row.classList.contains('no-data') || row.classList.contains('type-header')) {
+    }
+
+    /**
+     * Format date range for display in reports
+     * @param {string|Date} startDate - Start date
+     * @param {string|Date} endDate - End date
+     * @returns {string} Formatted date range
+     */
+    function formatDateRange(startDate, endDate) {
+        return `${formatDate(startDate)} to ${formatDate(endDate)}`;
+    }
+
+    /**
+     * Helper function to capitalize the first letter of a string
+     * @param {string} string - Input string
+     * @returns {string} String with first letter capitalized
+     */
+    function capitalizeFirstLetter(string) {
+        if (!string) return '';
+        return string.charAt(0).toUpperCase() + string.slice(1);
+    }
+
+    /**
+     * Global function to export reports to CSV
+     * This can be called from the UI for any report type
+     */
+    window.exportReportToCSV = function(reportType) {
+        try {
+            // Get the appropriate table based on report type
+            const tableSelector = getTableSelectorForReportType(reportType);
+            const table = document.querySelector(tableSelector);
+            
+            if (!table) {
+                console.error('No table found for export');
+                alert('No data available to export');
                 return;
             }
             
-            const rowData = [];
-            const cells = row.querySelectorAll('td');
-            cells.forEach(cell => {
-                rowData.push(cell.textContent.trim());
-            });
+            // Extract table data
+            const rows = [];
+            const headers = [];
             
-            // Only add non-empty rows
-            if (rowData.some(cell => cell !== '')) {
-                rows.push(rowData);
+            // Get headers
+            const headerRow = table.querySelector('thead tr');
+            if (headerRow) {
+                const headerCells = headerRow.querySelectorAll('th');
+                headerCells.forEach(cell => {
+                    headers.push(cell.textContent.trim());
+                });
+                rows.push(headers);
             }
-        });
-        
-        // Convert to CSV
-        let csvContent = '';
-        rows.forEach(row => {
-            // Quote cells that contain commas
-            const quotedRow = row.map(cell => {
-                if (cell.includes(',')) {
-                    return `"${cell}"`;
+            
+            // Get data rows
+            const dataRows = table.querySelectorAll('tbody tr');
+            dataRows.forEach(row => {
+                // Skip rows that are empty or total rows
+                if (row.classList.contains('no-data') || row.classList.contains('type-header')) {
+                    return;
                 }
-                return cell;
+                
+                const rowData = [];
+                const cells = row.querySelectorAll('td');
+                cells.forEach(cell => {
+                    rowData.push(cell.textContent.trim());
+                });
+                
+                // Only add non-empty rows
+                if (rowData.some(cell => cell !== '')) {
+                    rows.push(rowData);
+                }
             });
-            csvContent += quotedRow.join(',') + '\n';
-        });
-        
-        // Create filename based on report type and date
-        const today = new Date();
-        const formattedDate = today.toISOString().split('T')[0];
-        const filename = `${reportType}-report-${formattedDate}.csv`;
-        
-        // Download the CSV file
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        
-        // Browser compatibility for downloads
-        if (navigator.msSaveBlob) {
-            // IE 10+
-            navigator.msSaveBlob(blob, filename);
-        } else {
-            // Other browsers
-            const link = document.createElement('a');
-            if (link.download !== undefined) {
-                // Feature detection
-                const url = URL.createObjectURL(blob);
-                link.setAttribute('href', url);
-                link.setAttribute('download', filename);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+            
+            // Convert to CSV
+            let csvContent = '';
+            rows.forEach(row => {
+                // Quote cells that contain commas
+                const quotedRow = row.map(cell => {
+                    if (cell.includes(',')) {
+                        return `"${cell}"`;
+                    }
+                    return cell;
+                });
+                csvContent += quotedRow.join(',') + '\n';
+            });
+            
+            // Create filename based on report type and date
+            const today = new Date();
+            const formattedDate = today.toISOString().split('T')[0];
+            const filename = `${reportType}-report-${formattedDate}.csv`;
+            
+            // Download the CSV file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            
+            // Browser compatibility for downloads
+            if (navigator.msSaveBlob) {
+                // IE 10+
+                navigator.msSaveBlob(blob, filename);
             } else {
-                // Fallback - open in new window
-                window.open('data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent));
+                // Other browsers
+                const link = document.createElement('a');
+                if (link.download !== undefined) {
+                    // Feature detection
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', filename);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    // Fallback - open in new window
+                    window.open('data:text/csv;charset=utf-8,' + encodeURIComponent(csvContent));
+                }
             }
+            
+            console.log(`Exported ${reportType} report to CSV`);
+        } catch (error) {
+            console.error('Error exporting report to CSV:', error);
+            alert('Error exporting report: ' + error.message);
         }
+    };
+
+    /**
+     * Get the table selector for a specific report type
+     * @param {string} reportType - The type of report
+     * @returns {string} CSS selector for the report table
+     */
+    function getTableSelectorForReportType(reportType) {
+        switch (reportType) {
+            case 'all-feed':
+                return '.feed-report-table';
+            case 'feed-purchase':
+                return '.feed-purchase-table';
+            case 'feed-usage':
+                return '.feed-usage-table';
+            case 'feed-inventory':
+                return '.feed-inventory-table';
+            case 'feed-calculations':
+                return '.feed-calculation-table';
+                
+            case 'all-animal':
+                return '.animal-transactions-table';
+            case 'animal-inventory':
+                return '.animal-inventory-table';
+            case 'animal-movement':
+            case 'animal-purchase':
+            case 'animal-sale':
+            case 'animal-birth':
+            case 'animal-death':
+            case 'animal-count':
+            case 'animal-discrepancy':
+                return '.animal-report-table';
+                
+            case 'all-health':
+            case 'health-treatment':
+            case 'health-vaccination':
+            case 'health-medication':
+                return '.health-report-table';
+                
+            default:
+                return '.report-table';
+        }
+    }
+
+    // Export all functions created inside the DOMContentLoaded event to make them globally accessible
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Making all report functions globally accessible');
         
-        console.log(`Exported ${reportType} report to CSV`);
-    } catch (error) {
-        console.error('Error exporting report to CSV:', error);
-        alert('Error exporting report: ' + error.message);
-    }
-};
+        // Check if animal report functions are defined
+        console.log('Animal report functions check:');
+        console.log('- createAllAnimalReportTable:', typeof createAllAnimalReportTable === 'function');
+        console.log('- createAnimalInventoryTable:', typeof createAnimalInventoryTable === 'function');
+        console.log('- createAnimalMovementTable:', typeof createAnimalMovementTable === 'function');
+        console.log('- createAnimalPurchaseTable:', typeof createAnimalPurchaseTable === 'function');
+        console.log('- createAnimalSaleTable:', typeof createAnimalSaleTable === 'function');
+        console.log('- createAnimalBirthTable:', typeof createAnimalBirthTable === 'function');
+        console.log('- createAnimalDeathTable:', typeof createAnimalDeathTable === 'function');
+        console.log('- createAnimalCountTable:', typeof createAnimalCountTable === 'function');
+        console.log('- createAnimalDiscrepancyTable:', typeof createAnimalDiscrepancyTable === 'function');
+        
+        // Make all animal report functions globally accessible
+        if (typeof createAnimalMovementTable === 'function') window.createAnimalMovementTable = createAnimalMovementTable;
+        if (typeof createAnimalPurchaseTable === 'function') window.createAnimalPurchaseTable = createAnimalPurchaseTable;
+        if (typeof createAnimalSaleTable === 'function') window.createAnimalSaleTable = createAnimalSaleTable;
+        if (typeof createAnimalBirthTable === 'function') window.createAnimalBirthTable = createAnimalBirthTable;
+        if (typeof createAnimalDeathTable === 'function') window.createAnimalDeathTable = createAnimalDeathTable;
+        if (typeof createAnimalCountTable === 'function') window.createAnimalCountTable = createAnimalCountTable;
+        if (typeof createAnimalDiscrepancyTable === 'function') window.createAnimalDiscrepancyTable = createAnimalDiscrepancyTable;
+        
+        // Make all feed report functions globally accessible
+        if (typeof createAllFeedReportTable === 'function') window.createAllFeedReportTable = createAllFeedReportTable;
+        if (typeof createFeedPurchaseTable === 'function') window.createFeedPurchaseTable = createFeedPurchaseTable;
+        if (typeof createFeedUsageTable === 'function') window.createFeedUsageTable = createFeedUsageTable;
+        if (typeof createFeedInventoryTable === 'function') window.createFeedInventoryTable = createFeedInventoryTable;
+        if (typeof createFeedCalculationTable === 'function') window.createFeedCalculationTable = createFeedCalculationTable;
+        
+        // Make all data loading functions globally accessible
+        if (typeof loadAnimalData === 'function') window.loadAnimalData = loadAnimalData;
+        if (typeof loadAnimalInventoryData === 'function') window.loadAnimalInventoryData = loadAnimalInventoryData;
+        if (typeof loadAnimalMovementData === 'function') window.loadAnimalMovementData = loadAnimalMovementData;
+        if (typeof loadAnimalPurchaseData === 'function') window.loadAnimalPurchaseData = loadAnimalPurchaseData;
+        if (typeof loadAnimalSaleData === 'function') window.loadAnimalSaleData = loadAnimalSaleData;
+        if (typeof loadAnimalBirthData === 'function') window.loadAnimalBirthData = loadAnimalBirthData;
+        if (typeof loadAnimalDeathData === 'function') window.loadAnimalDeathData = loadAnimalDeathData;
+        if (typeof loadAnimalCountData === 'function') window.loadAnimalCountData = loadAnimalCountData;
+        if (typeof loadAnimalDiscrepancyData === 'function') window.loadAnimalDiscrepancyData = loadAnimalDiscrepancyData;
+        
+        // Make health report functions globally accessible
+        if (typeof loadHealthTreatmentData === 'function') window.loadHealthTreatmentData = loadHealthTreatmentData;
+        if (typeof loadVaccinationData === 'function') window.loadVaccinationData = loadVaccinationData;
+        if (typeof loadHealthMedicationData === 'function') window.loadHealthMedicationData = loadHealthMedicationData;
+    });
 
-/**
- * Get the table selector for a specific report type
- * @param {string} reportType - The type of report
- * @returns {string} CSS selector for the report table
- */
-function getTableSelectorForReportType(reportType) {
-    switch (reportType) {
-        case 'all-feed':
-            return '.feed-report-table';
-        case 'feed-purchase':
-            return '.feed-purchase-table';
-        case 'feed-usage':
-            return '.feed-usage-table';
-        case 'feed-inventory':
-            return '.feed-inventory-table';
-        case 'feed-calculations':
-            return '.feed-calculation-table';
-            
-        case 'all-animal':
-            return '.animal-transactions-table';
-        case 'animal-inventory':
-            return '.animal-inventory-table';
-        case 'animal-movement':
-        case 'animal-purchase':
-        case 'animal-sale':
-        case 'animal-birth':
-        case 'animal-death':
-        case 'animal-count':
-        case 'animal-discrepancy':
-            return '.animal-report-table';
-            
-        case 'all-health':
-        case 'health-treatment':
-        case 'health-vaccination':
-        case 'health-medication':
-            return '.health-report-table';
-            
-        default:
-            return '.report-table';
-    }
-}
+    // Close the DOMContentLoaded event handler
+    });
 
-// Export all functions created inside the DOMContentLoaded event to make them globally accessible
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Making all report functions globally accessible');
-    
-    // Check if animal report functions are defined
-    console.log('Animal report functions check:');
-    console.log('- createAllAnimalReportTable:', typeof createAllAnimalReportTable === 'function');
-    console.log('- createAnimalInventoryTable:', typeof createAnimalInventoryTable === 'function');
-    console.log('- createAnimalMovementTable:', typeof createAnimalMovementTable === 'function');
-    console.log('- createAnimalPurchaseTable:', typeof createAnimalPurchaseTable === 'function');
-    console.log('- createAnimalSaleTable:', typeof createAnimalSaleTable === 'function');
-    console.log('- createAnimalBirthTable:', typeof createAnimalBirthTable === 'function');
-    console.log('- createAnimalDeathTable:', typeof createAnimalDeathTable === 'function');
-    console.log('- createAnimalCountTable:', typeof createAnimalCountTable === 'function');
-    console.log('- createAnimalDiscrepancyTable:', typeof createAnimalDiscrepancyTable === 'function');
-    
-    // Make all animal report functions globally accessible
-    if (typeof createAnimalMovementTable === 'function') window.createAnimalMovementTable = createAnimalMovementTable;
-    if (typeof createAnimalPurchaseTable === 'function') window.createAnimalPurchaseTable = createAnimalPurchaseTable;
-    if (typeof createAnimalSaleTable === 'function') window.createAnimalSaleTable = createAnimalSaleTable;
-    if (typeof createAnimalBirthTable === 'function') window.createAnimalBirthTable = createAnimalBirthTable;
-    if (typeof createAnimalDeathTable === 'function') window.createAnimalDeathTable = createAnimalDeathTable;
-    if (typeof createAnimalCountTable === 'function') window.createAnimalCountTable = createAnimalCountTable;
-    if (typeof createAnimalDiscrepancyTable === 'function') window.createAnimalDiscrepancyTable = createAnimalDiscrepancyTable;
-    
-    // Make all feed report functions globally accessible
-    if (typeof createAllFeedReportTable === 'function') window.createAllFeedReportTable = createAllFeedReportTable;
-    if (typeof createFeedPurchaseTable === 'function') window.createFeedPurchaseTable = createFeedPurchaseTable;
-    if (typeof createFeedUsageTable === 'function') window.createFeedUsageTable = createFeedUsageTable;
-    if (typeof createFeedInventoryTable === 'function') window.createFeedInventoryTable = createFeedInventoryTable;
-    if (typeof createFeedCalculationTable === 'function') window.createFeedCalculationTable = createFeedCalculationTable;
-    
-    // Make all data loading functions globally accessible
-    if (typeof loadAnimalData === 'function') window.loadAnimalData = loadAnimalData;
-    if (typeof loadAnimalInventoryData === 'function') window.loadAnimalInventoryData = loadAnimalInventoryData;
-    if (typeof loadAnimalMovementData === 'function') window.loadAnimalMovementData = loadAnimalMovementData;
-    if (typeof loadAnimalPurchaseData === 'function') window.loadAnimalPurchaseData = loadAnimalPurchaseData;
-    if (typeof loadAnimalSaleData === 'function') window.loadAnimalSaleData = loadAnimalSaleData;
-    if (typeof loadAnimalBirthData === 'function') window.loadAnimalBirthData = loadAnimalBirthData;
-    if (typeof loadAnimalDeathData === 'function') window.loadAnimalDeathData = loadAnimalDeathData;
-    if (typeof loadAnimalCountData === 'function') window.loadAnimalCountData = loadAnimalCountData;
-    if (typeof loadAnimalDiscrepancyData === 'function') window.loadAnimalDiscrepancyData = loadAnimalDiscrepancyData;
-    
-    // Make health report functions globally accessible
-    if (typeof loadHealthTreatmentData === 'function') window.loadHealthTreatmentData = loadHealthTreatmentData;
-    if (typeof loadVaccinationData === 'function') window.loadVaccinationData = loadVaccinationData;
-    if (typeof loadHealthMedicationData === 'function') window.loadHealthMedicationData = loadHealthMedicationData;
-});
-
-// Close the DOMContentLoaded event handler
-});
-
-/**
- * Create Feed Purchase Table
- * @param {Array} data - Feed purchase transaction data
- * @returns {string} HTML for the report
- */
-function createFeedPurchaseTable(data) {
-    if (!data || data.length === 0) {
-        return {
-            html: `
+    /**
+     * Create Feed Purchase Table
+     * @param {Array} data - Feed purchase transaction data
+     * @returns {string} HTML for the report
+     */
+    function createFeedPurchaseTable(data) {
+        if (!data || data.length === 0) {
+            return `
+                <div class="report-header">
+                    <div class="report-type-header">
+                        <div class="report-type-title">Feed Purchase Report</div>
+                        <div class="report-actions">
+                            <button onclick="window.print()" class="print-button">Print Report</button>
+                            <button onclick="exportReportToCSV('feed-purchase')" class="export-button">Export to CSV</button>
+                        </div>
+                    </div>
+                    <div class="report-summary">
+                        <p>No feed purchase data found for the selected period.</p>
+                    </div>
+                </div>
                 <div class="empty-state">
                     <h3>No Feed Purchase Data Available</h3>
                     <p>There are no feed purchase records in the system for the selected date range.</p>
                     <p>Try adding some feed purchases first, or select a different date range.</p>
                 </div>
-            `,
-            summaryData: null
-        };
-    }
+            `;
+        }
 
-    // Calculate totals for summary
-    let totalQuantity = 0;
-    let totalCost = 0;
-    let avgPrice = 0;
-    const supplierStats = {};
-    const feedTypeStats = {};
-    
-    // Sort data by date (newest first)
-    data.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
-    // Process data for summary stats
-    data.forEach(item => {
-        // Extract values with fallbacks
-        const quantity = parseFloat(item.quantity) || 0;
-        const cost = parseFloat(item.totalPrice || item.cost || item.totalCost || 0);
+        // Calculate totals for summary
+        let totalQuantity = 0;
+        let totalCost = 0;
+        let avgPrice = 0;
+        const supplierStats = {};
+        const feedTypeStats = {};
         
-        // Add to totals
-        totalQuantity += quantity;
-        totalCost += cost;
+        // Sort data by date (newest first)
+        data.sort((a, b) => new Date(b.date) - new Date(a.date));
         
-        // Track by supplier
-        const supplier = item.supplier || 'Unknown supplier';
-        if (!supplierStats[supplier]) {
-            supplierStats[supplier] = {
-                count: 0,
-                totalQuantity: 0,
-                totalCost: 0
-            };
-        }
-        supplierStats[supplier].count++;
-        supplierStats[supplier].totalQuantity += quantity;
-        supplierStats[supplier].totalCost += cost;
+        // Process data for summary stats
+        data.forEach(item => {
+            // Extract values with fallbacks
+            const quantity = parseFloat(item.quantity) || 0;
+            const cost = parseFloat(item.totalPrice || item.cost || item.totalCost || 0);
+            
+            // Add to totals
+            totalQuantity += quantity;
+            totalCost += cost;
+            
+            // Track by supplier
+            const supplier = item.supplier || 'Unknown supplier';
+            if (!supplierStats[supplier]) {
+                supplierStats[supplier] = {
+                    count: 0,
+                    totalQuantity: 0,
+                    totalCost: 0
+                };
+            }
+            supplierStats[supplier].count++;
+            supplierStats[supplier].totalQuantity += quantity;
+            supplierStats[supplier].totalCost += cost;
+            
+            // Track by feed type
+            const feedType = item.feedType || 'Unknown';
+            if (!feedTypeStats[feedType]) {
+                feedTypeStats[feedType] = {
+                    count: 0,
+                    totalQuantity: 0,
+                    totalCost: 0
+                };
+            }
+            feedTypeStats[feedType].count++;
+            feedTypeStats[feedType].totalQuantity += quantity;
+            feedTypeStats[feedType].totalCost += cost;
+        });
         
-        // Track by feed type
-        const feedType = item.feedType || 'Unknown';
-        if (!feedTypeStats[feedType]) {
-            feedTypeStats[feedType] = {
-                count: 0,
-                totalQuantity: 0,
-                totalCost: 0
-            };
-        }
-        feedTypeStats[feedType].count++;
-        feedTypeStats[feedType].totalQuantity += quantity;
-        feedTypeStats[feedType].totalCost += cost;
-    });
-    
-    // Calculate average price per unit
-    avgPrice = totalQuantity > 0 ? totalCost / totalQuantity : 0;
-    
-    // Create summary data
-    const summaryData = {
-        'Total purchases': data.length,
-        'Total quantity': `${totalQuantity.toFixed(2)} units`,
-        'Total cost': formatCurrency(totalCost),
-        'Average price per unit': formatCurrency(avgPrice)
-    };
-    
-    // Create report HTML
-    let reportHTML = `
+        // Calculate average price per unit
+        avgPrice = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+        
+        // Create report HTML
+        let reportHTML = `
+            <div class="report-header">
+                <div class="report-type-header">
+                    <div class="report-type-title">Feed Purchase Report</div>
+                    <div class="report-actions">
+                        <button onclick="window.print()" class="print-button">Print Report</button>
+                        <button onclick="exportReportToCSV('feed-purchase')" class="export-button">Export to CSV</button>
+                    </div>
+                </div>
+                <div class="report-summary">
+                    <p>Total purchases: ${data.length}</p>
+                    <p>Total quantity: ${totalQuantity.toFixed(2)} units</p>
+                    <p>Total cost: ${formatCurrency(totalCost)}</p>
+                    <p>Average price per unit: ${formatCurrency(avgPrice)}</p>
+                </div>
+            </div>
+            
+            <div class="report-section">
+                <h3>Purchase Transactions</h3>
+                <table class="report-table" id="feed-purchase-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Feed Type</th>
+                            <th>Quantity</th>
+                            <th>Unit</th>
+                            <th>Price per Unit</th>
+                            <th>Total Cost</th>
+                            <th>Supplier</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        data.forEach(item => {
+            const date = formatDate(item.date);
+            const feedType = item.feedType || 'Unknown';
+            const quantity = parseFloat(item.quantity) || 0;
+            const unit = item.unit || '';
+            const totalCost = parseFloat(item.totalPrice || item.cost || item.totalCost || 0);
+            const pricePerUnit = quantity > 0 ? totalCost / quantity : 0;
+            const supplier = item.supplier || 'Unknown supplier';
+            const notes = item.notes || '';
+            
+            reportHTML += `
+                <tr>
+                    <td>${date}</td>
+                    <td>${feedType}</td>
+                    <td>${quantity.toFixed(2)}</td>
+                    <td>${unit}</td>
+                    <td>${formatCurrency(pricePerUnit)}</td>
+                    <td>${formatCurrency(totalCost)}</td>
+                    <td>${supplier}</td>
+                    <td>${notes}</td>
+                </tr>
+            `;
+        });
+        
+        reportHTML += `
+                </tbody>
+            </table>
+        </div>
+        
         <div class="report-section">
-            <h3>Purchase Transactions</h3>
-            <table class="report-table" id="feed-purchase-table">
+            <h3>Purchase Summary by Feed Type</h3>
+            <table class="report-table summary-table">
                 <thead>
                     <tr>
-                        <th>Date</th>
                         <th>Feed Type</th>
-                        <th>Quantity</th>
-                        <th>Unit</th>
-                        <th>Price per Unit</th>
+                        <th>Purchases</th>
+                        <th>Total Quantity</th>
                         <th>Total Cost</th>
-                        <th>Supplier</th>
-                        <th>Notes</th>
+                        <th>Avg. Price/Unit</th>
                     </tr>
                 </thead>
                 <tbody>
-    `;
-    
-    data.forEach(item => {
-        const date = formatDate(item.date);
-        const feedType = item.feedType || 'Unknown';
-        const quantity = parseFloat(item.quantity) || 0;
-        const unit = item.unit || '';
-        const totalCost = parseFloat(item.totalPrice || item.cost || item.totalCost || 0);
-        const pricePerUnit = quantity > 0 ? totalCost / quantity : 0;
-        const supplier = item.supplier || 'Unknown supplier';
-        const notes = item.notes || '';
-        
-        reportHTML += `
-            <tr>
-                <td>${date}</td>
-                <td>${feedType}</td>
-                <td>${quantity.toFixed(2)}</td>
-                <td>${unit}</td>
-                <td>${formatCurrency(pricePerUnit)}</td>
-                <td>${formatCurrency(totalCost)}</td>
-                <td>${supplier}</td>
-                <td>${notes}</td>
-            </tr>
         `;
-    });
-    
-    reportHTML += `
-            </tbody>
-        </table>
-    </div>
-    
-    <div class="report-section">
-        <h3>Purchase Summary by Feed Type</h3>
-        <table class="report-table summary-table">
-            <thead>
+        
+        // Sort feed types by total cost (highest first)
+        const sortedFeedTypes = Object.entries(feedTypeStats).sort((a, b) => b[1].totalCost - a[1].totalCost);
+        
+        sortedFeedTypes.forEach(([feedType, stats]) => {
+            const avgPrice = stats.totalQuantity > 0 ? stats.totalCost / stats.totalQuantity : 0;
+            
+            reportHTML += `
                 <tr>
-                    <th>Feed Type</th>
-                    <th>Purchases</th>
-                    <th>Total Quantity</th>
-                    <th>Total Cost</th>
-                    <th>Avg. Price/Unit</th>
+                    <td>${feedType}</td>
+                    <td>${stats.count}</td>
+                    <td>${stats.totalQuantity.toFixed(2)}</td>
+                    <td>${formatCurrency(stats.totalCost)}</td>
+                    <td>${formatCurrency(avgPrice)}</td>
                 </tr>
-            </thead>
-            <tbody>
-    `;
-    
-    // Sort feed types by total cost (highest first)
-    const sortedFeedTypes = Object.entries(feedTypeStats).sort((a, b) => b[1].totalCost - a[1].totalCost);
-    
-    sortedFeedTypes.forEach(([feedType, stats]) => {
-        const avgPrice = stats.totalQuantity > 0 ? stats.totalCost / stats.totalQuantity : 0;
+            `;
+        });
         
         reportHTML += `
-            <tr>
-                <td>${feedType}</td>
-                <td>${stats.count}</td>
-                <td>${stats.totalQuantity.toFixed(2)}</td>
-                <td>${formatCurrency(stats.totalCost)}</td>
-                <td>${formatCurrency(avgPrice)}</td>
-            </tr>
+                </tbody>
+            </table>
+        </div>
         `;
-    });
-    
-    reportHTML += `
-            </tbody>
-        </table>
-    </div>
-    `;
-    
-    return {
-        html: reportHTML,
-        summaryData: summaryData
-    };
-}
+        
+        return reportHTML;
+    }
 
-/**
- * Create Feed Usage Table
- * @param {Array} data - Feed usage transaction data
- * @returns {string} HTML for the report
- */
-function createFeedUsageTable(data) {
-    if (!data || data.length === 0) {
-        return {
-            html: `
+    /**
+     * Create Feed Usage Table
+     * @param {Array} data - Feed usage transaction data
+     * @returns {string} HTML for the report
+     */
+    function createFeedUsageTable(data) {
+        if (!data || data.length === 0) {
+            return `
+                <div class="report-header">
+                    <div class="report-type-header">
+                        <div class="report-type-title">Feed Usage Report</div>
+                        <div class="report-actions">
+                            <button onclick="window.print()" class="print-button">Print Report</button>
+                            <button onclick="exportReportToCSV('feed-usage')" class="export-button">Export to CSV</button>
+                        </div>
+                    </div>
+                    <div class="report-summary">
+                        <p>No feed usage data found for the selected period.</p>
+                    </div>
+                </div>
                 <div class="empty-state">
                     <h3>No Feed Usage Data Available</h3>
                     <p>There are no feed usage records in the system for the selected date range.</p>
                     <p>Try adding some feed usage records first, or select a different date range.</p>
                 </div>
-            `,
-            summaryData: null
-        };
-    }
-
-    // Calculate totals for summary
-    let totalQuantity = 0;
-    let totalCost = 0;
-    const animalGroupStats = {};
-    const feedTypeStats = {};
-    
-    // Sort data by date (newest first)
-    data.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
-    // Process data for summary stats
-    data.forEach(item => {
-        // Extract values with fallbacks
-        const quantity = parseFloat(item.quantity) || 0;
-        const cost = parseFloat(item.totalCost || item.estimatedCost || 0);
-        
-        // Add to totals
-        totalQuantity += quantity;
-        totalCost += cost;
-        
-        // Track by animal group/type
-        const animalGroup = item.animalGroup || item.animalType || 'General use';
-        if (!animalGroupStats[animalGroup]) {
-            animalGroupStats[animalGroup] = {
-                count: 0,
-                totalQuantity: 0,
-                totalCost: 0
-            };
+            `;
         }
-        animalGroupStats[animalGroup].count++;
-        animalGroupStats[animalGroup].totalQuantity += quantity;
-        animalGroupStats[animalGroup].totalCost += cost;
-        
-        // Track by feed type
-        const feedType = item.feedType || 'Unknown';
-        if (!feedTypeStats[feedType]) {
-            feedTypeStats[feedType] = {
-                count: 0,
-                totalQuantity: 0,
-                totalCost: 0
-            };
-        }
-        feedTypeStats[feedType].count++;
-        feedTypeStats[feedType].totalQuantity += quantity;
-        feedTypeStats[feedType].totalCost += cost;
-    });
 
-    // Create summary data
-    const summaryData = {
-        'Total usage records': data.length,
-        'Total quantity used': `${totalQuantity.toFixed(2)} units`,
-        'Total cost': formatCurrency(totalCost)
-    };
-    
-    // Create report HTML
-    let reportHTML = `
-        <div class="report-section">
-            <h3>Usage Transactions</h3>
-            <table class="report-table" id="feed-usage-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Feed Type</th>
-                        <th>Quantity</th>
-                        <th>Unit</th>
-                        <th>Used For</th>
-                        <th>Cost</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-    
-    data.forEach(item => {
-        const date = formatDate(item.date);
-        const feedType = item.feedType || 'Unknown';
-        const quantity = parseFloat(item.quantity) || 0;
-        const unit = item.unit || '';
-        const usedFor = item.animalGroup || item.animalType || item.usedFor || 'General use';
-        const cost = parseFloat(item.totalCost || item.estimatedCost || 0);
-        const notes = item.notes || '';
+        // Calculate totals for summary
+        let totalQuantity = 0;
+        let totalCost = 0;
+        const animalGroupStats = {};
+        const feedTypeStats = {};
+        
+        // Sort data by date (newest first)
+        data.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        // Process data for summary stats
+        data.forEach(item => {
+            // Extract values with fallbacks
+            const quantity = parseFloat(item.quantity) || 0;
+            const cost = parseFloat(item.totalCost || item.estimatedCost || 0);
+            
+            // Add to totals
+            totalQuantity += quantity;
+            totalCost += cost;
+            
+            // Track by animal group/type
+            const animalGroup = item.animalGroup || item.animalType || 'General use';
+            if (!animalGroupStats[animalGroup]) {
+                animalGroupStats[animalGroup] = {
+                    count: 0,
+                    totalQuantity: 0,
+                    totalCost: 0
+                };
+            }
+            animalGroupStats[animalGroup].count++;
+            animalGroupStats[animalGroup].totalQuantity += quantity;
+            animalGroupStats[animalGroup].totalCost += cost;
+            
+            // Track by feed type
+            const feedType = item.feedType || 'Unknown';
+            if (!feedTypeStats[feedType]) {
+                feedTypeStats[feedType] = {
+                    count: 0,
+                    totalQuantity: 0,
+                    totalCost: 0
+                };
+            }
+            feedTypeStats[feedType].count++;
+            feedTypeStats[feedType].totalQuantity += quantity;
+            feedTypeStats[feedType].totalCost += cost;
+        });
+        
+        // Create report HTML
+        let reportHTML = `
+            <div class="report-header">
+                <div class="report-type-header">
+                    <div class="report-type-title">Feed Usage Report</div>
+                    <div class="report-actions">
+                        <button onclick="window.print()" class="print-button">Print Report</button>
+                        <button onclick="exportReportToCSV('feed-usage')" class="export-button">Export to CSV</button>
+                    </div>
+                </div>
+                <div class="report-summary">
+                    <p>Total usage records: ${data.length}</p>
+                    <p>Total quantity used: ${totalQuantity.toFixed(2)} units</p>
+                    <p>Total cost: ${formatCurrency(totalCost)}</p>
+                </div>
+            </div>
+            
+            <div class="report-section">
+                <h3>Usage Transactions</h3>
+                <table class="report-table" id="feed-usage-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Feed Type</th>
+                            <th>Quantity</th>
+                            <th>Unit</th>
+                            <th>Used For</th>
+                            <th>Cost</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        data.forEach(item => {
+            const date = formatDate(item.date);
+            const feedType = item.feedType || 'Unknown';
+            const quantity = parseFloat(item.quantity) || 0;
+            const unit = item.unit || '';
+            const usedFor = item.animalGroup || item.animalType || item.usedFor || 'General use';
+            const cost = parseFloat(item.totalCost || item.estimatedCost || 0);
+            const notes = item.notes || '';
+            
+            reportHTML += `
+                <tr>
+                    <td>${date}</td>
+                    <td>${feedType}</td>
+                    <td>${quantity.toFixed(2)}</td>
+                    <td>${unit}</td>
+                    <td>${usedFor}</td>
+                    <td>${formatCurrency(cost)}</td>
+                    <td>${notes}</td>
+                </tr>
+            `;
+        });
         
         reportHTML += `
-            <tr>
-                <td>${date}</td>
-                <td>${feedType}</td>
-                <td>${quantity.toFixed(2)}</td>
-                <td>${unit}</td>
-                <td>${usedFor}</td>
-                <td>${formatCurrency(cost)}</td>
-                <td>${notes}</td>
-            </tr>
-        `;
-    });
-    
-    reportHTML += `
             </tbody>
         </table>
     </div>
@@ -5486,10 +5543,7 @@ function createFeedUsageTable(data) {
     </div>
     `;
     
-    return {
-        html: reportHTML,
-        summaryData: summaryData
-    };
+    return reportHTML;
 }
 
 /**
@@ -5620,33 +5674,3 @@ function updateAnimalDataLoaders() {
         }
     });
 }
-
-// Make createStandardReportStructure available globally
-window.createStandardReportStructure = createStandardReportStructure;
-
-function formatDate(date) {
-    if (!date) return 'N/A';
-    
-    try {
-        const dateObj = new Date(date);
-        
-        // Check if date is valid
-        if (isNaN(dateObj.getTime())) {
-            return 'Invalid date';
-        }
-        
-        // Format date as YYYY-MM-DD
-        return dateObj.toISOString().split('T')[0];
-    } catch (e) {
-        console.error('Error formatting date:', e);
-        return 'Error';
-    }
-}
-
-function formatDateRange(startDate, endDate) {
-    return `${formatDate(startDate)} to ${formatDate(endDate)}`;
-}
-
-// Make helper functions available globally
-window.formatDate = formatDate;
-window.formatDateRange = formatDateRange;

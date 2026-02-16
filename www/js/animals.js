@@ -719,6 +719,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         await initializeProperties();
         console.log("showAddAnimalPopup - Current farmProperties:", farmProperties);
         
+        // Get animal categories asynchronously
+        const animalCategories = await getAnimalCategories();
+        
         // Create popup content HTML
         const categoriesHTML = animalCategories.map(category => `<option value="${category}">${category}</option>`).join('');
         
@@ -864,6 +867,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             popup.remove();
         });
         
+        // Blur category select and new-category input when Add is pressed so that on mobile
+        // the first tap commits the dropdown value instead of being consumed by closing the select.
+        const submitBtn = form.querySelector('.save-btn');
+        const blurInputsBeforeSubmit = () => {
+            categorySelect.blur();
+            if (newCategoryField) newCategoryField.blur();
+        };
+        submitBtn.addEventListener('mousedown', blurInputsBeforeSubmit);
+        submitBtn.addEventListener('touchstart', blurInputsBeforeSubmit, { passive: true });
+        
         // Form submission handling
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -881,9 +894,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const location = locationSelect.value === 'manage' ? '' : locationSelect.value;
                 
                 // Handle category (could be new or existing)
+                // Support "new" even when select value hasn't updated yet (e.g. first tap on mobile)
+                const newCategoryVal = popup.querySelector('#new-category').value.trim();
+                const isNewCategory = categorySelect.value === 'new' ||
+                    (newCategoryVal && categorySelect.value === '' && newCategoryInput.style.display !== 'none');
             let category;
-            if (categorySelect.value === 'new') {
-                category = popup.querySelector('#new-category').value.trim();
+            if (isNewCategory) {
+                category = newCategoryVal;
                 if (!category) {
                         alert('Please enter a new category name');
                         submitBtn.disabled = false;
@@ -901,6 +918,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
                 category = categorySelect.value;
             }
+                if (!category) {
+                    alert('Please select or enter a category');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Add';
+                    return;
+                }
             
                 // Create transaction record
                 const transaction = {
@@ -1299,47 +1322,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     async function showMoveAnimalPopup() {
-        // We no longer redirect to create category popup
-        // Instead we check if there are animals in inventory
-        if (Object.keys(animalInventory).length === 0) {
-            alert('No animals in inventory to move');
-            return;
-        }
+        // Get animal categories asynchronously
+        const animalCategories = await getAnimalCategories();
         
-        // Make sure farmProperties is initialized
-        // Reload from storage to ensure we have the latest data
-        try {
-            const propertiesStr = await mobileStorage.getItem('farmProperties');
-            if (propertiesStr) {
-                farmProperties = JSON.parse(propertiesStr);
-            }
-        } catch (error) {
-            console.error('Error loading farm properties:', error);
-            if (!farmProperties || farmProperties.length === 0) {
-                farmProperties = [];
-            }
-        }
-        
-        // Get the properties/locations options for dropdowns
-        const propertiesOptions = farmProperties.map(property => 
-            `<option value="${property}">${property}</option>`
-        ).join('');
+        // Create popup content HTML
+        const categoriesHTML = animalCategories.map(category => `<option value="${category}">${category}</option>`).join('');
         
         const popupContent = `
             <div class="popup-content">
                 <h3>Move Animals</h3>
                 <form id="move-form">
                     <div class="form-group">
-                        <label for="from-category">From Category:</label>
-                        <select id="from-category" name="from-category" required>
-                            <option value="" disabled selected>Select source category</option>
-                            ${Object.keys(animalInventory).map(category => {
-                                // Get count based on structure
-                                const count = typeof animalInventory[category] === 'number' ? 
-                                    animalInventory[category] : 
-                                    (animalInventory[category]?.total || 0);
-                                return `<option value="${category}">${category} (${count} available)</option>`;
-                            }).join('')}
+                        <label for="category">Animal Category:</label>
+                        <select id="category" required>
+                            <option value="" disabled selected>Select category</option>
+                            ${categoriesHTML}
                         </select>
                     </div>
                     <div class="form-group">
@@ -1374,7 +1371,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <label for="to-location">To Location:</label>
                         <select id="to-location" name="to-location" required>
                             <option value="" selected>Select destination location</option>
-                            ${propertiesOptions}
+                            ${farmProperties.map(property => 
+                                `<option value="${property}">${property}</option>`
+                            ).join('')}
                             <option value="manage">+ Manage Properties</option>
                         </select>
                     </div>
@@ -1398,7 +1397,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Form submission handling
         const form = popup.querySelector('form');
-        const fromCategorySelect = popup.querySelector('#from-category');
+        const fromCategorySelect = popup.querySelector('#category');
         const toCategorySelect = popup.querySelector('#to-category');
         const newCategoryInput = popup.querySelector('.new-category-input');
         const quantityInput = popup.querySelector('#quantity');
@@ -1842,8 +1841,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                     <div class="form-group">
                         <label for="location">Location:</label>
-                        <select id="location" name="location" required>
-                            <option value="" selected>Select location</option>
+                        <select id="location" name="location">
+                            <option value="" selected>Select location (optional)</option>
                             ${farmProperties.map(property => 
                                 `<option value="${property}">${property}</option>`
                             ).join('')}
@@ -2315,37 +2314,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     async function showPurchaseAnimalPopup() {
-        // Reload farm properties to ensure we have the latest data
-        try {
-            const propertiesStr = await mobileStorage.getItem('farmProperties');
-            if (propertiesStr) {
-                farmProperties = JSON.parse(propertiesStr);
-            }
-        } catch (error) {
-            console.error('Error loading farm properties:', error);
-            if (!farmProperties || farmProperties.length === 0) {
-                farmProperties = [];
-            }
-        }
+        // Get animal categories asynchronously
+        const animalCategories = await getAnimalCategories();
+        
+        // Create popup content HTML
+        const categoriesHTML = animalCategories.map(category => `<option value="${category}">${category}</option>`).join('');
         
         const popupContent = `
             <div class="popup-content">
-                <h3>Purchase Animals</h3>
+                <h3>Record Purchase</h3>
                 <form id="purchase-form">
-                        <div class="form-group">
-                        <label for="category">Category:</label>
-                        <select id="category" name="category" required>
-                            <option value="" disabled selected>Select a category</option>
-                            ${animalCategories.map(category => 
-                                `<option value="${category}">${category}</option>`
-                            ).join('')}
+                    <div class="form-group">
+                        <label for="category">Animal Category:</label>
+                        <select id="category" required>
+                            <option value="" disabled selected>Select category</option>
+                            ${categoriesHTML}
                             <option value="new">+ Add New Category</option>
                         </select>
-                            </div>
+                    </div>
                     <div class="form-group new-category-input" style="display: none;">
                         <label for="new-category">New Category:</label>
                         <input type="text" id="new-category" name="new-category" placeholder="Enter new category name" inputmode="text" autocomplete="off">
-                        </div>
+                    </div>
                     <div class="form-group">
                         <label for="quantity">Quantity:</label>
                         <input type="number" id="quantity" name="quantity" min="1" value="1" required inputmode="numeric" pattern="[0-9]*">
@@ -2903,12 +2893,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         const category = data.category;
-        const actualCount = data.actualCount;
-        const expectedCount = data.expectedCount;
-        const difference = data.difference;
+        const actualCount = parseInt(data.actualCount);
+        const expectedCount = parseInt(data.expectedCount);
+        const difference = actualCount - expectedCount;
         const notes = data.notes || '';
-        const countDate = data.date;
-        const counterName = data.counterName;
+        const countDate = data.date || new Date().toISOString();
+        const counterName = data.counterName || data.counter || getCurrentUser()?.name || 'Unspecified';
         
         // Create stock count record with explicit expected and actual values
         const stockCount = {
@@ -2920,7 +2910,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             quantity: actualCount,     // Keep quantity for backward compatibility
             difference: difference,
             notes: notes,
-            counterName: counterName   // Add counter name to the record
+            counterName: counterName,  // Add counter name to the record
+            counter: counterName       // Add counter for backward compatibility
         };
         
         // Save to stockCounts

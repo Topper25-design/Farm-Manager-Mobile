@@ -7,7 +7,16 @@ const httpServer = require('http-server');
 const server = httpServer.createServer({
   root: join(__dirname, 'www'),
   cache: -1,
-  cors: true
+  cors: true,
+  mimeTypes: {
+    'application/javascript': ['js', 'mjs'],
+    'text/javascript': ['js', 'mjs']
+  },
+  headers: {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept'
+  }
 });
 
 // Start server on port 3000
